@@ -39,28 +39,30 @@ class GarmentClassifier:
         e = self.clip.get_image_features(**self.proc(images=image, return_tensors="pt").to(self.device)).pooler_output
         return (e / e.norm(dim=-1, keepdim=True)).cpu().numpy()[0]
 
-    def __call__(self, path: Path, out_dir: Path) -> dict:
-        image = Image.open(path).convert("RGB")
+    def analyze(self, image: Image.Image) -> tuple[dict, Image.Image, np.ndarray]:
+        """반환: (확인 카드용 결과, 흰 배경 정사각 크롭, 512차원 임베딩). CLI와 API가 같이 쓴다."""
+        image = image.convert("RGB")
         mask, crop = self.remover(image)
         emb = self.embed(crop)
         with torch.no_grad():
             probs = self.probe(torch.tensor(emb[None])).softmax(1)[0].tolist()
         ranked = sorted(zip(self.classes, probs), key=lambda x: -x[1])
         mask_ratio = float(mask.mean())
-
-        out_dir.mkdir(parents=True, exist_ok=True)
-        crop.save(out_dir / "crop.png")
         result = {
-            "image": path.name,
             "category": {"name": ranked[0][0], "prob": round(ranked[0][1], 3)},  # 제안값, 최종값은 사용자가 확인
             "category_candidates": [{"name": c, "prob": round(p, 3)} for c, p in ranked],
             "colors": [{**c, "ratio": round(c["ratio"], 2)} for c in suggest_colors(np.array(image), mask)],
             "mask_ratio": round(mask_ratio, 3),
             "retake": mask_ratio < MIN_MASK_RATIO,  # 옷이 너무 작게 찍힘(또는 배경 제거 실패)
             "needs_review": ranked[0][1] < REVIEW_PROB,
-            "crop": "crop.png",
-            "embedding_dim": len(emb),  # 벡터 자체는 옷장 DB(pgvector)에 저장할 값. 여기선 크기만 표시
         }
+        return result, crop, emb
+
+    def __call__(self, path: Path, out_dir: Path) -> dict:
+        result, crop, emb = self.analyze(Image.open(path))
+        result = {"image": path.name, **result, "crop": "crop.png", "embedding_dim": len(emb)}
+        out_dir.mkdir(parents=True, exist_ok=True)
+        crop.save(out_dir / "crop.png")
         (out_dir / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
         return result
 

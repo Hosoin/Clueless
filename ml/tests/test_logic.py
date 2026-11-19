@@ -9,6 +9,9 @@ from ml.colors import nearest_color, suggest_colors
 assert nearest_color((0, 0, 0)) == "블랙"
 assert nearest_color((250, 250, 250)) == "화이트"
 assert nearest_color((30, 40, 80)) == "네이비"
+# 회청색 재킷: 예전엔 8비트 Lab의 밝기 과대 반영으로 "브라운"이 나왔다
+assert nearest_color((75, 77, 92)) in ("그레이", "네이비"), nearest_color((75, 77, 92))
+assert nearest_color((0, 128, 140)) != "그레이"  # 청록이 회색으로 가지 않게
 
 # 마스크 안의 색만 본다: 바깥은 빨강, 마스크 안은 네이비
 img = np.zeros((100, 100, 3), np.uint8)
