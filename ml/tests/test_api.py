@@ -17,6 +17,8 @@ class FakeClassifier:
             "category": {"name": "상의", "prob": 0.9},
             "category_candidates": [{"name": c, "prob": p} for c, p in [("상의", 0.9), ("아우터", 0.06), ("하의", 0.03), ("원피스", 0.01)]],
             "colors": [{"name": "네이비", "rgb": (31, 40, 77), "ratio": 1.0}],
+            "color_name": {"name": "네이비", "prob": 0.8, "candidates": [{"name": "네이비", "prob": 0.8}], "needs_review": False},
+            "sleeve": {"name": "긴팔", "prob": 0.7, "needs_review": False},
             "mask_ratio": 0.5,
             "retake": False,
             "needs_review": False,
@@ -41,6 +43,7 @@ r = client.post("/v1/garments/analyze", files={"image": ("a.png", png(100, 80), 
 assert r.status_code == 200, r.text
 body = r.json()
 assert body["category"]["name"] == "상의" and len(body["embedding"]) == 512
+assert body["sleeve"]["name"] == "긴팔" and body["color_name"]["name"] == "네이비"
 assert base64.b64decode(body["crop_png_base64"])[:8] == b"\x89PNG\r\n\x1a\n"
 
 # 큰 이미지는 긴 변 2048로 줄여서 모델에 넘김

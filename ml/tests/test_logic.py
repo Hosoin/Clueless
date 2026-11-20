@@ -76,6 +76,20 @@ owners = {k: {r["sender"] for r in v} for k, v in parts.items()}
 assert not (owners["train"] & owners["test"]) and not (owners["train"] & owners["val"])
 assert sum(len(v) for v in parts.values()) == 200
 
+# 궁합 평가: AUC (정답이 모두 위면 1, 모두 아래면 0, 같으면 0.5)
+from ml.train_compat import auc
+
+assert auc(np.array([3.0, 4.0]), np.array([1.0, 2.0])) == 1.0
+assert auc(np.array([1.0, 2.0]), np.array([3.0, 4.0])) == 0.0
+assert auc(np.array([1.0, 1.0]), np.array([1.0, 1.0])) == 0.5
+
+# K-Fashion 폴리곤: 번호가 1부터가 아니어도 읽고, 점이 3개 미만이면 None (박스로 대체)
+from ml.kfashion import polygon_mask
+
+assert polygon_mask({"X좌표2": 1, "Y좌표2": 1, "X좌표3": 5, "Y좌표3": 1, "X좌표4": 5, "Y좌표4": 5}, 10, 10).sum() > 0
+assert polygon_mask({"X좌표1": 1, "Y좌표1": 1}, 10, 10) is None
+assert polygon_mask({}, 10, 10) is None
+
 # 같은 입력이면 같은 색 (k-means 시드 고정)
 noisy = np.random.default_rng(1).integers(0, 255, (60, 60, 3), dtype=np.uint8)
 assert suggest_colors(noisy) == suggest_colors(noisy)

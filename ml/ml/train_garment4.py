@@ -18,6 +18,7 @@ import torch
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
+from ml.runlog import log_run
 from ml.analyze import CLIP, pick_device
 from ml.garment_data import CLASSES, image_path, load_rows, split_by_sender
 
@@ -32,13 +33,14 @@ EPOCHS = 300
 CACHE = Path("data/processed/cache")
 
 
-def metrics(y_true: list[int], y_pred: list[int], n: int = len(CLASSES)) -> dict:
+def metrics(y_true: list[int], y_pred: list[int], classes: list[str] = CLASSES) -> dict:
+    n = len(classes)
     cm = np.zeros((n, n), int)  # 행: 정답, 열: 예측
     for t, p in zip(y_true, y_pred):
         cm[t, p] += 1
     per = {}
     f1s = []
-    for i, c in enumerate(CLASSES[:n]):
+    for i, c in enumerate(classes):
         tp = cm[i, i]
         prec = tp / cm[:, i].sum() if cm[:, i].sum() else 0.0
         rec = tp / cm[i].sum() if cm[i].sum() else 0.0
@@ -75,13 +77,13 @@ def embed(rows: list[dict], variant: str, model: CLIPModel, proc: CLIPProcessor,
     return np.stack([cache[r["id"]] for r in rows])
 
 
-def train_probe(x: np.ndarray, y: np.ndarray, wd: float, seed: int = 0) -> torch.nn.Linear:
+def train_probe(x: np.ndarray, y: np.ndarray, wd: float, seed: int = 0, n_classes: int = len(CLASSES)) -> torch.nn.Linear:
     torch.manual_seed(seed)
     xt, yt = torch.tensor(x, dtype=torch.float32), torch.tensor(y)
     # 클래스 불균형(상의가 아우터의 5배 이상) 보정: 적은 클래스에 큰 가중치
-    counts = torch.bincount(yt, minlength=len(CLASSES)).float()
-    loss_fn = torch.nn.CrossEntropyLoss(weight=counts.sum() / (len(CLASSES) * counts.clamp(min=1)))
-    probe = torch.nn.Linear(x.shape[1], len(CLASSES))
+    counts = torch.bincount(yt, minlength=n_classes).float()
+    loss_fn = torch.nn.CrossEntropyLoss(weight=counts.sum() / (n_classes * counts.clamp(min=1)))
+    probe = torch.nn.Linear(x.shape[1], n_classes)
     opt = torch.optim.AdamW(probe.parameters(), lr=1e-2, weight_decay=wd)
     for _ in range(EPOCHS):  # 3천 장이라 전체 배치로 충분
         opt.zero_grad()
@@ -146,6 +148,7 @@ def main() -> None:
     }
     Path("out").mkdir(exist_ok=True)
     Path(f"out/garment4_{args.variant}.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
+    log_run("garment4", {"variant": args.variant, "weight_decay": best_wd}, {"zero_shot": {k: zero_shot[k] for k in ("accuracy", "macro_f1")}, "linear": {k: linear[k] for k in ("accuracy", "macro_f1")}})
 
     print(f"\n[{args.variant}] test {len(y['test'])}장")
     print(f"{'':10}{'정확도':>8}{'매크로F1':>9}  " + "  ".join(f"{c} 재현" for c in CLASSES))
