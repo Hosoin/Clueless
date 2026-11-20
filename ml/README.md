@@ -65,21 +65,44 @@ uv run uvicorn ml.api:app --port 8000   # 요청·응답 명세: http://localhos
 ## 4. 평가·데이터 도구
 
 ```bash
-uv run python -m ml.eval_team              # 팀원 촬영 사진으로 실제 정확도 (labels/team_photos_template.csv 참고)
 uv run python -m ml.find_label_issues      # 4분류 라벨 검토 목록 → labels/review.csv, out/review.html
 uv run python -m ml.kfashion_stats         # K-Fashion 라벨 분포
 uv run python -m ml.style_guide            # 스타일별 특징 아이템·색 → out/style_guide.md (스타일 가이드 초안)
-for t in test_logic test_api test_outfits test_recommend; do uv run python -m tests.$t; done
+for t in test_logic test_api test_outfits test_recommend test_eval_team; do uv run python -m tests.$t; done
 ```
 
-- **팀원 사진 평가:** 옷 한 벌씩 프리셋(펴서 위에서 / 옷걸이 정면)으로 찍어 `data/raw/team_photos/`에 넣고, 템플릿을 복사한
-  `labels.csv`에 정답을 채웁니다. 얼굴·개인정보가 없게 찍고, 사진은 Git에 올리지 않습니다.
+### 팀원 사진으로 실제 정확도 재기 (3단계)
+
+옷 한 벌씩 프리셋(바닥에 펴서 위에서 / 옷걸이에 걸어 정면, 단색 배경)으로 찍은 사진을 한 폴더에 모읍니다. 얼굴·개인정보가 찍힌 사진은 빼 주세요.
+
+```bash
+# 1) 정리: HEIC→JPG, 위치(GPS) 등 메타데이터 제거, 회전 보정 → data/raw/team_photos/ + labels.csv(파일명 채워짐)
+uv run python -m ml.eval_team prepare ~/Downloads/팀원사진
+
+# 2) data/raw/team_photos/labels.csv 를 엑셀·구글시트로 열어 정답 입력 (아래 표)
+
+# 3) 평가 → 화면 요약 + out/team_eval.json + out/team_eval_rows.csv(사진마다 정답·예측·확률)
+uv run python -m ml.eval_team
+```
+
+| 칸 | 값 | 비고 |
+| --- | --- | --- |
+| `category` | 상의 / 하의 / 아우터 / 원피스 | 필수. 아우터 = 다른 옷 위에 걸치고 앞이 열리는 옷 |
+| `sleeve` | 민소매 / 반팔 / 7부 / 긴팔 | 하의는 비움 |
+| `color` | 블랙, 화이트, 아이보리, 그레이, 네이비, 블루, 스카이블루, 민트, 청록, 그린, 카키, 베이지, 브라운, 옐로, 오렌지, 레드, 와인, 핑크, 퍼플, 라벤더 | 가장 넓은 색 하나 |
+| `owner`, `memo` | 자유 | 찍은 사람 이니셜, 특이사항 |
+
+- 정답표에 오타가 있으면 평가 전에 몇 행이 틀렸는지 알려 줍니다. `prepare`를 다시 돌려도 이미 채운 정답은 지워지지 않습니다.
+- 결과 보는 법: **정확도**(맞힌 비율), **확인 필요가 오답을 잡은 비율**(높을수록 "확인 필요" 표시가 쓸모 있음), **헛경보**(확인 필요 중 사실 맞았던 비율, 낮을수록 좋음).
+  이 두 숫자로 `REVIEW_PROB`(0.6)·`COLOR_REVIEW_PROB`(0.5) 기준값을 다시 정합니다.
+- 사진과 정답은 `data/` 아래라 Git에 올라가지 않습니다.
 - **라벨 검토:** `review.csv`의 `new_cls`에 `상의 / 하의 / 아우터 / 원피스 / 제외`를 채워 `labels/clothing_fixes.csv`로 저장하면 다음 학습에 반영됩니다.
   아우터 기준: 다른 옷 위에 걸치고 앞이 열리는 옷.
 
 ## 5. 코디 추천 규칙 (`ml/outfits.py`)
 
 - 기본: 상의+하의(+아우터), 원피스(+아우터), 원피스+하의(원피스에 "레이어드" 태그가 있을 때)
+- 걸쳐 입는 상의: "걸쳐입기" 태그가 있는 상의(데님·체크 셔츠 등)는 아우터 자리에도 온다. 셔츠는 기본이 상의, 셔켓·오버셔츠는 아우터
 - 레이어드(`allow_layering=True`, 기본 꺼짐): 니트·맨투맨 안에 셔츠·티 / 겉 소매가 이너보다 짧을 때(긴팔 위 반팔·나시) / 원피스 안 이너.
   세부 카테고리·소매를 모르는 옷은 레이어드하지 않습니다. 상의끼리의 궁합은 학습 데이터가 없어 규칙만 씁니다.
 - 근거 문구는 실제로 적용한 규칙과 점수만 보여줍니다 (궁합 근거는 0.6 이상일 때만).

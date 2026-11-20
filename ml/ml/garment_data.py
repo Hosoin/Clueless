@@ -44,7 +44,7 @@ def load_fixes() -> dict[str, str]:
     if not FIXES.exists():
         return {}
     fixes = {}
-    for r in csv.DictReader(open(FIXES, encoding="utf-8")):
+    for r in csv.DictReader(open(FIXES, encoding="utf-8-sig")):  # utf-8-sig: 검토 화면이 엑셀용 BOM을 붙여 내려준다
         new = r["new_cls"].strip()
         if new:
             assert new in CLASSES or new == EXCLUDE, f"{FIXES}: 알 수 없는 라벨 {new!r} ({r['id']})"

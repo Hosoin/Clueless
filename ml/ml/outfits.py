@@ -4,6 +4,8 @@
 - 상의 + 하의 (+ 아우터)
 - 원피스 (+ 아우터)
 - 원피스 + 하의 (+ 아우터): 원피스 아래 바지 레이어드. 원피스에 "레이어드" 태그가 있을 때만
+- 상의 + 하의 + 걸친 상의 / 원피스 + 걸친 상의: "걸쳐입기" 태그가 있는 상의(데님·체크 셔츠 등)를 아우터 자리에.
+  셔츠는 기본이 상의이고, 사용자가 걸쳐 입는 옷으로 표시한 것만 아우터 역할도 한다 (궁합 점수는 아우터 칸으로 계산)
 
 상의 레이어드 (allow_layering=True일 때, 사용자 설정 "레이어드 추천 받기")
 - A. 덮는 레이어드: 니트·맨투맨(겉) 안에 셔츠·블라우스·티셔츠(이너). 깃·밑단이 보이므로 소매 길이는 따지지 않는다
@@ -17,6 +19,7 @@ from itertools import product
 from typing import TypedDict
 
 LAYER_TAG = "레이어드"
+OVER_TAG = "걸쳐입기"
 SLEEVE_ORDER = ["민소매", "반팔", "7부", "긴팔"]  # ml/train_sleeve.py의 SLEEVES와 같은 순서
 COVER_OVER = {"니트", "맨투맨"}  # A: 겉으로 덮는 상의
 COVER_INNER = {"셔츠", "블라우스", "티셔츠"}  # A: 안에 받쳐 입는 상의
@@ -92,6 +95,18 @@ def candidate_outfits(items: list[Item], include_id: str | None = None, allow_la
         pools = [[it for it in by_cat.get(s, []) if not (layered and s == "원피스") or LAYER_TAG in it.get("tags", [])] for s in slots]
         for combo in product(*pools):
             raw.append((name, combo, {}, ["원피스 아래 바지를 레이어드했어요."] if layered else []))
+
+    # 걸쳐 입는 상의: 같은 옷을 아우터 칸으로 복사해 쓴다 (id는 그대로, 궁합 점수는 아우터로 계산)
+    for top in (t for t in tops if OVER_TAG in t.get("tags", [])):
+        as_outer: Item = {**top, "category": "아우터"}
+        why = f"{eul(top.get('subcategory') or '상의')} 아우터처럼 걸쳐 입었어요."
+        roles = {top["id"]: "겉"}
+        for inner in tops:
+            if inner is not top:  # 한 옷을 안팎에 동시에 쓰지 않는다
+                for b in bottoms:
+                    raw.append(("상의+하의+걸친 상의", (inner, b, as_outer), roles, [why]))
+        for d in dresses:
+            raw.append(("원피스+걸친 상의", (d, as_outer), roles, [why]))
 
     if allow_layering:
         layered_tops = [(i, o, why) for i in tops for o in tops if i is not o and (why := top_layer(i, o))]

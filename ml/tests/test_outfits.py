@@ -77,3 +77,20 @@ from ml.outfits import eul
 
 assert [eul(w) for w in ("반팔", "셔츠", "나시", "7부", "티셔츠")] == ["반팔을", "셔츠를", "나시를", "7부를", "티셔츠를"]
 print("ok")
+
+# --- 걸쳐 입는 상의 ("걸쳐입기" 태그) ---
+denim = {"id": "denim", "category": "상의", "subcategory": "셔츠", "tags": ["걸쳐입기"]}
+tee = {"id": "tee", "category": "상의", "subcategory": "티셔츠"}
+jeans = {"id": "jeans", "category": "하의"}
+dress = {"id": "dress", "category": "원피스"}
+outs = candidate_outfits([denim, tee, jeans, dress])
+over = [o for o in outs if o["template"] in ("상의+하의+걸친 상의", "원피스+걸친 상의")]
+assert sorted(tuple(it["id"] for it in o["items"]) for o in over) == [("dress", "denim"), ("tee", "jeans", "denim")], over
+o = next(o for o in over if o["template"] == "상의+하의+걸친 상의")
+assert o["items"][2]["category"] == "아우터" and o["roles"] == {"denim": "겉"}  # 궁합 점수는 아우터 칸으로
+assert "셔츠를 아우터처럼 걸쳐 입었어요." in o["reasons"]
+assert denim["category"] == "상의"  # 원래 옷 정보는 바뀌지 않음
+# 태그가 없으면 아우터 자리에 오지 않고, 한 옷이 안팎에 같이 쓰이지 않음
+assert not any(o["template"].endswith("걸친 상의") for o in candidate_outfits([tee, jeans]))
+assert not any(o["items"][0]["id"] == "denim" for o in over if o["template"] == "상의+하의+걸친 상의")
+print("ok")
