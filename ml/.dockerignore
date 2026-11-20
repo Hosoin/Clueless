@@ -1,0 +1,12 @@
+.venv/
+data/
+out/
+samples/
+weights/
+labels/
+tests/
+**/__pycache__/
+*.pt
+*.npz
+*.zip
+*.tar
