@@ -21,7 +21,7 @@ import torch
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
-from ml.analyze import CLIP, pick_device
+from ml.analyze import CLIP, CLIP_REVISION, pick_device
 from ml.background import square_crop
 from ml.colors import PALETTE, suggest_colors
 from ml.compat_data import CACHE, SLOTS, VALID
@@ -140,8 +140,8 @@ def main() -> None:
         items = read_items(Path(args.root))
     print(f"아이템 {len(items)}개 (사진 {len({i['image_id'] for i in items})}장)")
     device = pick_device()
-    model = CLIPModel.from_pretrained(CLIP).to(device).eval()
-    proc = CLIPProcessor.from_pretrained(CLIP)
+    model = CLIPModel.from_pretrained(CLIP, revision=CLIP_REVISION).to(device).eval()
+    proc = CLIPProcessor.from_pretrained(CLIP, revision=CLIP_REVISION)
 
     embs, color_pred = [], []
     for s in range(0, len(items), 32):

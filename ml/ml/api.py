@@ -2,23 +2,32 @@
 
 실행: uv run uvicorn ml.api:app --host 0.0.0.0 --port 8000
 문서: http://localhost:8000/docs (요청·응답 형식 자동 생성)
+
+- /health: 살아 있는지 (컨테이너 liveness), /ready: 모델이 올라와 요청을 받을 수 있는지 (readiness)
+- ML_API_KEY 환경변수를 설정하면 /v1/* 요청은 X-API-Key 헤더가 같아야 한다 (백엔드만 호출)
+- 요청마다 한 줄 JSON 로그(경로·상태·지연 시간, 예측 요약). 사진·벡터·개인정보는 남기지 않는다
 """
 
 import base64
 import io
+import json
+import logging
+import secrets
 import threading
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from typing import Literal
 
 import numpy as np
-from fastapi import Depends, FastAPI, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Request, UploadFile
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field
 
 from ml.garment import PROBE, GarmentClassifier
 from ml.recommend import Recommender, recommend
+from ml.settings import API_KEY
 
 MAX_BYTES = 10 * 1024 * 1024  # 업로드 최대 10MB
 MAX_SIDE = 2048  # 긴 변이 이보다 크면 줄여서 처리 (메모리·속도 보호)
@@ -45,8 +54,35 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="Clueless ML", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Clueless ML", version="0.2.0", lifespan=lifespan)
 _lock = threading.Lock()  # 모델 하나를 여러 요청이 동시에 쓰지 않게 (맥 MPS·GPU 메모리 보호)
+log = logging.getLogger("clueless.ml")
+if not log.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(message)s"))
+    log.addHandler(_h)
+    log.setLevel(logging.INFO)
+
+
+def log_event(**fields: object) -> None:
+    log.info(json.dumps(fields, ensure_ascii=False))
+
+
+@app.middleware("http")
+async def access_log(request: Request, call_next):  # noqa: ANN001, ANN201
+    start = time.perf_counter()
+    response = await call_next(request)
+    log_event(event="request", path=request.url.path, status=response.status_code, ms=round((time.perf_counter() - start) * 1000))
+    return response
+
+
+def require_key(x_api_key: str | None = Header(default=None)) -> None:
+    """ML_API_KEY가 설정돼 있으면 같은 값의 X-API-Key 헤더가 있어야 한다."""
+    if API_KEY and not (x_api_key and secrets.compare_digest(x_api_key, API_KEY)):
+        raise HTTPException(401, "X-API-Key가 없거나 틀렸습니다")
+
+
+v1 = APIRouter(prefix="/v1", dependencies=[Depends(require_key)])
 
 
 class Category(BaseModel):
@@ -85,6 +121,7 @@ class GarmentAnalysis(BaseModel):
     crop_png_base64: str  # 흰 배경 정사각 크롭 PNG. 백엔드가 Blob에 저장하고 옷장에 보여준다
     embedding: list[float]  # 512차원 FashionCLIP 벡터. 옷장 DB에 저장해 추천에 쓴다
     model_version: str
+    model_versions: dict[str, str | None]  # embedding 값이 바뀌면 DB의 벡터를 모두 다시 계산해야 한다 (옷과 함께 저장)
 
 
 @app.get("/health")
@@ -92,7 +129,15 @@ def health() -> dict:
     return {"status": "ok", "model": PROBE.stem}
 
 
-@app.post("/v1/garments/analyze", response_model=GarmentAnalysis)
+@app.get("/ready")
+def ready() -> dict:
+    """모델이 메모리에 올라왔는지. 서버 시작 직후 모델을 올리는 동안은 503."""
+    if not (get_classifier.cache_info().currsize and get_recommender.cache_info().currsize):
+        raise HTTPException(503, "모델을 올리는 중입니다")
+    return {"status": "ready", "versions": {**get_classifier().versions, "compat": get_recommender().version}}
+
+
+@v1.post("/garments/analyze", response_model=GarmentAnalysis)
 def analyze(image: UploadFile, clf: GarmentClassifier = Depends(get_classifier)) -> GarmentAnalysis:
     data = image.file.read(MAX_BYTES + 1)
     if len(data) > MAX_BYTES:
@@ -104,8 +149,12 @@ def analyze(image: UploadFile, clf: GarmentClassifier = Depends(get_classifier))
         raise HTTPException(400, "이미지 파일을 읽을 수 없습니다 (jpg, png, webp 등)")
     img.thumbnail((MAX_SIDE, MAX_SIDE))
 
+    start = time.perf_counter()
     with _lock:
         result, crop, emb = clf.analyze(img)
+    log_event(event="analyze", ms=round((time.perf_counter() - start) * 1000), category=result["category"]["name"],
+              category_prob=result["category"]["prob"], needs_review=result["needs_review"], retake=result["retake"],
+              color_review=(result.get("color_name") or {}).get("needs_review"), sleeve_review=(result.get("sleeve") or {}).get("needs_review"))
     buf = io.BytesIO()
     crop.save(buf, format="PNG")
     return GarmentAnalysis(
@@ -113,6 +162,7 @@ def analyze(image: UploadFile, clf: GarmentClassifier = Depends(get_classifier))
         crop_png_base64=base64.b64encode(buf.getvalue()).decode(),
         embedding=[round(float(v), 6) for v in emb],
         model_version=PROBE.stem,
+        model_versions=getattr(clf, "versions", {}),
     )
 
 
@@ -146,7 +196,7 @@ class RecommendResponse(BaseModel):
     model_version: str
 
 
-@app.post("/v1/outfits/recommend", response_model=RecommendResponse)
+@v1.post("/outfits/recommend", response_model=RecommendResponse)
 def recommend_outfits(req: RecommendRequest, rec: Recommender = Depends(get_recommender)) -> RecommendResponse:
     ids = [it.id for it in req.items]
     if len(set(ids)) != len(ids):
@@ -155,6 +205,12 @@ def recommend_outfits(req: RecommendRequest, rec: Recommender = Depends(get_reco
         raise HTTPException(400, "include_id가 옷장 목록에 없습니다")
     emb = {it.id: np.asarray(it.embedding, dtype=np.float32) for it in req.items}
     items = [it.model_dump(exclude={"embedding"}) for it in req.items]
+    start = time.perf_counter()
     with _lock:
         outfits = recommend(items, emb, lambda os: rec.compat(os, emb), k=req.k, include_id=req.include_id, allow_layering=req.allow_layering)
+    log_event(event="recommend", ms=round((time.perf_counter() - start) * 1000), closet=len(items), returned=len(outfits),
+              top_score=outfits[0]["score"] if outfits else None, layering=req.allow_layering)
     return RecommendResponse(outfits=outfits, model_version=rec.version)
+
+
+app.include_router(v1)

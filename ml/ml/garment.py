@@ -13,13 +13,14 @@ import torch
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
-from ml.analyze import pick_device
+from ml.analyze import CLIP_REVISION, pick_device
 from ml.background import BackgroundRemover
 from ml.colors import suggest_colors
+from ml.settings import WEIGHTS_DIR
 
-PROBE = Path("weights/garment4_probe_both.pt")
-SLEEVE_PROBE = Path("weights/sleeve_probe.pt")  # 없으면 소매 기장은 결과에서 빠진다
-COLOR_PROBE = Path("weights/color_probe.pt")  # 없으면 색 이름은 규칙(k-means + 팔레트)만 쓴다
+PROBE = WEIGHTS_DIR / "garment4_probe_both.pt"
+SLEEVE_PROBE = WEIGHTS_DIR / "sleeve_probe.pt"  # 없으면 소매 기장은 결과에서 빠진다
+COLOR_PROBE = WEIGHTS_DIR / "color_probe.pt"  # 없으면 색 이름은 규칙(k-means + 팔레트)만 쓴다
 SLEEVE_CATEGORIES = {"상의", "아우터", "원피스"}  # 하의에는 소매가 없다
 # shortcut: 기준값 초안. 팀원 프리셋 사진 평가에서 "확인 필요"가 실제 오답을 잘 잡는지 보고 다시 정한다.
 REVIEW_PROB = 0.6  # 1위 확률이 이보다 낮으면 사용자 확인 요청
@@ -52,9 +53,16 @@ class GarmentClassifier:
         self.sleeve, self.color = load_probe(SLEEVE_PROBE), load_probe(COLOR_PROBE)
         for h in (self.sleeve, self.color):  # 같은 벡터를 쓰므로 같은 FashionCLIP으로 학습된 것만
             assert h is None or h[2] == clip, "분류기마다 FashionCLIP 버전이 다릅니다"
-        self.clip = CLIPModel.from_pretrained(clip).to(self.device).eval()
-        self.proc = CLIPProcessor.from_pretrained(clip)
+        self.clip = CLIPModel.from_pretrained(clip, revision=CLIP_REVISION).to(self.device).eval()
+        self.proc = CLIPProcessor.from_pretrained(clip, revision=CLIP_REVISION)
         self.remover = BackgroundRemover(self.device)
+        # 응답에 넣는 버전. embedding이 바뀌면 옷장 DB의 벡터를 모두 다시 계산해야 한다
+        self.versions = {
+            "embedding": f"{clip}@{CLIP_REVISION[:7]}",
+            "category": probe_path.stem,
+            "sleeve": SLEEVE_PROBE.stem if self.sleeve else None,
+            "color": COLOR_PROBE.stem if self.color else "rule",
+        }
 
     @torch.no_grad()
     def embed(self, image: Image.Image) -> np.ndarray:

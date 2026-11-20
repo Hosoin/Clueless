@@ -20,7 +20,7 @@ import torch
 from transformers import CLIPModel, CLIPProcessor
 
 from ml.runlog import log_run
-from ml.analyze import CLIP, pick_device
+from ml.analyze import CLIP, CLIP_REVISION, pick_device
 from ml.compat_data import CACHE
 from ml.garment_data import load_rows, split_by_sender
 from ml.kfashion_stats import ZIPS
@@ -84,8 +84,8 @@ def main() -> None:
 
     # 기준선: FashionCLIP 제로샷
     device = pick_device()
-    clip = CLIPModel.from_pretrained(CLIP).to(device).eval()
-    proc = CLIPProcessor.from_pretrained(CLIP)
+    clip = CLIPModel.from_pretrained(CLIP, revision=CLIP_REVISION).to(device).eval()
+    proc = CLIPProcessor.from_pretrained(CLIP, revision=CLIP_REVISION)
     with torch.no_grad():
         text = []
         for s in SLEEVES:

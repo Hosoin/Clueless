@@ -12,9 +12,10 @@ import torch
 
 from ml.compat_data import SLOTS
 from ml.outfits import Item, Outfit, candidate_outfits
+from ml.settings import WEIGHTS_DIR
 from ml.train_compat import CompatModel
 
-COMPAT_WEIGHTS = Path("weights/compat_mlp_polyvore.pt")  # K-Fashion을 섞은 버전은 "같은 사진" 지름길을 배워서 쓰지 않는다 (out/compat.json)
+COMPAT_WEIGHTS = WEIGHTS_DIR / "compat_mlp_polyvore.pt"  # K-Fashion을 섞은 버전은 "같은 사진" 지름길을 배워서 쓰지 않는다 (out/compat.json)
 WEIGHTS = {"compat": 1.0, "taste": 0.0, "trend": 0.0}  # 취향·트렌드는 기준이 생기면 가중치를 올린다
 DIVERSITY = 0.3  # 이미 고른 코디와 옷이 겹치는 만큼 깎는 정도
 COMPAT_REASON_MIN = 0.6  # 궁합 확률이 이 이상일 때만 "모델이 높게 평가" 근거를 붙인다

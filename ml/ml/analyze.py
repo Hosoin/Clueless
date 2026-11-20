@@ -27,6 +27,8 @@ from ml.colors import suggest_colors
 DETECTOR = "valentinafeve/yolos-fashionpedia"  # MIT
 SEGMENTER = "facebook/sam-vit-base"  # Apache-2.0
 CLIP = "patrickjohncyh/fashion-clip"  # MIT
+# 버전 고정: 가중치가 바뀌면 새로 등록한 옷의 벡터가 DB의 기존 벡터와 맞지 않게 된다. 바꿀 때는 저장된 벡터를 모두 다시 계산한다
+CLIP_REVISION = "7e3ba62ce16b379a1ab479346b66f192e76f51b7"
 
 # shortcut: 기준값은 샘플 기준 초안. 팀 사진 정답(약 100장)이 모이면 다시 정한다.
 # 등록 화면에서 사용자가 잘못된 카드를 지울 수 있으므로 놓치지 않는 쪽(낮은 기준)을 택함.
@@ -89,8 +91,8 @@ class Analyzer:
         self.det = YolosForObjectDetection.from_pretrained(DETECTOR).to(self.device).eval()
         self.sam_proc = SamProcessor.from_pretrained(SEGMENTER)
         self.sam = SamModel.from_pretrained(SEGMENTER).to(self.device).eval()
-        self.clip_proc = CLIPProcessor.from_pretrained(CLIP)
-        self.clip = CLIPModel.from_pretrained(CLIP).to(self.device).eval()
+        self.clip_proc = CLIPProcessor.from_pretrained(CLIP, revision=CLIP_REVISION)
+        self.clip = CLIPModel.from_pretrained(CLIP, revision=CLIP_REVISION).to(self.device).eval()
         # family별 문구 임베딩은 한 번만 계산
         self.text_emb: dict[str, torch.Tensor] = {}
         with torch.no_grad():

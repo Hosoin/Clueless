@@ -22,3 +22,14 @@ dev = [
     "httpx>=0.28.1",
     "pyarrow>=26.0.1",
 ]
+
+# 리눅스(컨테이너·CI·Azure)에서는 CPU 전용 torch를 받는다. 기본 PyPI torch는 리눅스에서 CUDA 포함이라 수 GB.
+# 맥·윈도우는 기존대로 PyPI.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]

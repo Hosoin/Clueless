@@ -22,8 +22,15 @@ uv run uvicorn ml.api:app --port 8000   # 요청·응답 명세: http://localhos
 | --- | --- |
 | `POST /v1/garments/analyze` (multipart `image`) | 카테고리(+후보), 대표색(`color_name`, 확인 필요 표시), 색 견본(`colors`), 소매(`sleeve`, 상의·아우터·원피스만), 다시 찍기(`retake`), 흰 배경 크롭(base64), **512 벡터**(옷장 DB에 저장) |
 | `POST /v1/outfits/recommend` (JSON) | 옷장 옷 목록(id, 카테고리, 벡터, 선택: 세부·소매·태그) → 코디 상위 k개, 점수(`score_parts`: 궁합/취향/트렌드), 근거. `include_id`(꼭 넣을 옷), `allow_layering`(레이어드, 기본 꺼짐) |
-| `GET /health` | 서버 상태 |
+| `GET /health` | 살아 있는지 (liveness) |
+| `GET /ready` | 모델이 올라와 요청을 받을 수 있는지 + 모델 버전 (readiness) |
 
+- **환경변수:** `WEIGHTS_DIR`(가중치 폴더, 기본 `weights`), `ML_API_KEY`(설정하면 `/v1/*`에 `X-API-Key` 헤더 필요. 백엔드만 호출하게)
+- **버전:** 분석 응답의 `model_versions.embedding`(FashionCLIP 고정 버전)이 바뀌면 옷장 DB의 벡터를 모두 다시 계산해야 합니다
+- **로그:** 요청마다 한 줄 JSON (경로·상태·지연 시간·예측 요약). 사진·벡터는 남기지 않습니다
+- **컨테이너:** `docker build -t clueless-ml .` → `docker run -p 8000:8000 -v "$PWD/weights:/app/weights:ro" clueless-ml` (리눅스는 CPU 전용 torch, 사전학습 모델은 이미지에 미리 받아 둠)
+- **CI:** `ml/` 변경 PR마다 GitHub Actions가 테스트 실행 (모델·데이터 없이 도는 테스트)
+- **백엔드 연동:** [`docs/ml-api/`](../docs/ml-api/README.md) (흐름, 저장 구조 제안, `openapi.json`)
 - 장치는 자동 선택: NVIDIA GPU(cuda) → 맥 GPU(mps) → CPU. `CLUELESS_DEVICE=cpu`로 강제할 수 있습니다.
 - 윈도우 + NVIDIA: 기본 설치되는 torch는 CPU 버전입니다. GPU를 쓰려면 CUDA용 torch로 바꿔야 합니다.
 - 사전학습 모델(FashionCLIP, BiRefNet 등)은 처음 실행할 때 Hugging Face에서 받아 캐시에 둡니다.

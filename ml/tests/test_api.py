@@ -55,4 +55,16 @@ assert client.post("/v1/garments/analyze", files={"image": ("x.txt", b"hello", "
 assert client.post("/v1/garments/analyze", files={"image": ("x.png", b"0" * (api.MAX_BYTES + 1), "image/png")}).status_code == 413
 
 assert client.get("/health").json()["status"] == "ok"
+# 모델을 아직 안 올렸으면 /ready는 503 (테스트는 서버 시작 때 모델을 올리지 않음)
+assert client.get("/ready").status_code == 503
+assert "model_versions" in r.json()
+
+# ML_API_KEY를 설정하면 /v1/*는 X-API-Key가 맞아야 함, /health는 열려 있음
+api.API_KEY = "test-key"
+img = {"image": ("a.png", png(10, 10), "image/png")}
+assert client.post("/v1/garments/analyze", files=img).status_code == 401
+assert client.post("/v1/garments/analyze", files=img, headers={"X-API-Key": "wrong"}).status_code == 401
+assert client.post("/v1/garments/analyze", files=img, headers={"X-API-Key": "test-key"}).status_code == 200
+assert client.get("/health").status_code == 200
+api.API_KEY = ""
 print("ok")

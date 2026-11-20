@@ -17,7 +17,7 @@ import numpy as np
 import torch
 from transformers import CLIPModel, CLIPProcessor
 
-from ml.analyze import CLIP, pick_device
+from ml.analyze import CLIP, CLIP_REVISION, pick_device
 from ml.garment_data import CLASSES, EXCLUDE, ROOT, image_path, load_rows, sender_parts
 from ml.train_garment4 import embed, train_probe
 
@@ -36,8 +36,8 @@ def predict(probe: torch.nn.Linear, x: np.ndarray) -> np.ndarray:
 
 def main() -> None:
     device = pick_device()
-    model = CLIPModel.from_pretrained(CLIP).to(device).eval()
-    proc = CLIPProcessor.from_pretrained(CLIP)
+    model = CLIPModel.from_pretrained(CLIP, revision=CLIP_REVISION).to(device).eval()
+    proc = CLIPProcessor.from_pretrained(CLIP, revision=CLIP_REVISION)
     rows = load_rows(include_review=True)
     x = embed(rows, "raw", model, proc, device)
     labeled = np.array([r["cls"] is not None for r in rows])

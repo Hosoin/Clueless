@@ -19,7 +19,7 @@ from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
 from ml.runlog import log_run
-from ml.analyze import CLIP, pick_device
+from ml.analyze import CLIP, CLIP_REVISION, pick_device
 from ml.garment_data import CLASSES, image_path, load_rows, split_by_sender
 
 PROMPTS = {
@@ -98,8 +98,8 @@ def main() -> None:
     args = p.parse_args()
 
     device = pick_device()
-    model = CLIPModel.from_pretrained(CLIP).to(device).eval()
-    proc = CLIPProcessor.from_pretrained(CLIP)
+    model = CLIPModel.from_pretrained(CLIP, revision=CLIP_REVISION).to(device).eval()
+    proc = CLIPProcessor.from_pretrained(CLIP, revision=CLIP_REVISION)
     splits = split_by_sender(load_rows())
     # both: 원본+배경 제거본을 함께 학습(어느 입력이 와도 안정적), val/test는 서비스 입력인 배경 제거본으로 잰다
     eval_variant = "nobg" if args.variant == "both" else args.variant

@@ -20,7 +20,7 @@ from huggingface_hub import hf_hub_download
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
-from ml.analyze import CLIP, pick_device
+from ml.analyze import CLIP, CLIP_REVISION, pick_device
 from ml.colors import suggest_colors
 
 DATASET = "Marqo/polyvore"
@@ -76,8 +76,8 @@ def main() -> None:
     print(f"코디 {len(outfits)}개, 아이템 {len(keep)}개")
 
     device = pick_device()
-    model = CLIPModel.from_pretrained(CLIP).to(device).eval()
-    proc = CLIPProcessor.from_pretrained(CLIP)
+    model = CLIPModel.from_pretrained(CLIP, revision=CLIP_REVISION).to(device).eval()
+    proc = CLIPProcessor.from_pretrained(CLIP, revision=CLIP_REVISION)
     ids, embs, colors = [], [], []
     batch_ids, batch_imgs = [], []
 
