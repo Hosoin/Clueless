@@ -6,7 +6,7 @@ import { Back } from '../components/Icons'
 import { CATS, COLORS, PATTERNS, photo } from '../data/seed'
 import type { Category } from '../data/types'
 import { S, emit, swatchBg, useApp } from '../store'
-import { closeAll, openSheet, toast } from '../ui'
+import { askPermission, closeAll, openSheet, toast } from '../ui'
 
 type Tile = { id: number; img: string | null; cat: Category | null; color: string | null; pattern: string; hex: string | null; guess: [Category, string | null, string]; done: boolean }
 let batch: Tile[] = []
@@ -34,9 +34,9 @@ export default function Upload() {
       <div className="head" style={{ paddingTop: 4 }}><h1>Add <i>Items</i></h1></div>
       <div className="pad">
         <div className="row2" style={{ marginTop: 20 }}>
-          <button className="btn solid" onClick={() => album.current?.click()}>앨범에서 고르기</button>
+          <button className="btn solid" onClick={() => askPermission('photos', () => album.current?.click())}>앨범에서 고르기</button>
           <button className="btn" onClick={async () => {
-            if (!navigator.mediaDevices?.getUserMedia) return shot.current?.click()
+            if (!navigator.mediaDevices?.getUserMedia) return askPermission('camera', () => shot.current?.click()) // https가 아니면 브라우저가 묻지 않으므로 앱이 먼저 물음
             setCam(true)
           }}>바로 찍기</button>
         </div>
@@ -73,13 +73,17 @@ export default function Upload() {
           </>
         )}
       </div>
-      {cam && <Camera onClose={(shots) => { setCam(false); if (shots.length) startBatch(shots) }} onFail={() => { setCam(false); shot.current?.click() }} />}
+      {cam && <Camera onClose={(shots) => { setCam(false); if (shots.length) startBatch(shots) }} onFail={(denied) => {
+        setCam(false)
+        if (denied) toast('카메라 접근을 허용해야 바로 찍을 수 있어요. 브라우저 설정에서 바꿀 수 있어요')
+        else askPermission('camera', () => shot.current?.click()) // 카메라를 못 쓰는 환경이면 폰 기본 카메라로
+      }} />}
     </section>
   )
 }
 
 /** 바로 찍기: 여러 장 찍고 완료 */
-function Camera({ onClose, onFail }: { onClose: (shots: Blob[]) => void; onFail: () => void }) {
+function Camera({ onClose, onFail }: { onClose: (shots: Blob[]) => void; onFail: (denied: boolean) => void }) {
   const v = useRef<HTMLVideoElement>(null), flash = useRef<HTMLDivElement>(null), stream = useRef<MediaStream | null>(null)
   const [shots, setShots] = useState<Blob[]>([])
   const start = (el: HTMLVideoElement | null) => {
@@ -87,7 +91,7 @@ function Camera({ onClose, onFail }: { onClose: (shots: Blob[]) => void; onFail:
     if (!el || stream.current) return
     navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
       .then((s) => { stream.current = s; el.srcObject = s })
-      .catch(onFail)
+      .catch((e: DOMException) => onFail(e?.name === 'NotAllowedError')) // 권한 요청에서 '허용 안 함'을 누른 경우
   }
   const close = () => { stream.current?.getTracks().forEach((t) => t.stop()); stream.current = null; onClose(shots) }
   return (
