@@ -67,7 +67,7 @@ export default function Home() {
         <div className="hhead">
           <div className="h1row" style={{ alignItems: 'flex-end' }}>
             <h1>Today’s <i>Look</i></h1>
-            <span className="hcount2">{S.spinning ? '맞추는 중' : same ? <><b>{String(S.oi + 1).padStart(2, '0')}</b> / {String(S.outfits.length).padStart(2, '0')}</> : '직접 맞춘 코디'}</span>
+            <span className="hcount2">{S.spinning ? '맞추는 중' : same ? <><b>{String(S.oi + 1).padStart(2, '0')}</b> / {String(S.outfits.length).padStart(2, '0')}</> : null}</span>
           </div>
           <div className="seg" id="h-view">
             {(['rows', 'avatar'] as const).map((v) => (
