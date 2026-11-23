@@ -1,7 +1,8 @@
 // MY: 커뮤니티 프로필과 내 글 (담당: C)
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Gear, Heart } from '../components/Icons'
+import { Face } from '../components/Face'
 import { writeSheet } from '../components/WriteSheet'
 import { openPost, toLogin } from '../nav'
 import { S, emit, useApp } from '../store'
@@ -23,7 +24,7 @@ export default function My() {
           </>
         ) : (
           <>
-            <div className="prof"><div className="avatar">{S.me.nick.slice(0, 1)}</div>
+            <div className="prof"><Face mine name={S.me.nick} className="avatar" />
               <div style={{ flex: 1, minWidth: 0 }}><p className="nm">{S.me.nick}</p><p className="em">@{S.me.handle}</p>{S.me.bio && <p className="bio">{S.me.bio}</p>}</div>
               <button className="btn" style={{ minHeight: 34, padding: '0 12px', fontSize: 12, flexShrink: 0 }} onClick={() => openSheet(() => <Profile />)}>프로필 편집</button></div>
             <div className="stats"><div><b>{mine.length}</b><span>게시물</span></div><div><b>{S.me.followers}</b><span>팔로워</span></div><div><b>{S.followingSet.size}</b><span>팔로잉</span></div></div>
@@ -50,12 +51,25 @@ export default function My() {
 }
 
 function Profile() {
+  const [photo, setPhoto] = useState(S.me.photo)
+  const file = useRef<HTMLInputElement>(null)
   const [nick, setNick] = useState(S.me.nick), [handle, setHandle] = useState(S.me.handle), [bio, setBio] = useState(S.me.bio)
   const [e1, setE1] = useState(''), [e2, setE2] = useState('')
   const okH = (h: string) => /^[a-z0-9._]{3,20}$/.test(h)
   return (
     <>
       <h3>프로필 편집</h3><p>커뮤니티에서 다른 사람에게 보이는 정보예요</p>
+      <div className="pfphoto">
+        <span className={`avatar ${photo ? 'has-photo' : ''}`}>{photo ? <img src={photo} alt="" /> : nick.slice(0, 1)}</span>
+        <div>
+          <button className="btn" onClick={() => file.current?.click()}>사진 바꾸기</button>
+          {photo && <button className="link" onClick={() => setPhoto(null)}>사진 지우기</button>}
+        </div>
+        <input type="file" ref={file} accept="image/*" hidden onChange={(e) => {
+          const f = e.target.files?.[0]; e.target.value = ''; if (!f) return
+          const r = new FileReader(); r.onload = () => setPhoto(String(r.result)); r.readAsDataURL(f)
+        }} />
+      </div>
       <label className="field2"><span>닉네임</span><input maxLength={12} value={nick} onChange={(e) => setNick(e.target.value)} /><em>{e1}</em></label>
       <label className="field2"><span>아이디</span><input maxLength={20} value={handle} onChange={(e) => setHandle(e.target.value)} /><em>{e2}</em></label>
       <label className="field2"><span>소개</span><textarea maxLength={60} value={bio} onChange={(e) => setBio(e.target.value)} /></label>
@@ -64,7 +78,7 @@ function Profile() {
         setE1(n.length < 2 ? '닉네임은 2자 이상이에요' : '')
         setE2(okH(h) ? '' : '영문 소문자, 숫자, 점(.), 밑줄(_)로 3자 이상 적어 주세요')
         if (n.length < 2 || !okH(h)) return
-        S.me.nick = n; S.me.handle = h; S.me.bio = bio.trim()
+        S.me.nick = n; S.me.handle = h; S.me.bio = bio.trim(); S.me.photo = photo
         S.posts.filter((p) => p.mine).forEach((p) => (p.user = h))
         closeAll(); toast('프로필을 바꿨어요')
       }}>저장</button>

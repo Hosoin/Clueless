@@ -2,11 +2,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import { Back, Cmt, Heart, SaveIc } from '../components/Icons'
+import { Face } from '../components/Face'
 import { writeSheet } from '../components/WriteSheet'
 import { CMTS, MY_CMTS } from '../data/seed'
 import type { Comment, Post as PostT } from '../data/types'
 import { toLogin } from '../nav'
-import { S, byId, emit, ini, owned, setCombo, useApp } from '../store'
+import { S, byId, emit, owned, setCombo, useApp } from '../store'
 import { closeAll, openModal, showIn, toast } from '../ui'
 
 const toCmt = (x: (typeof CMTS)[number]): Comment => ({ u: x[0], t: x[1], ago: x[2], likes: x[3] || 0, liked: false, replies: (x[4] || []).map((r) => ({ u: r[0], t: r[1], ago: r[2], likes: r[3] || 0, liked: false, replies: [] })) })
@@ -67,7 +68,7 @@ export default function Post() {
     <section className="screen on" id="s-post">
       <div className="dimg"><img src={p.img} alt="" style={{ objectPosition: p.pos }} /><button className="back" aria-label="뒤로" onClick={back}><Back /></button>{mine && <p className="badge">{p.scope}</p>}</div>
       <div className="pad">
-        <div className="urow"><span className={`uav ${mine ? 'me' : ''}`}>{ini(who)}</span>
+        <div className="urow"><Face mine={mine} name={who} className={`uav ${mine ? 'me' : ''}`} />
           <div><p className="nm">{who}</p><p className="sub">{p.ago}{p.ch ? ' · 1년 안 입은 옷 꺼내 입기' : ''}</p></div>
           {mine ? <button className="btn" onClick={() => writeSheet(null, p)}>수정</button>
             : <button className={`btn ${follow ? 'on' : ''}`} onClick={() => { if (follow) S.followingSet.delete(p.user); else S.followingSet.add(p.user); toast(follow ? `${p.user} 팔로우를 끊었어요` : `${p.user}를 팔로우해요`); emit() }}>{follow ? '팔로잉' : '팔로우'}</button>}

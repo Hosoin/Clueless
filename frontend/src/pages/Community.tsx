@@ -1,8 +1,9 @@
 // 커뮤니티: 피드 (담당: C)
 import { Cmt, Heart } from '../components/Icons'
+import { Face } from '../components/Face'
 import { writeSheet } from '../components/WriteSheet'
 import { openPost } from '../nav'
-import { S, emit, ini, owned, useApp } from '../store'
+import { S, emit, owned, useApp } from '../store'
 
 export default function Community() {
   useApp()
@@ -28,7 +29,7 @@ export default function Community() {
             return (
               <button className="post" key={p.id} onClick={() => openPost(p.id, '/community')}>
                 <div className="img"><img src={p.img} alt="" style={{ objectPosition: p.pos }} /></div>
-                <p className="who"><span className="uav">{ini(who)}</span>{who}</p>
+                <p className="who"><Face mine={p.mine} name={who} className="uav" />{who}</p>
                 <p className="t">{p.t}</p>
                 {n > 0 && <p className="m">내 옷장에 비슷한 옷 {n}벌</p>}
                 <span className="acts"><span><Heart on={S.liked.has(p.id)} />{p.likes}</span><span><Cmt />{p.cmts}</span></span>

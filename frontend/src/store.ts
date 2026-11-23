@@ -12,7 +12,7 @@ export const S = {
   history: seedHistory(),
   plans: [] as Plan[],
   posts: seedPosts(),
-  me: { ...ME },
+  me: { ...ME, photo: null as string | null }, // photo: 프로필 사진 (없으면 닉네임 첫 글자)
   pref: { mode: 'trend' as 'trend' | 'taste', styles: [] as string[] },
   loggedIn: false,
   onboarded: false,
