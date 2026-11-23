@@ -129,3 +129,5 @@ h1 i{font-style:italic}
 .cand.on span{color:#CFC9C0}
 .cand b{font-weight:400;font-size:11px;word-break:keep-all}
 .cand span{flex-shrink:0}
+.cand.manual{justify-content:center;border-style:dashed;color:var(--soft)}
+.cand.manual.on{border-style:solid;color:var(--ivory)}

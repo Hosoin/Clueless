@@ -20,6 +20,7 @@ type Cand = { name: string; cat: Category; sub: string; color: string; pattern: 
 /**
  * 올린 사진 한 장의 정리 상태.
  * - picked: 사용자가 고른 후보. 고르기 전에는 null이고, null이면 옷장에 넣을 수 없다
+ * - manual: 후보 중에 맞는 옷이 없어 '직접 선택'을 고른 경우 true. 이때는 종류·색을 직접 골라야 옷장에 넣을 수 있다
  * - cands: 분석이 끝나면 채워지는 상세 후보 3개 (확률 높은 순)
  * - name·cat·sub·color·pattern: 고른 후보의 값 (sub = 세부 종류: 티셔츠·셔츠·니트 등). 고치기 창에서 바꿀 수 있고, 바꾸면 name은 비워서
  *   옷장에 넣을 때 "색 무늬 종류"로 새로 만든다 (고른 이름과 실제 값이 어긋나지 않게)
@@ -27,7 +28,7 @@ type Cand = { name: string; cat: Category; sub: string; color: string; pattern: 
  * - done: 분석이 끝났는지 (끝나기 전엔 타일에 '확인 중' 표시)
  */
 type Tile = {
-  id: number; img: string | null; cands: Cand[]; picked: Cand | null; done: boolean
+  id: number; img: string | null; cands: Cand[]; picked: Cand | null; manual: boolean; done: boolean
   name: string | null; cat: Category | null; sub: string | null; color: string | null; pattern: string; hex: string | null
 }
 
@@ -54,7 +55,7 @@ function startBatch(files: FileList | Blob[] | null) {
   const list: (Blob | undefined)[] = files && files.length ? [...files].slice(0, 9) : Array.from({ length: 6 })
   batch = list.map((f, i) => ({
     id: ++S.uid, img: f ? URL.createObjectURL(f) : photo(DEMO_IDS[i % DEMO_IDS.length]) || null,
-    cands: [], picked: null, done: false, name: null, cat: null, sub: null, color: null, pattern: '무지', hex: null,
+    cands: [], picked: null, manual: false, done: false, name: null, cat: null, sub: null, color: null, pattern: '무지', hex: null,
   }))
   emit()
   batch.forEach((b, i) => setTimeout(() => {
@@ -62,9 +63,21 @@ function startBatch(files: FileList | Blob[] | null) {
   }, 700 + i * 650 + (i >= batch.length - 2 ? 1800 : 0)))
 }
 
+/**
+ * '직접 선택': 후보 3개 중에 맞는 옷이 없을 때. 후보 값을 모두 비우고 고치기 창을 바로 열어
+ * 종류·세부 종류·색·무늬를 처음부터 고르게 한다 (후보 값이 남아 있으면 틀린 값이 그대로 저장될 수 있어서)
+ */
+function pickManual(b: Tile) {
+  b.picked = null; b.manual = true; b.name = null; b.cat = null; b.sub = null; b.color = null; b.pattern = '무지'; b.hex = null
+  emit()
+  editTile(b)
+}
+/** 정해졌는지: 후보를 골랐거나, 직접 선택에서 종류와 색까지 골랐으면 옷장에 넣을 수 있다 */
+const isSet = (b: Tile) => b.done && (!!b.picked || b.manual) && !!b.cat && !!b.color
+
 /** 후보를 고르면 그 후보의 이름·종류·색·무늬로 채운다 (사진에서 뽑은 색은 지움: 고른 색과 어긋나지 않게) */
 function pickCand(b: Tile, c: Cand) {
-  b.picked = c; b.name = c.name; b.cat = c.cat; b.sub = c.sub; b.color = c.color; b.pattern = c.pattern; b.hex = null
+  b.picked = c; b.manual = false; b.name = c.name; b.cat = c.cat; b.sub = c.sub; b.color = c.color; b.pattern = c.pattern; b.hex = null
   emit()
 }
 
@@ -73,7 +86,7 @@ export default function Upload() {
   const nav = useNavigate()
   const album = useRef<HTMLInputElement>(null), shot = useRef<HTMLInputElement>(null)
   const [cam, setCam] = useState(false)
-  const done = batch.filter((b) => b.done).length, ready = batch.filter((b) => b.done && b.picked && b.cat && b.color).length, needPick = batch.filter((b) => b.done && !b.picked).length, left = batch.length - done
+  const done = batch.filter((b) => b.done).length, ready = batch.filter(isSet).length, needPick = batch.filter((b) => b.done && !isSet(b)).length, left = batch.length - done
   return (
     <section className="screen on" id="s-upload">
       <button className="backrow" onClick={() => nav('/closet')}><Back />옷장</button>
@@ -98,7 +111,7 @@ export default function Upload() {
             <div className="grid3" style={{ marginTop: 16 }}>
               {batch.map((b) => (
                 <div key={b.id} className="tile">
-                  <button className={`ph ${b.done ? '' : 'wait'} ${b.done && !b.picked ? 'warn' : ''}`} disabled={!b.done} aria-label={b.done ? '종류·색·무늬 고치기' : '확인 중'} onClick={() => (b.picked ? editTile(b) : toast('먼저 아래 후보에서 가장 비슷한 옷을 골라 주세요'))}>
+                  <button className={`ph ${b.done ? '' : 'wait'} ${b.done && !isSet(b) ? 'warn' : ''}`} disabled={!b.done} aria-label={b.done ? '종류·색·무늬 고치기' : '확인 중'} onClick={() => (b.picked || b.manual ? editTile(b) : toast('먼저 아래 후보에서 고르거나 직접 선택해 주세요'))}>
                     {b.img && <img src={b.img} alt="" />}
                     {b.done ? (b.color && <span className="chip" style={{ background: swatchBg(b.hex || COLORS[b.color], b.pattern) }} />) : <span className="spin" />}
                   </button>
@@ -111,19 +124,27 @@ export default function Upload() {
                             <b>{c.name}</b><span>{Math.round(c.prob * 100)}%</span>
                           </button>
                         ))}
+                        {/* 후보 중에 맞는 옷이 없을 때: 맨 아래 '직접 선택'을 누르면 고르는 창이 바로 열림 */}
+                        <button role="radio" aria-checked={b.manual} className={`cand manual ${b.manual ? 'on' : ''}`} onClick={() => pickManual(b)}>
+                          <b>직접 선택</b>
+                        </button>
                       </div>
-                      {/* 고른 뒤 고치기 창에서 값을 바꿨으면 바뀐 값을 보여 줌 */}
-                      {b.picked && !b.name && <p className="k">{b.sub || b.cat} · {b.color}{b.pattern !== '무지' ? ' · ' + b.pattern : ''}</p>}
+                      {/* 직접 고른 값, 또는 후보를 고른 뒤 고치기 창에서 바꾼 값을 보여 줌 */}
+                      {(b.manual || b.picked) && !b.name && (
+                        b.cat && b.color
+                          ? <p className="k">{b.sub || b.cat} · {b.color}{b.pattern !== '무지' ? ' · ' + b.pattern : ''}</p>
+                          : <p className="k pink">종류와 색을 골라 주세요</p>
+                      )}
                     </>
                   ) : (<><p className="k" style={{ fontSize: 13 }}>확인 중</p><p className="k">&nbsp;</p></>)}
                 </div>
               ))}
             </div>
-            <p className="hint">{needPick ? `사진마다 가장 비슷한 옷을 골라 주세요 (${needPick}장 남음)` : '사진을 누르면 종류·세부 종류·색·무늬를 고칠 수 있어요'}</p>
+            <p className="hint">{needPick ? `사진마다 가장 비슷한 옷을 고르거나 직접 선택해 주세요 (${needPick}장 남음)` : '사진을 누르면 종류·세부 종류·색·무늬를 고칠 수 있어요'}</p>
             <button className="btn solid full" style={{ marginTop: 16 }} disabled={!ready} onClick={() => {
-              const take = batch.filter((b) => b.done && b.picked && b.cat && b.color)
+              const take = batch.filter(isSet)
               take.forEach((b) => S.items.unshift({ id: b.id, name: b.name || `${b.color} ${b.pattern !== '무지' ? b.pattern + ' ' : ''}${b.sub || b.cat}`, cat: b.cat!, sub: b.sub, color: b.color!, hex: b.hex, pattern: b.pattern, rec: 0, tags: [], lastWorn: null, img: b.img || undefined, isNew: true, added: Date.now() }))
-              batch = batch.filter((b) => !(b.done && b.picked && b.cat && b.color))
+              batch = batch.filter((b) => !isSet(b))
               toast(`${take.length}벌을 옷장에 넣었어요`)
               setTimeout(() => { S.cView = 'items'; S.cSort = 0; nav('/closet') }, 500)
             }}>{ready ? ready + '벌 옷장에 넣기' : needPick ? '옷을 고르면 넣을 수 있어요' : '정리가 끝나면 넣을 수 있어요'}</button>
@@ -219,7 +240,7 @@ let scanning = false
 function editTile(b: Tile) {
   openSheet(() => (
     <>
-      <h3>이 옷이 맞나요?</h3><p>틀린 부분만 골라 주세요</p>
+      {b.manual && !b.cat ? <><h3>직접 골라 주세요</h3><p>종류와 색은 꼭 골라 주세요</p></> : <><h3>이 옷이 맞나요?</h3><p>틀린 부분만 골라 주세요</p></>}
       <h4>종류</h4>
       {/* 고치기 창: 고른 후보가 조금 틀렸을 때 종류·색·무늬를 직접 바꿈. 바꾸면 이름(b.name)을 비워서
           옷장에 넣을 때 바뀐 값으로 이름을 새로 만든다 */}
