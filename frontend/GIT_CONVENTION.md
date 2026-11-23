@@ -160,11 +160,16 @@ refactor(closet): 필터 로직을 훅으로 분리
 - `main`에서 바로 고쳐야 할 때는 `main`에서 `fix/*` 브랜치를 따서 `main`으로 PR합니다.
 - 반영한 뒤에는 `main`을 `frontend`로 다시 머지해서 두 브랜치가 갈라지지 않게 합니다.
 
-## 7. 브랜치 보호 설정 (저장소 관리자)
+## 7. 브랜치 보호 설정
 
-| 브랜치 | 규칙 |
-| --- | --- |
-| `main` | PR 필수, 승인 1명 이상, CI 통과 필수, 직접 푸시·force push 금지 |
-| `frontend` | PR 필수, 승인 1명 이상, CI 통과 필수, 직접 푸시·force push 금지 |
+GitHub Ruleset으로 설정합니다. (Settings → Rules → Rulesets)
 
-> `main`은 백엔드, ML 팀과 공용입니다. `frontend → main` PR은 다른 팀 변경과 충돌하지 않는지 확인합니다.
+| 브랜치 | 상태 | 규칙 |
+| --- | --- | --- |
+| `frontend` | 적용 중 | PR 필수, 승인 1명 이상, CI(`check`) 통과 필수, force push·삭제 금지 |
+| `main` | 미적용 | 백엔드, ML 팀과 공용이라 팀 간 합의 후 적용합니다 |
+
+- `frontend`는 팀장만 규칙을 우회할 수 있습니다. (Ruleset의 Bypass list)
+- 우회는 CI 고장이나 팀원 부재 같은 긴급 상황에만 쓰고, 사용한 뒤에는 팀에 알립니다.
+- `main`에 규칙이 생기기 전까지는 직접 푸시가 가능하지만, 직접 푸시하지 않고 항상 `frontend`에서 PR로 반영합니다.
+- `frontend → main` PR은 다른 팀 변경과 충돌하지 않는지 확인합니다.
