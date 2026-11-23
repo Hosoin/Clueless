@@ -32,14 +32,11 @@ export default function My() {
               {([['posts', `내 게시물 ${mine.length}`], ['saved', `저장한 글 ${sv.length}`]] as const).map(([k, l]) => <button key={k} className={k === S.myTab ? 'on' : ''} onClick={() => { S.myTab = k; emit() }}>{l}</button>)}
             </div>
             {list.length ? (
-              <>
-                <div className="pgrid">{list.map((p) => (
+              <div className="pgrid">{list.map((p) => (
                   <button key={p.id} aria-label={p.t} onClick={() => openPost(p.id, '/my')}>
                     <img src={p.img} alt="" style={{ objectPosition: p.pos }} /><span><Heart on={false} />{p.likes}</span>{p.mine && p.scope === '팔로워만' && <i>팔로워만</i>}
                   </button>
                 ))}</div>
-                <p className="note">{S.myTab === 'posts' ? '게시물을 누르면 고치거나 지울 수 있어요' : '저장한 글을 누르면 내 옷으로 따라 입을 수 있어요'}</p>
-              </>
             ) : S.myTab === 'posts'
               ? <div className="empty">아직 올린 코디가 없어요<br /><button className="btn" style={{ marginTop: 16, padding: '0 18px' }} onClick={() => writeSheet()}>코디 올리기</button></div>
               : <div className="empty">커뮤니티에서 마음에 드는 글을 저장해 보세요<br /><button className="btn" style={{ marginTop: 16, padding: '0 18px' }} onClick={() => nav('/community')}>커뮤니티 보기</button></div>}
