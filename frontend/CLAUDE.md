@@ -9,14 +9,14 @@
 
 | 브랜치 | 역할 |
 | --- | --- |
-| `frontend-dev` | 개발 브랜치. 모든 개발 작업과 커밋은 여기서 합니다 |
-| `frontend` | 스테이징 브랜치. `frontend-dev`의 커밋을 취합해 테스트합니다 |
+| `feat/*`, `fix/*` 등 | 작업 브랜치. `frontend`에서 따서 작업하고 PR로 합칩니다 |
+| `frontend` | 스테이징 브랜치. 개발 서버에 배포되며 여기서 테스트합니다 |
 | `main` | 스테이징에서 테스트가 통과한 변경만 PR로 반영합니다 |
 
-흐름: `frontend-dev`에서 작업 → `frontend`로 취합 → 테스트 통과 → `main`으로 PR
+흐름: `frontend`에서 작업 브랜치 생성 → 작업 → `frontend`로 PR → 개발 서버에서 테스트 → `main`으로 PR
 
-- `frontend`에는 직접 개발 커밋을 하지 않고 `frontend-dev`를 머지해 반영합니다.
-- 커밋 규칙은 @COMMIT_CONVENTION.md 를 따릅니다.
+- `frontend`와 `main`에는 직접 커밋하지 않고 항상 PR로 반영합니다.
+- 브랜치 이름, 커밋, PR, 머지 방식은 @GIT_CONVENTION.md 를 따릅니다.
 - 푸시, PR 생성, 머지는 사용자가 요청했을 때만 합니다.
 
 ## 작업 원칙
@@ -51,7 +51,7 @@
 | 에셋 폴더 | 소문자 단어 | `assets/clothes/`, `assets/community/` |
 | CSS 클래스 | 소문자, 단어 구분은 `-` | `lg-logo`, `hdock2` |
 | CSS 변수 | `--` + 소문자 | `--sans`, `--serif` |
-| 문서 파일 | `UPPER_SNAKE_CASE.md` (폴더 소개는 `README.md`) | `COMMIT_CONVENTION.md`, `docs/LIBRARIES.md` |
+| 문서 파일 | `UPPER_SNAKE_CASE.md` (폴더 소개는 `README.md`) | `GIT_CONVENTION.md`, `docs/LIBRARIES.md` |
 | 설정 파일 | 도구 기본 이름 | `vite.config.ts`, `tsconfig.json` |
 
 - 한 글자 약어(`S`, `kView`, `cTab` 등)는 초기 프로토타입에서 옮겨 온 것입니다. 기존 코드는 그대로 두되, 새로 만드는 이름은 의미가 드러나게 씁니다.
