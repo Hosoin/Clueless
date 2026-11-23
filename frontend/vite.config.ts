@@ -7,4 +7,6 @@ import { defineConfig } from 'vite'
 export default defineConfig(({ mode }) => ({
   base: './', // Capacitor 앱 안에서도 파일 경로가 맞게
   plugins: [react(), ...(mode === 'phone' ? [basicSsl()] : [])],
+  // Cloudflare 임시 터널(https://*.trycloudflare.com)로 폰에서 경고 없이 열 수 있게 허용
+  server: { allowedHosts: ['.trycloudflare.com'] },
 }))
