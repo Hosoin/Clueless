@@ -48,7 +48,8 @@ export function Layout() {
     const on = (e: Event) => {
       const el = e.target as HTMLElement; if (!el.classList?.contains('screen')) return
       const y = el.scrollTop, d = y - lastY.current
-      if (y < 24 || d < -6) setNavHide(false); else if (d > 6) setNavHide(true)
+      const atEnd = y + el.clientHeight >= el.scrollHeight - 4 // 맨 아래에선 탭을 다시 보여 줌 (탭 자리로 비워 둔 여백이 빈칸으로 남지 않게)
+      if (y < 24 || d < -6 || atEnd) setNavHide(false); else if (d > 6) setNavHide(true)
       lastY.current = y
     }
     p.addEventListener('scroll', on, true); return () => p.removeEventListener('scroll', on, true)
