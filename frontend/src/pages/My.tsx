@@ -6,7 +6,7 @@ import { Face } from '../components/Face'
 import { writeSheet } from '../components/WriteSheet'
 import { openPost, toLogin } from '../nav'
 import { S, emit, useApp } from '../store'
-import { closeAll, openSheet, toast } from '../ui'
+import { askPermission, closeAll, openSheet, toast } from '../ui'
 
 export default function My() {
   useApp()
@@ -59,7 +59,7 @@ function Profile() {
       <div className="pfphoto">
         <span className={`avatar ${photo ? 'has-photo' : ''}`}>{photo ? <img src={photo} alt="" /> : nick.slice(0, 1)}</span>
         <div>
-          <button className="btn" onClick={() => file.current?.click()}>사진 바꾸기</button>
+          <button className="btn" onClick={() => askPermission('photos', () => file.current?.click(), '프로필 사진을 고르려면 사진 보관함과 파일에 접근해야 해요. 고른 사진만 올라가요.')}>사진 바꾸기</button>
           {photo && <button className="link" onClick={() => setPhoto(null)}>사진 지우기</button>}
         </div>
         <input type="file" ref={file} accept="image/*" hidden onChange={(e) => {

@@ -29,6 +29,7 @@
 | --- | --- | --- | --- | --- |
 | [vite](https://vite.dev) | `^8.3.6` | 8.3.8 | 개발 서버, 프로덕션 빌드 | `vite.config.ts` |
 | [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react) | `^6.1.2` | 6.3.0 | Vite에서 React(JSX, Fast Refresh) 지원 | `vite.config.ts` |
+| [@vitejs/plugin-basic-ssl](https://github.com/vitejs/vite-plugin-basic-ssl) | `^2.3.0` | 2.3.0 | 개발용 임시 인증서로 개발 서버를 https로 켬. 폰 브라우저는 https에서만 카메라 권한을 물어서 `npm run dev:phone`에서만 사용 | `vite.config.ts` |
 | [typescript](https://www.typescriptlang.org) | `~7.0.2` | 7.0.2 | 정적 타입 검사 (`npm run build`에서 `tsc -b` 실행) | `tsconfig*.json` |
 | [oxlint](https://oxc.rs/docs/guide/usage/linter) | `^1.90.0` | 1.94.0 | 코드 린트 (`npm run lint`) | `.oxlintrc.json` |
 | [@capacitor/cli](https://capacitorjs.com/docs/cli) | `^8.6.2` | 8.6.2 | Capacitor 명령어(`npx cap ...`)와 설정 타입 | `capacitor.config.ts` |

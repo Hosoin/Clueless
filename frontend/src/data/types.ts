@@ -5,6 +5,7 @@ export type Item = {
   id: number
   name: string
   cat: Category
+  sub?: string | null // 세부 종류 (티셔츠·셔츠·니트·코트 등). SUBS의 값. 모르면 없음
   color: string // COLORS의 키
   hex?: string | null // 사진에서 뽑은 색
   pattern: string
