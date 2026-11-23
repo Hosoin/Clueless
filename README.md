@@ -6,12 +6,12 @@ MS AI School 팀 프로젝트의 MVP 개발을 위한 저장소입니다. 프런
 
 | 경로 | 역할 | 현재 상태 |
 | --- | --- | --- |
-| [`frontend/`](frontend/) | 사용자 화면 | 프레임워크 미정 |
+| [`frontend/`](frontend/) | 사용자 화면 | Vite + React + TypeScript 구성 완료 |
 | [`backend/`](backend/) | API 및 서비스 로직 | Spring Boot 사용 예정 |
 | [`ml/`](ml/) | 데이터 처리, 모델 학습·평가 및 추론 | Python 사용 예정 |
 | [`docs/`](docs/) | 요구사항, 설계 및 협업 문서 | 문서 공간만 준비 |
 
-현재는 역할별 폴더와 안내 문서만 만든 상태입니다. 애플리케이션 스캐폴드, 의존성, 실행 명령은 아직 구성하지 않았습니다.
+프런트엔드는 개발 환경을 구성했습니다. 실행 방법은 [`frontend/README.md`](frontend/README.md)를 참고하세요. 백엔드와 ML은 아직 스캐폴드를 구성하지 않았습니다.
 
 ## 파일 관리
 
