@@ -58,7 +58,7 @@ export default function Home() {
   const rest = order.filter((k) => k !== bigK)
   const piece = (k: RowKey, big = false) => (
     <Piece key={k} k={k} item={c[k]} big={big} canStep={L[k].length > 1} rolling={S.spinKeys.has(k)}
-      off={(k === 'j' || k === 'o') ? () => keepSel(() => { S.on[k as ExtraKey] = false }) : undefined} />
+      off={(EXTRA as RowKey[]).includes(k) ? () => keepSel(() => { S.on[k as ExtraKey] = false }) : undefined} />
   )
 
   return (
@@ -86,7 +86,7 @@ export default function Home() {
             <div className="arows">
               {rows.map(([k, label]) => (
                 <div className="arow" key={k}>
-                  <p className="k">{label}{(k === 'j' || k === 'o') && <button className="link xs" onClick={() => keepSel(() => { S.on[k as ExtraKey] = false })}>빼기</button>}</p>
+                  <p className="k">{label}{(EXTRA as RowKey[]).includes(k) && <button className="link xs" onClick={() => keepSel(() => { S.on[k as ExtraKey] = false })}>빼기</button>}</p>
                   <button className="n pickname" onClick={() => openPicker(k)}>{c[k] ? c[k]!.name : '없음'} <span>고르기</span></button>
                   <button className="arrow" aria-label={`이전 ${label}`} disabled={L[k].length <= 1} onClick={() => stepFit(k, -1)}><Arrow dir={-1} /></button>
                   <button className="arrow" aria-label={`다음 ${label}`} disabled={L[k].length <= 1} onClick={() => stepFit(k, 1)}><Arrow dir={1} /></button>
