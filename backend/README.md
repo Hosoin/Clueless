@@ -54,7 +54,21 @@ gradlew.bat :closet-service:bootRun
 gradlew.bat :recommendation-service:bootRun
 ```
 
-시작 로그에서 오류 없이 기동되었는지, 포트가 각각 `8081`과 `8082`인지 확인합니다. 브라우저에서 `http://localhost:8081/` 또는 `http://localhost:8082/`에 접속하면 업무 API가 없으므로 **404가 나올 수 있습니다**. 루트 경로의 404만으로 기동 실패라고 판단하지 않습니다.
+시작 로그에서 오류 없이 기동되었는지, 포트가 각각 `8081`과 `8082`인지 확인한 뒤, 별도 터미널에서 테스트 API를 호출합니다.
+
+```sh
+curl -i http://localhost:8081/test
+curl -i http://localhost:8082/test
+```
+
+두 요청 모두 HTTP `200`과 plain text 응답(`Content-Type: text/plain`, 문자셋 포함 가능)을 반환해야 합니다.
+
+| 요청 | 응답 본문 |
+| --- | --- |
+| `GET http://localhost:8081/test` | `closet-service 테스트 요청` |
+| `GET http://localhost:8082/test` | `recommendation-service 테스트 요청` |
+
+`/test`는 서비스 실행 확인용 API이며 업무 API가 아닙니다. 루트 경로(`/`)는 **404가 나올 수 있으므로**, 루트 경로의 404만으로 기동 실패라고 판단하지 않습니다.
 
 ## 로컬 종료
 
