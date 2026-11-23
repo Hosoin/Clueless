@@ -65,8 +65,7 @@ export default function Home() {
     <section className="screen on" id="s-home" ref={scrRef}>
       <div id="h-fold" ref={foldRef} className="pad">
         <div className="hhead">
-          <p className="eyebrow" style={{ margin: 0 }}>Today’s Edit</p>
-          <div className="h1row" style={{ marginTop: 6, alignItems: 'flex-end' }}>
+          <div className="h1row" style={{ alignItems: 'flex-end' }}>
             <h1>Today’s <i>Look</i></h1>
             <span className="hcount2">{S.spinning ? '맞추는 중' : same ? <><b>{String(S.oi + 1).padStart(2, '0')}</b> / {String(S.outfits.length).padStart(2, '0')}</> : '직접 맞춘 코디'}</span>
           </div>

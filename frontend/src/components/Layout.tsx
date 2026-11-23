@@ -68,7 +68,7 @@ export function Layout() {
     <div className={`phone ${loginOn ? 'login-on' : ''}`} id="app" ref={phone}
       onScroll={(e) => { if (e.currentTarget.scrollTop) e.currentTarget.scrollTop = 0 }}
       >{/* 폰 틀(#app)은 절대 움직이지 않게 */}
-      {!loginOn && <div className="top"><span className="d">{today}</span><p className="logo">Clueless</p><span className="w">9° 맑음</span></div>}
+      {!loginOn && <div className="top"><span className="d">{today}</span><p className="logo">Clueless</p><span className="w">4°/12°, 맑음</span></div>}
       <Outlet />
       {!loginOn && (
         <nav id="nav" ref={navRef} className={navHide ? 'hide' : ''}>
