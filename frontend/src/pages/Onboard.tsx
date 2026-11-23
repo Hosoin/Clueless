@@ -1,0 +1,68 @@
+// 첫 로그인 설정: 추천 방식 → (취향이면) 좋아하는 스타일 → 닉네임 (담당: C)
+import { useState } from 'react'
+import { Navigate, useNavigate } from 'react-router'
+import { Back } from '../components/Icons'
+import { MODES, STYLES } from '../data/seed'
+import { S, emit, useApp } from '../store'
+import { toast } from '../ui'
+
+export default function Onboard() {
+  useApp()
+  const nav = useNavigate()
+  const [err, setErr] = useState('')
+  const ob = S.ob
+  if (!ob) return <Navigate to="/login" replace />
+  const steps = ob.mode === 'taste' ? (['mode', 'taste', 'nick'] as const) : (['mode', 'nick'] as const)
+  const i = (steps as readonly string[]).indexOf(ob.step), n = steps.length
+  const set = (f: () => void) => { f(); emit() }
+  const ok = ob.step !== 'taste' || ob.styles.length > 0
+  const next = () => {
+    if (ob.step !== 'nick') return set(() => (ob.step = steps[i + 1]))
+    const v = ob.nick.trim()
+    if (v.length < 2) return setErr('닉네임은 2자 이상이에요')
+    S.me.nick = v; S.pref.mode = ob.mode; if (ob.mode === 'taste') S.pref.styles = [...ob.styles]; S.onboarded = true
+    nav('/')
+    toast(S.pref.mode === 'taste' ? `${S.pref.styles.join('·')} 취향으로 오늘의 코디를 골랐어요` : '요즘 유행에 맞춰 오늘의 코디를 골랐어요')
+  }
+  return (
+    <section className="screen on" id="s-onboard" style={{ display: 'flex' }}>
+      <div className="ob-top">{i ? <button className="backrow" onClick={() => set(() => (ob.step = steps[i - 1]))}><Back />이전</button> : <span />}<p className="ob-step">{i + 1} / {n}</p></div>
+      <div className="ob-bar"><i style={{ width: `${((i + 1) / n) * 100}%` }} /></div>
+      <div className="ob-main">
+        {ob.step === 'mode' && (
+          <>
+            <h2>어떤 코디를<br />추천받을까요?</h2>
+            <div className="ob-opts" role="radiogroup" aria-label="추천 방식">
+              {(['trend', 'taste'] as const).map((k) => (
+                <button key={k} className={`ob-opt ${ob.mode === k ? 'on' : ''}`} role="radio" aria-checked={ob.mode === k} onClick={() => set(() => (ob.mode = k))}>
+                  <i className="ck" /><div><b>{MODES[k][0]}</b><span>{MODES[k][1]}</span>{k === 'taste' && <em>다음 단계에서 좋아하는 스타일을 골라요</em>}</div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {ob.step === 'taste' && (
+          <>
+            <h2>좋아하는 스타일을<br />골라 주세요</h2><p className="sub">3개까지 고를 수 있어요</p>
+            <div className="ob-styles">
+              {STYLES.map(([k, d]) => { const on = ob.styles.includes(k); return (
+                <button key={k} className={`ob-sty ${on ? 'on' : ''}`} aria-pressed={on} disabled={!on && ob.styles.length >= 3}
+                  onClick={() => set(() => (ob.styles = on ? ob.styles.filter((x) => x !== k) : [...ob.styles, k]))}><b>{k}</b><span>{d}</span></button>
+              ) })}
+            </div>
+          </>
+        )}
+        {ob.step === 'nick' && (
+          <>
+            <h2>닉네임을<br />정해 주세요</h2><p className="sub">커뮤니티에 올린 코디에 이 이름이 보여요</p>
+            <label className="ob-field"><input maxLength={12} value={ob.nick} aria-label="닉네임" onChange={(e) => set(() => (ob.nick = e.target.value))} /><em>{err}</em></label>
+          </>
+        )}
+      </div>
+      <div className="ob-acts">
+        <button className="btn solid full" disabled={!ok} onClick={next}>{ob.step === 'nick' ? '시작하기' : '다음'}</button>
+        {ob.step === 'mode' && <p className="note">나중에 설정에서 바꿀 수 있어요</p>}
+      </div>
+    </section>
+  )
+}
