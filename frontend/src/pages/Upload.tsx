@@ -4,7 +4,7 @@
 // 모델이 틀려도 사용자가 한 번 눌러서 바로잡게 하려고, 1순위를 자동으로 고르지 않는다.
 // 지금은 후보가 가짜(DEMO_CANDS)다. 분류 모델 API가 생기면 startBatch 안의 setTimeout 부분을 API 호출로 바꾸고,
 // 응답에서 상세 후보 3개를 꺼내 cands에 넣으면 된다.
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Back } from '../components/Icons'
 import { CATS, COLORS, PATTERNS, SUBS, photo } from '../data/seed'
@@ -140,20 +140,40 @@ export default function Upload() {
 }
 
 /** 바로 찍기: 여러 장 찍고 완료 */
+/**
+ * 바로 찍기 화면. 이 화면이 떠 있는 동안에만 카메라를 켜고, 닫거나 다른 화면으로 가면 바로 끈다.
+ * - 켜기: 화면이 나타날 때(useEffect) 한 번 카메라를 요청한다. 브라우저가 이때 권한을 묻는다
+ * - 끄기: 화면이 사라질 때(useEffect의 정리 함수) 모든 카메라 트랙을 멈춘다. '닫기·완료' 버튼, 다른 탭으로 이동,
+ *   뒤로 가기 모두 화면이 사라지므로 같은 곳에서 끈다
+ * - 카메라 응답이 오기 전에 화면이 먼저 닫히면(cancelled), 늦게 온 카메라를 받자마자 끈다.
+ *   개발 모드(StrictMode)는 화면을 한 번 붙였다 떼었다 다시 붙이는데, 이걸 안 하면 첫 번째 카메라가 꺼지지 않고 남아
+ *   주소창에 카메라 사용 표시가 계속 떠 있었다
+ * onClose(shots): 찍은 사진들을 넘기며 닫기, onFail(denied): 카메라를 못 켰을 때 (denied = 사용자가 권한을 거절함)
+ */
 function Camera({ onClose, onFail }: { onClose: (shots: Blob[]) => void; onFail: (denied: boolean) => void }) {
-  const v = useRef<HTMLVideoElement>(null), flash = useRef<HTMLDivElement>(null), stream = useRef<MediaStream | null>(null)
+  const v = useRef<HTMLVideoElement>(null), flash = useRef<HTMLDivElement>(null)
   const [shots, setShots] = useState<Blob[]>([])
-  const start = (el: HTMLVideoElement | null) => {
-    v.current = el
-    if (!el || stream.current) return
+  const failRef = useRef(onFail)
+  useEffect(() => {
+    let cancelled = false, stream: MediaStream | null = null
+    const video = v.current // 정리할 때 같은 video를 가리키도록 미리 잡아 둠
     navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
-      .then((s) => { stream.current = s; el.srcObject = s })
-      .catch((e: DOMException) => onFail(e?.name === 'NotAllowedError')) // 권한 요청에서 '허용 안 함'을 누른 경우
-  }
-  const close = () => { stream.current?.getTracks().forEach((t) => t.stop()); stream.current = null; onClose(shots) }
+      .then((s) => {
+        if (cancelled) { s.getTracks().forEach((t) => t.stop()); return } // 이미 닫혔으면 바로 끔
+        stream = s
+        if (video) video.srcObject = s
+      })
+      .catch((e: DOMException) => { if (!cancelled) failRef.current(e?.name === 'NotAllowedError') }) // '허용 안 함'을 누른 경우
+    return () => { // 화면이 사라질 때 카메라 끄기
+      cancelled = true
+      stream?.getTracks().forEach((t) => t.stop())
+      if (video) video.srcObject = null
+    }
+  }, [])
+  const close = () => onClose(shots) // 화면이 닫히면 위의 정리 함수가 카메라를 끈다
   return (
     <div className="cam on">
-      <video ref={start} playsInline muted autoPlay />
+      <video ref={v} playsInline muted autoPlay />
       <p className="msg">옷이 화면에 꽉 차게 찍어 주세요</p>
       <div className="flash" ref={flash} />
       <div className="bar2">
