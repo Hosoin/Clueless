@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router'
 import { Arrow, SpinIc } from '../components/Icons'
 import { Ph } from '../components/Ph'
 import { COLORS, TRENDS } from '../data/seed'
-import type { Item } from '../data/types'
+import type { Item, Look } from '../data/types'
 import {
   EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, comboToLook, current, clampPos, emit, firstFresh, fit, hexOf,
   isPast, isRecent, keepSel, layersFor, lists, matchText, outfitKey, rowKey, saveLook, stepFit, useApp,
@@ -276,6 +276,21 @@ function saveModal(c: Combo, goSaved: () => void) {
 
 /* ---------- 홈 아래 트렌드 ---------- */
 let tSel = 0, tUp = true, tResult = false
+
+/** 트렌드 코디("이 ○○로 코디 받기")에 함께 붙일 옷 하나를 고른다.
+ *  입력: prefer = 원래 짝지어 둔 옷 id, cat = 필요한 종류(상의·하의·아우터)
+ *  결과: 붙일 옷 id. 고를 옷이 없으면 null(그 칸은 비운 채로 코디를 만든다)
+ *  - 짝지어 둔 옷이 옷장에 그대로 있으면 그 옷을 쓴다. 기본 옷장에서는 화면이 전과 같게 보이도록
+ *  - 그 옷이 지워졌거나 추천에서 뺀 옷(ex)이면, 지금 옷장에 남은 같은 종류의 옷으로 바꾼다.
+ *    전에는 id를 고정으로 적어서, 지운 옷이 코디에 들어가 저장되고 캘린더에서 byId(id)!가 터질 수 있었다
+ *  - 최근 입은 옷은 되도록 피하고, 그런 옷밖에 없으면 그거라도 쓴다 */
+function pairFor(prefer: number, cat: Item['cat']) {
+  const usable = (i?: Item | null): i is Item => !!i && !i.ex && i.cat === cat
+  const p = byId(prefer)
+  if (usable(p)) return p.id
+  const pool = S.items.filter(usable)
+  return (pool.find((i) => !isRecent(i)) || pool[0])?.id ?? null
+}
 function Trend() {
   useApp()
   const resultRef = useRef<HTMLDivElement>(null)
@@ -283,7 +298,13 @@ function Trend() {
   const short = t.k.split(' ').pop()
   const title = mine.length ? (mine.length > 1 ? `내 옷장에 ${t.k}${iga(t.k)} ${mine.length}벌이나 있어요` : `내 옷장에 ${t.k}${iga(t.k)} 1벌 있어요`) : `내 옷장에 아직 ${t.k}${eun(t.k)} 없어요`
   const it = mine.find((x) => !isRecent(x)) || mine[0]
-  const look = !it ? null : it.cat === '상의' ? { top: it.id, bottom: 6, outer: 10 } : it.cat === '하의' ? { top: 1, bottom: it.id, outer: 10 } : it.cat === '아우터' ? { top: 3, bottom: 7, outer: it.id } : { top: it.id, bottom: null, outer: 10 }
+  // 고른 옷의 종류에 따라 나머지 칸을 채운다. 숫자는 원래 짝지어 둔 옷(6 인디고 와이드 데님, 10 카멜 롱 코트,
+  // 1 아이보리 오버핏 니트, 3 블랙 오버핏 니트, 7 블랙 플리츠 스커트)이고, 없으면 pairFor가 남은 옷으로 바꾼다
+  const look = !it ? null
+    : it.cat === '상의' ? { top: it.id, bottom: pairFor(6, '하의'), outer: pairFor(10, '아우터') }
+    : it.cat === '하의' ? { top: pairFor(1, '상의'), bottom: it.id, outer: pairFor(10, '아우터') }
+    : it.cat === '아우터' ? { top: pairFor(3, '상의'), bottom: pairFor(7, '하의'), outer: it.id }
+    : { top: it.id, bottom: null, outer: pairFor(10, '아우터') } // 원피스·덧입기는 그 옷을 상의 칸에 두고 하의는 비움
   const ps = look ? ([byId(look.top), byId(look.outer), byId(look.bottom)].filter(Boolean) as Item[]) : []
   const mm = matchText(ps)
   const pick = (i: number) => { tSel = i; tResult = false; emit() }
@@ -327,7 +348,8 @@ function Trend() {
     </>
   )
 }
-function TrendActs({ ps, look }: { ps: Item[]; look: { top: number; bottom: number | null; outer: number } }) {
+/** 트렌드 코디 아래 버튼: 오늘 입기, 저장하기. look은 칸이 비어 있을 수 있어서(고를 옷이 없을 때) Look 타입으로 받는다 */
+function TrendActs({ ps, look }: { ps: Item[]; look: Look }) {
   const [wornNow, setWorn] = useState(false), [savedNow, setSaved] = useState(false)
   return (
     <div className="acts">
