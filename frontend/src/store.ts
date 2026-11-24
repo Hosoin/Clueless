@@ -207,7 +207,7 @@ export function saveLook(next: Look) {
   return dup
 }
 
-/** 옷 삭제: 추천 코디·저장한 코디·입은 기록에서도 함께 빠짐 */
+/** 옷 삭제: 추천 코디·저장한 코디·입은 기록·입을 계획에서도 함께 빠짐 */
 export function deleteItem(it: Item) {
   const id = it.id, i = S.items.indexOf(it); if (i < 0) return
   S.items.splice(i, 1)
@@ -220,6 +220,8 @@ export function deleteItem(it: Item) {
   S.oi = Math.min(S.oi, S.outfits.length - 1)
   for (let k = S.saved.length - 1; k >= 0; k--) { const o = S.saved[k]; F.forEach((f) => { if (o[f] === id) o[f] = null }); if (!F.some((f) => o[f])) S.saved.splice(k, 1) }
   for (let k = S.history.length - 1; k >= 0; k--) { const h: Hist = S.history[k]; h.ids = h.ids.filter((x) => x !== id); if (!h.ids.length) S.history.splice(k, 1) }
+  // 입을 계획(캘린더)에서도 뺀다. 남겨 두면 캘린더가 지운 옷을 찾다가 멈춤. 옷이 하나도 안 남은 계획은 지운다
+  for (let k = S.plans.length - 1; k >= 0; k--) { const p: Plan = S.plans[k]; p.ids = p.ids.filter((x) => x !== id); if (!p.ids.length) S.plans.splice(k, 1) }
   S.chosenKey = null
   emit()
 }
