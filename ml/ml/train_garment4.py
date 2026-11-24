@@ -2,11 +2,13 @@
 
 기준선: FashionCLIP 제로샷 (문구 묶음 평균)
 모델 1: 고정한 FashionCLIP 임베딩 + 로지스틱 회귀(linear probe). val 매크로 F1로 weight decay 선택, test로 최종 평가.
+모델 2 (서비스 기본): 같은 임베딩 + MLP(512→hidden→4, GELU). val 매크로 F1로 hidden·weight decay 선택.
+  2026-11-24 비교(시드 5개 평균, test 570장): linear 정확도 0.969 / F1 0.950, MLP(256) 0.974 / 0.958. 헤드 추론 차이 0.02ms 미만.
 
 사용: uv run python -m ml.train_garment4               (기본 both: 원본+배경 제거본 학습, 배경 제거본으로 평가)
       uv run python -m ml.train_garment4 --variant raw   (원본 사진)
       uv run python -m ml.train_garment4 --variant nobg  (배경 제거본, 먼저 ml.garment_data nobg)
-결과: weights/garment4_probe_<variant>.pt, out/garment4_<variant>.json
+결과: weights/garment4_mlp_<variant>.pt(서비스용), weights/garment4_probe_<variant>.pt(비교용 linear), out/garment4_<variant>.json
 """
 
 import argparse
@@ -20,6 +22,7 @@ from transformers import CLIPModel, CLIPProcessor
 
 from ml.runlog import log_run
 from ml.analyze import CLIP, CLIP_REVISION, pick_device
+from ml.garment import make_head
 from ml.garment_data import CLASSES, image_path, load_rows, split_by_sender
 
 PROMPTS = {
@@ -29,6 +32,7 @@ PROMPTS = {
     "원피스": ["a photo of a dress", "a photo of a jumpsuit"],
 }
 WEIGHT_DECAYS = [0.0, 1e-4, 1e-3, 1e-2, 1e-1]
+HIDDENS = [256, 512]
 EPOCHS = 300
 CACHE = Path("data/processed/cache")
 
@@ -77,14 +81,17 @@ def embed(rows: list[dict], variant: str, model: CLIPModel, proc: CLIPProcessor,
     return np.stack([cache[r["id"]] for r in rows])
 
 
-def train_probe(x: np.ndarray, y: np.ndarray, wd: float, seed: int = 0, n_classes: int = len(CLASSES)) -> torch.nn.Linear:
+def train_probe(
+    x: np.ndarray, y: np.ndarray, wd: float, seed: int = 0, n_classes: int = len(CLASSES), hidden: int = 0
+) -> torch.nn.Module:
+    """hidden=0: Linear(lr 1e-2), hidden>0: MLP(lr 1e-3)."""
     torch.manual_seed(seed)
     xt, yt = torch.tensor(x, dtype=torch.float32), torch.tensor(y)
     # 클래스 불균형(상의가 아우터의 5배 이상) 보정: 적은 클래스에 큰 가중치
     counts = torch.bincount(yt, minlength=n_classes).float()
     loss_fn = torch.nn.CrossEntropyLoss(weight=counts.sum() / (n_classes * counts.clamp(min=1)))
-    probe = torch.nn.Linear(x.shape[1], n_classes)
-    opt = torch.optim.AdamW(probe.parameters(), lr=1e-2, weight_decay=wd)
+    probe = make_head(x.shape[1], n_classes, hidden)
+    opt = torch.optim.AdamW(probe.parameters(), lr=1e-3 if hidden else 1e-2, weight_decay=wd)
     for _ in range(EPOCHS):  # 3천 장이라 전체 배치로 충분
         opt.zero_grad()
         loss_fn(probe(xt), yt).backward()
@@ -135,28 +142,52 @@ def main() -> None:
         test_pred = probe(torch.tensor(x["test"], dtype=torch.float32)).argmax(1).tolist()
     linear = metrics(y["test"].tolist(), test_pred)
 
+    # 모델 2: MLP. val 매크로 F1로 hidden·weight decay 고르기
+    best_mlp, best_mlp_f1, mlp_val = None, -1.0, {}
+    for h in HIDDENS:
+        for wd in WEIGHT_DECAYS:
+            m = train_probe(x["train"], y["train"], wd, hidden=h)
+            with torch.no_grad():
+                pred = m(torch.tensor(x["val"], dtype=torch.float32)).argmax(1).tolist()
+            f1 = metrics(y["val"].tolist(), pred)["macro_f1"]
+            mlp_val[f"{h}/{wd}"] = f1
+            if f1 > best_mlp_f1:
+                best_mlp, best_mlp_f1 = (h, wd), f1
+    mlp_model = train_probe(x["train"], y["train"], best_mlp[1], hidden=best_mlp[0])
+    with torch.no_grad():
+        mlp = metrics(y["test"].tolist(), mlp_model(torch.tensor(x["test"], dtype=torch.float32)).argmax(1).tolist())
+
     Path("weights").mkdir(exist_ok=True)
     torch.save(
         {"classes": CLASSES, "clip": CLIP, "variant": args.variant, "weight_decay": best_wd, "state_dict": probe.state_dict()},
         f"weights/garment4_probe_{args.variant}.pt",
+    )
+    torch.save(
+        {"classes": CLASSES, "clip": CLIP, "variant": args.variant, "hidden": best_mlp[0], "weight_decay": best_mlp[1], "state_dict": mlp_model.state_dict()},
+        f"weights/garment4_mlp_{args.variant}.pt",
     )
     report = {
         "variant": args.variant,
         "split_sizes": {k: len(v) for k, v in splits.items()},
         "zero_shot_test": zero_shot,
         "linear_probe": {"val_macro_f1_by_weight_decay": val_scores, "chosen_weight_decay": best_wd, "test": linear},
+        "mlp": {"val_macro_f1_by_hidden_weight_decay": mlp_val, "chosen": {"hidden": best_mlp[0], "weight_decay": best_mlp[1]}, "test": mlp},
     }
     Path("out").mkdir(exist_ok=True)
     Path(f"out/garment4_{args.variant}.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
-    log_run("garment4", {"variant": args.variant, "weight_decay": best_wd}, {"zero_shot": {k: zero_shot[k] for k in ("accuracy", "macro_f1")}, "linear": {k: linear[k] for k in ("accuracy", "macro_f1")}})
+    log_run(
+        "garment4",
+        {"variant": args.variant, "weight_decay": best_wd, "mlp_hidden": best_mlp[0], "mlp_weight_decay": best_mlp[1]},
+        {name: {k: m[k] for k in ("accuracy", "macro_f1")} for name, m in [("zero_shot", zero_shot), ("linear", linear), ("mlp", mlp)]},
+    )
 
     print(f"\n[{args.variant}] test {len(y['test'])}장")
     print(f"{'':10}{'정확도':>8}{'매크로F1':>9}  " + "  ".join(f"{c} 재현" for c in CLASSES))
-    for name, m in [("제로샷", zero_shot), ("linear", linear)]:
+    for name, m in [("제로샷", zero_shot), ("linear", linear), ("mlp", mlp)]:
         rec = "  ".join(f"{m['per_class'][c]['recall']:>7}" for c in CLASSES)
         print(f"{name:10}{m['accuracy']:>8}{m['macro_f1']:>9}  {rec}")
-    print("\nlinear 혼동 행렬 (행=정답, 열=예측):", CLASSES)
-    for c, row in zip(CLASSES, linear["confusion"]):
+    print("\nmlp 혼동 행렬 (행=정답, 열=예측):", CLASSES)
+    for c, row in zip(CLASSES, mlp["confusion"]):
         print(f"  {c:4} {row}")
 
 

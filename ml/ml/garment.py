@@ -18,7 +18,8 @@ from ml.background import BackgroundRemover
 from ml.colors import suggest_colors
 from ml.settings import WEIGHTS_DIR
 
-PROBE = WEIGHTS_DIR / "garment4_probe_both.pt"
+# 4분류: MLP(512→256→4, test 정확도 0.974)가 기본. 아직 받지 않았으면 예전 Linear(0.969)로 돈다
+PROBE = next((p for p in (WEIGHTS_DIR / "garment4_mlp_both.pt", WEIGHTS_DIR / "garment4_probe_both.pt") if p.exists()), WEIGHTS_DIR / "garment4_mlp_both.pt")
 SLEEVE_PROBE = WEIGHTS_DIR / "sleeve_probe.pt"  # 없으면 소매 기장은 결과에서 빠진다
 COLOR_PROBE = WEIGHTS_DIR / "color_probe.pt"  # 없으면 색 이름은 규칙(k-means + 팔레트)만 쓴다
 SLEEVE_CATEGORIES = {"상의", "아우터", "원피스"}  # 하의에는 소매가 없다
@@ -28,17 +29,25 @@ MIN_MASK_RATIO = 0.05  # 옷이 사진의 5% 미만이면 다시 찍기 안내
 COLOR_REVIEW_PROB = 0.5  # 색 모델 1위 확률이 이보다 낮으면 색을 사용자에게 고르게 한다
 
 
-def load_probe(path: Path) -> tuple[list[str], torch.nn.Linear, str] | None:
-    """FashionCLIP 벡터 위의 작은 분류기(Linear). 파일이 없으면 None."""
+def make_head(dim: int, n_classes: int, hidden: int = 0) -> torch.nn.Module:
+    """FashionCLIP 벡터 위의 작은 분류기. hidden=0이면 Linear, 아니면 MLP(Linear → GELU → Linear)."""
+    if not hidden:
+        return torch.nn.Linear(dim, n_classes)
+    return torch.nn.Sequential(torch.nn.Linear(dim, hidden), torch.nn.GELU(), torch.nn.Linear(hidden, n_classes))
+
+
+def load_probe(path: Path) -> tuple[list[str], torch.nn.Module, str] | None:
+    """저장된 분류기(Linear 또는 MLP). 파일이 없으면 None."""
     if not path.exists():
         return None
     ck = torch.load(path, map_location="cpu")
-    probe = torch.nn.Linear(ck["state_dict"]["weight"].shape[1], len(ck["classes"]))
+    dim = next(iter(ck["state_dict"].values())).shape[1]  # 첫 층 weight: (출력, 512)
+    probe = make_head(dim, len(ck["classes"]), ck.get("hidden", 0))
     probe.load_state_dict(ck["state_dict"])
     return ck["classes"], probe.eval(), ck["clip"]
 
 
-def rank(head: tuple[list[str], torch.nn.Linear, str], emb: np.ndarray) -> list[tuple[str, float]]:
+def rank(head: tuple[list[str], torch.nn.Module, str], emb: np.ndarray) -> list[tuple[str, float]]:
     with torch.no_grad():
         probs = head[1](torch.tensor(emb[None])).softmax(1)[0].tolist()
     return sorted(zip(head[0], probs), key=lambda x: -x[1])

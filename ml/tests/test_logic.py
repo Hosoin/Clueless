@@ -94,4 +94,24 @@ assert polygon_mask({}, 10, 10) is None
 noisy = np.random.default_rng(1).integers(0, 255, (60, 60, 3), dtype=np.uint8)
 assert suggest_colors(noisy) == suggest_colors(noisy)
 
+# 분류기 저장·불러오기: Linear(hidden 없음)와 MLP(hidden 있음) 둘 다 같은 출력으로 돌아온다
+import tempfile  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+import torch  # noqa: E402
+
+from ml.garment import load_probe, make_head  # noqa: E402
+
+x = torch.randn(3, 512)
+with tempfile.TemporaryDirectory() as d:
+    for hidden in (0, 256):
+        head = make_head(512, 4, hidden)
+        ck = {"classes": ["상의", "하의", "아우터", "원피스"], "clip": "clip", "state_dict": head.state_dict()}
+        if hidden:
+            ck["hidden"] = hidden
+        torch.save(ck, Path(d) / "h.pt")
+        classes, loaded, _ = load_probe(Path(d) / "h.pt")
+        assert classes[2] == "아우터" and torch.allclose(loaded(x), head(x)), hidden
+    assert load_probe(Path(d) / "없음.pt") is None
+
 print("ok")

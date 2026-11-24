@@ -4,7 +4,7 @@
 전체 흐름은 [파이프라인 정리 페이지](https://claude.ai/artifact/SbG46qG5RoNZA5RjT9xx1X)를 참고하세요.
 
 ```
-옷 사진 → 배경 제거(BiRefNet) → FashionCLIP(옷 1벌 = 512 벡터) → 작은 분류기들(4분류·소매·색, 직접 학습)
+옷 사진 → 배경 제거(BiRefNet) → FashionCLIP(옷 1벌 = 512 벡터) → 작은 분류기들(4분류는 MLP, 소매·색은 Linear, 직접 학습)
 옷장(벡터들) → 후보 조합 → 궁합 모델(직접 학습) + 취향·트렌드(예정) → 코디 상위 5개 + 근거
 ```
 
@@ -13,8 +13,8 @@
 ```bash
 cd ml
 uv sync                              # 맥·윈도우 같음. uv 필요: https://docs.astral.sh/uv/
-# 가중치 받기 (아래 "가중치" 참고). 최소: garment4_probe_both.pt, compat_mlp_polyvore.pt
-gh release download ml-weights-v0.1 -R Hosoin/Clueless -D weights
+# 가중치 받기 (아래 "가중치" 참고). 최소: garment4_mlp_both.pt(없으면 garment4_probe_both.pt), compat_mlp_polyvore.pt
+gh release download ml-weights-v0.1 -R Hosoin/Clueless -D weights && gh release download ml-weights-v0.2 -R Hosoin/Clueless -D weights
 uv run uvicorn ml.api:app --port 8000   # 요청·응답 명세: http://localhost:8000/docs
 ```
 
@@ -28,7 +28,8 @@ uv run uvicorn ml.api:app --port 8000   # 요청·응답 명세: http://localhos
 - **환경변수:** `WEIGHTS_DIR`(가중치 폴더, 기본 `weights`), `ML_API_KEY`(설정하면 `/v1/*`에 `X-API-Key` 헤더 필요. 백엔드만 호출하게)
 - **버전:** 분석 응답의 `model_versions.embedding`(FashionCLIP 고정 버전)이 바뀌면 옷장 DB의 벡터를 모두 다시 계산해야 합니다
 - **로그:** 요청마다 한 줄 JSON (경로·상태·지연 시간·예측 요약). 사진·벡터는 남기지 않습니다
-- **컨테이너:** `docker build -t clueless-ml .` → `docker run -p 8000:8000 -v "$PWD/weights:/app/weights:ro" clueless-ml` (리눅스는 CPU 전용 torch, 사전학습 모델은 이미지에 미리 받아 둠)
+- **서비스 배포 (Azure VM, Docker 없이):** [`deploy/README.md`](deploy/README.md) — `sudo bash ml/deploy/setup_vm.sh`로 설치·업데이트, systemd 서비스 `clueless-ml`
+- **컨테이너 (선택):** `docker build -t clueless-ml .` → `docker run -p 8000:8000 -v "$PWD/weights:/app/weights:ro" clueless-ml` (리눅스는 CPU 전용 torch, 사전학습 모델은 이미지에 미리 받아 둠)
 - **CI:** `ml/` 변경 PR마다 GitHub Actions가 테스트 실행 (모델·데이터 없이 도는 테스트)
 - **백엔드 연동:** [`docs/ml-api/`](../docs/ml-api/README.md) (흐름, 저장 구조 제안, `openapi.json`)
 - 장치는 자동 선택: NVIDIA GPU(cuda) → 맥 GPU(mps) → CPU. `CLUELESS_DEVICE=cpu`로 강제할 수 있습니다.
@@ -41,7 +42,8 @@ uv run uvicorn ml.api:app --port 8000   # 요청·응답 명세: http://localhos
 
 | 파일 | 역할 | 학습 데이터 | 받는 곳 |
 | --- | --- | --- | --- |
-| `garment4_probe_both.pt` | 4분류 (필수) | clothing-dataset (CC0) | Release `ml-weights-v0.1` |
+| `garment4_mlp_both.pt` | 4분류 (필수, MLP 512→256→4) | clothing-dataset (CC0) | Release `ml-weights-v0.2` |
+| `garment4_probe_both.pt` | 4분류 예전 Linear (MLP 파일이 없을 때만 씀) | clothing-dataset (CC0) | Release `ml-weights-v0.1` |
 | `compat_mlp_polyvore.pt` | 코디 궁합 (추천 API 필수) | Polyvore | Release `ml-weights-v0.1` |
 | `sleeve_probe.pt` | 소매 기장 (없으면 소매 생략) | K-Fashion + clothing-dataset | 팀 내부 공유 (AI-Hub 데이터로 학습, 공개 저장소에 올리지 않음) |
 | `color_probe.pt` | 대표색 (없으면 규칙으로 대체) | K-Fashion | 팀 내부 공유 (같은 이유) |
@@ -50,7 +52,7 @@ uv run uvicorn ml.api:app --port 8000   # 요청·응답 명세: http://localhos
 
 | 모델 | 준비 | 명령 | 결과 (test) |
 | --- | --- | --- | --- |
-| 4분류 | `git clone --depth 1 https://github.com/alexeygrigorev/clothing-dataset.git data/raw/clothing-dataset` → `uv run python -m ml.garment_data nobg` (배경 제거본, 맥 약 45분) | `uv run python -m ml.train_garment4` | 정확도 0.942 (제로샷 0.939) |
+| 4분류 | `git clone --depth 1 https://github.com/alexeygrigorev/clothing-dataset.git data/raw/clothing-dataset` → `uv run python -m ml.garment_data nobg` (배경 제거본, 맥 약 45분) | `uv run python -m ml.train_garment4` | MLP 정확도 0.974 / 매크로 F1 0.958 (Linear 0.969 / 0.950, 제로샷 0.953, 시드 5개 평균) |
 | 궁합 | `uv run python -m ml.compat_data` (Polyvore 2.5GB + 임베딩 약 10분) | `uv run python -m ml.train_compat` | AUC 0.70 (색 규칙 0.50) |
 | 소매 | K-Fashion (아래) | `uv run python -m ml.train_sleeve` | 개별 옷 사진 0.91, 착장 0.81 |
 | 색 | K-Fashion (아래) | `uv run python -m ml.train_color` | 0.71 (규칙 0.43) |

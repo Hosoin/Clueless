@@ -79,15 +79,20 @@ config/       MlProperties (@ConfigurationProperties("ml"))
 - **엔티티를 그대로 응답하지 않기:** 응답 DTO(record)로 매핑. 특히 `embedding`은 앱 응답에 넣지 않습니다.
 - **헬스 체크:** Actuator 헬스에 ML `/ready`를 넣으면 ML이 내려갔을 때 바로 보입니다.
 
-## 5. 로컬에서 같이 띄우기
+## 5. 띄우기
+
+**서비스 (Azure VM, Docker 없이):** 백엔드·DB와 같은 VM에서 ML API를 systemd 서비스로 띄웁니다. 백엔드는 `http://127.0.0.1:8000`으로 부르고, 8000번은 외부에 열지 않습니다.
+설치·키·운영은 [`ml/deploy/README.md`](../../ml/deploy/README.md) (`sudo bash ml/deploy/setup_vm.sh` 한 번).
+
+**개발용 (내 컴퓨터):**
 
 ```bash
-cd ml && uv sync && gh release download ml-weights-v0.1 -R Hosoin/Clueless -D weights
+cd ml && uv sync && gh release download ml-weights-v0.1 -R Hosoin/Clueless -D weights && gh release download ml-weights-v0.2 -R Hosoin/Clueless -D weights
 ML_API_KEY=dev-key uv run uvicorn ml.api:app --port 8000
 # 또는 컨테이너: docker build -t clueless-ml . && docker run -p 8000:8000 -v "$PWD/weights:/app/weights:ro" -e ML_API_KEY=dev-key clueless-ml
 ```
 
-Spring 쪽 `ml.base-url=http://localhost:8000`, `ml.api-key=dev-key`.
+Spring 쪽 `ml.base-url=http://localhost:8000`(VM에서는 `http://127.0.0.1:8000`), `ml.api-key`=ML 쪽 `ML_API_KEY`와 같은 값.
 
 ## 6. 바뀌면 알려야 하는 것
 
