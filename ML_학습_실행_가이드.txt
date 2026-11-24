@@ -1,0 +1,167 @@
+Clueless ML 학습 및 결과 확인 가이드
+====================================
+
+목표
+----
+clothing-dataset 사진으로 옷 종류 4분류 모델(상의/하의/아우터/원피스)을 학습하고,
+검증 결과와 혼동 행렬을 확인합니다.
+
+이 문서는 Windows PowerShell 기준입니다. 아래 명령은 저장소를 이미 내려받은 상태에서
+실행합니다. 학습 데이터와 모델 파일은 저장소에 커밋하지 마세요.
+
+
+1. 준비 사항
+-----------
+- Python 3.12 이상
+- uv
+- Git
+- 인터넷 연결 (패키지, 데이터, 사전학습 모델을 처음 받을 때 필요)
+- 여유 디스크 공간 및 학습 시간
+
+uv가 설치되지 않았다면 공식 안내를 참고하세요:
+https://docs.astral.sh/uv/
+
+
+2. ML 폴더로 이동하고 환경 설정
+-------------------------------
+저장소 루트에서 PowerShell을 열고 실행합니다.
+
+    Set-Location .\ml
+    uv sync
+
+Python 버전을 확인하려면:
+
+    uv run python --version
+
+프로젝트가 요구하는 Python 버전은 3.12 이상입니다.
+
+
+3. 학습 데이터 받기
+------------------
+clothing-dataset(CC0) 데이터셋을 ml/data/raw/clothing-dataset에 받습니다.
+
+    git clone --depth 1 https://github.com/alexeygrigorev/clothing-dataset.git data/raw/clothing-dataset
+
+이미 해당 폴더가 있다면 clone을 다시 실행하지 말고 다음 단계로 넘어갑니다.
+데이터가 준비됐는지, 촬영자 단위 분할과 클래스별 사진 수가 어떤지 확인합니다.
+
+    uv run python -m ml.garment_data
+
+사진 수가 0이거나 파일을 찾을 수 없다는 오류가 나면 현재 위치가 ml 폴더인지,
+data/raw/clothing-dataset/images.csv가 있는지 확인하세요.
+
+
+4. 빠른 실행 확인 (원본 사진으로 학습)
+-------------------------------------
+배경 제거 전처리를 기다리지 않고 학습 흐름이 동작하는지 먼저 확인하려면:
+
+    uv run python -m ml.train_garment4 --variant raw
+
+처음 실행하면 FashionCLIP 모델 다운로드와 이미지 임베딩 계산 때문에 시간이 걸릴 수
+있습니다. 이후 실행에서는 캐시를 재사용합니다.
+
+raw 실행 결과는 전체 권장 학습 결과와 직접 비교하지 마세요. 서비스의 기본 입력에
+맞춘 평가를 하려면 다음 단계의 both 학습을 사용합니다.
+
+
+5. 권장 학습 (원본 + 배경 제거 사진)
+------------------------------------
+배경 제거 데이터(nobg)를 만듭니다. 사진 수와 컴퓨터 성능에 따라 시간이 꽤 걸릴 수
+있으며, 첫 실행 때 BiRefNet 모델도 다운로드됩니다.
+
+    uv run python -m ml.garment_data nobg
+
+전처리가 끝나면 원본과 배경 제거 사진을 함께 학습하고, 배경 제거 사진으로 평가합니다.
+
+    uv run python -m ml.train_garment4
+
+기본 설정과 같은 명령을 명시적으로 쓰려면:
+
+    uv run python -m ml.train_garment4 --variant both
+
+나중에 중단된 전처리를 다시 실행하면 이미 만들어진 배경 제거 파일은 건너뛰고 남은
+파일을 처리합니다.
+
+
+6. 결과 확인
+------------
+학습이 끝나면 ml 폴더 기준으로 다음 파일이 생성됩니다.
+
+- out/garment4_both.json: 정확도, 매크로 F1, 클래스별 precision/recall/F1,
+  혼동 행렬 및 검증에서 선택된 weight decay
+- out/runs.jsonl: 학습 설정과 요약 지표를 기록한 실행 로그
+- weights/garment4_probe_both.pt: 추론에 사용할 학습된 모델
+- data/processed/cache/: 다시 실행할 때 사용하는 이미지 임베딩 캐시
+
+터미널에도 test 정확도, 매크로 F1, 클래스별 재현율, 혼동 행렬이 출력됩니다.
+혼동 행렬은 행이 정답, 열이 예측입니다. 예를 들어 상의 행에서 아우터 열의 수가 크면
+정답이 상의인 사진을 아우터로 분류한 경우가 많다는 뜻입니다.
+
+README에 적힌 정확도 0.942는 기존 실행의 참고값이지 보장값은 아닙니다. 데이터,
+라벨 수정, 실행 조건에 따라 달라질 수 있습니다.
+
+
+7. 팀 사진으로 실제 입력 성능 확인 (선택)
+----------------------------------------
+모델이 학습 데이터 외의 실제 옷 사진에서 어떻게 동작하는지 보려면 개인정보가 없는
+사진을 준비합니다. 옷 한 벌씩, 바닥에 펼쳐 위에서 찍거나 옷걸이에 걸어 정면에서
+찍은 사진을 권장합니다.
+
+이 평가는 weights/garment4_probe_both.pt를 사용하므로, 5단계의 권장 학습을 완료해야
+합니다. raw 학습만 했다면 아래 평가를 실행하기 전에 권장 학습을 먼저 실행하세요.
+
+사진 폴더를 정리합니다. 아래 경로를 실제 사진 폴더 경로로 바꿔 실행하세요.
+
+    uv run python -m ml.eval_team prepare "C:\경로\팀원사진"
+
+정리된 사진과 정답표는 ml/data/raw/team_photos에 생성됩니다.
+data/raw/team_photos/labels.csv를 스프레드시트에서 열어 각 사진의 category를 입력합니다.
+허용되는 category 값은 상의, 하의, 아우터, 원피스입니다. 필요하면 sleeve와 color도
+입력할 수 있습니다. 아우터는 다른 옷 위에 걸치고 앞이 열리는 옷으로 통일합니다.
+
+정답을 저장한 뒤 평가합니다.
+
+    uv run python -m ml.eval_team
+
+결과:
+- out/team_eval.json: 항목별 정확도와 확인 필요 표시 관련 요약
+- out/team_eval_rows.csv: 사진별 정답, 예측, 확률 및 오답
+
+평가 대상이 적으면 결과가 크게 흔들릴 수 있습니다. 가능하면 여러 사람과 다양한 종류의
+옷 사진을 모으고, 학습 데이터와 별도로 보관한 평가 사진으로 비교하세요.
+
+
+8. 자주 쓰는 명령 모음
+---------------------
+
+    # 분할과 클래스별 사진 수 확인
+    uv run python -m ml.garment_data
+
+    # 원본 사진으로 빠르게 학습 확인
+    uv run python -m ml.train_garment4 --variant raw
+
+    # 배경 제거 이미지 생성
+    uv run python -m ml.garment_data nobg
+
+    # 권장 설정으로 학습
+    uv run python -m ml.train_garment4
+
+    # 팀 사진 정리 (경로를 실제 폴더로 변경)
+    uv run python -m ml.eval_team prepare "C:\경로\팀원사진"
+
+    # 팀 사진 평가
+    uv run python -m ml.eval_team
+
+
+문제 해결 참고
+--------------
+- 명령을 실행할 때 현재 위치가 저장소의 ml 폴더인지 확인합니다.
+- Hugging Face 모델 다운로드가 실패하면 네트워크 연결을 확인하고 같은 명령을 다시
+  실행합니다.
+- Windows + NVIDIA 환경에서도 기본 PyTorch 설치가 CPU 버전일 수 있습니다. GPU가
+  사용되지 않더라도 학습은 가능하지만 더 오래 걸릴 수 있습니다.
+- 학습 가중치(weights/*.pt), 원본 데이터(data/raw), 가공 데이터(data/processed)는
+  저장소에 추가하지 않습니다.
+
+자세한 배경 및 데이터 설명은 ml/README.md의 "다시 학습하기"와
+"팀원 사진으로 실제 정확도 재기" 항목을 참고하세요.

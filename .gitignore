@@ -1,0 +1,59 @@
+# Environment and credentials (.env.example must contain placeholders only)
+.env
+.env.*
+!.env.example
+secrets/
+credentials.json
+service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Frontend dependencies and output
+node_modules/
+dist/
+.next/
+coverage/
+
+# Java / Spring Boot output (keep Gradle wrapper JAR trackable)
+.gradle/
+build/
+target/
+*.class
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Local datasets, uploads, experiment outputs, model assets and caches
+# Approved source fixtures can live outside these directories.
+data/
+dataset/
+datasets/
+out/
+uploads/
+/sample/
+samples/
+weights/
+.cache/
+cache/
+caches/
+.huggingface/
+mlruns/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+*.parquet
+*.npz
+
+# macOS metadata
+.DS_Store

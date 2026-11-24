@@ -1,0 +1,31 @@
+# ml/ 변경이 있는 PR·푸시에서 모델 없이 도는 테스트를 실행한다 (가중치·데이터·사전학습 모델 다운로드 없음)
+name: ml-tests
+
+on:
+  pull_request:
+    paths: ["ml/**", ".github/workflows/ml-tests.yml"]
+  push:
+    branches: [main]
+    paths: ["ml/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.18"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: tests
+        run: |
+          for t in test_logic test_api test_outfits test_recommend test_eval_team test_garment_attributes; do
+            uv run python -m tests.$t
+          done

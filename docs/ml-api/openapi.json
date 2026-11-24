@@ -1,0 +1,1287 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Clueless ML",
+    "version": "0.3.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "summary": "Ready",
+        "description": "Garment analysis readiness. Recommendation loads independently on demand.",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Ready Ready Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Garment analysis model not ready"
+          }
+        }
+      }
+    },
+    "/v1/garments/analyze": {
+      "post": {
+        "summary": "Analyze",
+        "operationId": "analyze_v1_garments_analyze_post",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyze_v1_garments_analyze_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GarmentAnalysis"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unreadable image"
+          },
+          "413": {
+            "description": "Image size, resolution or aspect ratio exceeds upload limits"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/garments/analyze/attributes": {
+      "post": {
+        "summary": "Analyze With Attributes",
+        "description": "Opt-in garment analysis: same result plus visual-attribute metadata.",
+        "operationId": "analyze_with_attributes_v1_garments_analyze_attributes_post",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyze_with_attributes_v1_garments_analyze_attributes_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtendedGarmentAnalysis"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unreadable image"
+          },
+          "413": {
+            "description": "Image size, resolution or aspect ratio exceeds upload limits"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/outfits/recommend": {
+      "post": {
+        "summary": "Recommend Outfits",
+        "operationId": "recommend_outfits_v1_outfits_recommend_post",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Recommendation checkpoint missing or unable to load; no fallback"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AttributeBackgroundRemoval": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "revision": {
+            "type": "string",
+            "title": "Revision"
+          },
+          "threshold": {
+            "type": "number",
+            "title": "Threshold"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "revision",
+          "threshold"
+        ],
+        "title": "AttributeBackgroundRemoval"
+      },
+      "AttributeClipPreprocessing": {
+        "properties": {
+          "resize": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resize"
+          },
+          "center_crop": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Center Crop"
+          },
+          "limitation": {
+            "type": "string",
+            "title": "Limitation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resize",
+          "center_crop",
+          "limitation"
+        ],
+        "title": "AttributeClipPreprocessing"
+      },
+      "AttributeInputRegion": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "clip_processor_applied": {
+            "type": "boolean",
+            "title": "Clip Processor Applied"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "clip_processor_applied"
+        ],
+        "title": "AttributeInputRegion"
+      },
+      "AttributePreprocessing": {
+        "properties": {
+          "exif_transpose_applied": {
+            "type": "boolean",
+            "title": "Exif Transpose Applied",
+            "description": "EXIF transpose is enabled for category input only."
+          },
+          "clip": {
+            "$ref": "#/components/schemas/AttributeClipPreprocessing"
+          },
+          "clip_model": {
+            "type": "string",
+            "title": "Clip Model"
+          },
+          "clip_revision": {
+            "type": "string",
+            "title": "Clip Revision"
+          },
+          "category_version": {
+            "type": "string",
+            "title": "Category Version"
+          },
+          "crop_version": {
+            "type": "string",
+            "title": "Crop Version"
+          },
+          "crop_exif_transpose_applied": {
+            "type": "boolean",
+            "title": "Crop Exif Transpose Applied"
+          },
+          "crop_max_side": {
+            "type": "integer",
+            "title": "Crop Max Side"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exif_transpose_applied",
+          "clip",
+          "clip_model",
+          "clip_revision",
+          "category_version",
+          "crop_version",
+          "crop_exif_transpose_applied",
+          "crop_max_side"
+        ],
+        "title": "AttributePreprocessing"
+      },
+      "AttributeTarget": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "const": "single_representative_garment_assumption",
+            "title": "Mode"
+          },
+          "multi_garment_detection": {
+            "type": "boolean",
+            "const": false,
+            "title": "Multi Garment Detection"
+          },
+          "limitation": {
+            "type": "string",
+            "title": "Limitation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode",
+          "multi_garment_detection",
+          "limitation"
+        ],
+        "title": "AttributeTarget"
+      },
+      "Body_analyze_v1_garments_analyze_post": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "Body_analyze_v1_garments_analyze_post"
+      },
+      "Body_analyze_with_attributes_v1_garments_analyze_attributes_post": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "Body_analyze_with_attributes_v1_garments_analyze_attributes_post"
+      },
+      "Category": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "prob": {
+            "type": "number",
+            "title": "Prob"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "prob"
+        ],
+        "title": "Category"
+      },
+      "CategoryMetadata": {
+        "properties": {
+          "input_region": {
+            "$ref": "#/components/schemas/AttributeInputRegion"
+          },
+          "score_type": {
+            "type": "string",
+            "const": "uncalibrated_softmax",
+            "title": "Score Type"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          },
+          "architecture": {
+            "type": "string",
+            "enum": [
+              "MLP512->64->4 ReLU",
+              "linear"
+            ],
+            "title": "Architecture"
+          },
+          "checkpoint": {
+            "type": "string",
+            "title": "Checkpoint"
+          },
+          "checkpoint_sha256": {
+            "type": "string",
+            "title": "Checkpoint Sha256"
+          },
+          "clip_revision_source": {
+            "type": "string",
+            "title": "Clip Revision Source"
+          },
+          "classes_in_head_order": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Classes In Head Order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "input_region",
+          "score_type",
+          "needs_review",
+          "architecture",
+          "checkpoint",
+          "checkpoint_sha256",
+          "clip_revision_source",
+          "classes_in_head_order"
+        ],
+        "title": "CategoryMetadata"
+      },
+      "ClosetItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "상의",
+              "하의",
+              "아우터",
+              "원피스"
+            ],
+            "title": "Category"
+          },
+          "subcategory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subcategory"
+          },
+          "sleeve": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "민소매",
+                  "반팔",
+                  "7부",
+                  "긴팔"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleeve"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
+          "embedding": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 512,
+            "minItems": 512,
+            "title": "Embedding"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "category",
+          "embedding"
+        ],
+        "title": "ClosetItem"
+      },
+      "Color": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "rgb": {
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Rgb"
+          },
+          "ratio": {
+            "type": "number",
+            "title": "Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "rgb",
+          "ratio"
+        ],
+        "title": "Color"
+      },
+      "ColorMetadata": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "const": "cie_lab_kmeans_k3_nearest_palette20_cie76",
+            "title": "Method"
+          },
+          "extraction_region": {
+            "$ref": "#/components/schemas/AttributeInputRegion"
+          },
+          "ratio_type": {
+            "type": "string",
+            "const": "share_of_selected_pixels_not_probability",
+            "title": "Ratio Type"
+          },
+          "swatches_field": {
+            "type": "string",
+            "const": "colors",
+            "title": "Swatches Field"
+          },
+          "representative_color_field": {
+            "type": "string",
+            "const": "color_name",
+            "title": "Representative Color Field"
+          },
+          "representative_color_method": {
+            "type": "string",
+            "enum": [
+              "supervised_fashionclip_color_head",
+              "rule_palette_only"
+            ],
+            "title": "Representative Color Method"
+          },
+          "representative_color_input_region": {
+            "$ref": "#/components/schemas/AttributeInputRegion"
+          },
+          "representative_color_score_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "uncalibrated_softmax"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Representative Color Score Type"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          }
+        },
+        "type": "object",
+        "required": [
+          "method",
+          "extraction_region",
+          "ratio_type",
+          "swatches_field",
+          "representative_color_field",
+          "representative_color_method",
+          "representative_color_input_region",
+          "representative_color_score_type",
+          "needs_review"
+        ],
+        "title": "ColorMetadata"
+      },
+      "ColorName": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "prob": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prob"
+          },
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "prob",
+          "candidates",
+          "needs_review"
+        ],
+        "title": "ColorName"
+      },
+      "ExtendedGarmentAnalysis": {
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "category_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Category"
+            },
+            "type": "array",
+            "title": "Category Candidates"
+          },
+          "colors": {
+            "items": {
+              "$ref": "#/components/schemas/Color"
+            },
+            "type": "array",
+            "title": "Colors"
+          },
+          "color_name": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColorName"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sleeve": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sleeve"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mask_ratio": {
+            "type": "number",
+            "title": "Mask Ratio"
+          },
+          "retake": {
+            "type": "boolean",
+            "title": "Retake"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          },
+          "crop_png_base64": {
+            "type": "string",
+            "title": "Crop Png Base64"
+          },
+          "embedding": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 512,
+            "minItems": 512,
+            "title": "Embedding",
+            "description": "512D L2 FashionCLIP closet vector from the display-crop path, not the category input."
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version",
+            "description": "Active category checkpoint identity (name and SHA-256)."
+          },
+          "model_versions": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Model Versions",
+            "description": "Version map including category and closet-embedding preprocessing IDs."
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/GarmentAttributes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "category_candidates",
+          "colors",
+          "color_name",
+          "sleeve",
+          "mask_ratio",
+          "retake",
+          "needs_review",
+          "crop_png_base64",
+          "embedding",
+          "model_version",
+          "model_versions",
+          "attributes"
+        ],
+        "title": "ExtendedGarmentAnalysis"
+      },
+      "GarmentAnalysis": {
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "category_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Category"
+            },
+            "type": "array",
+            "title": "Category Candidates"
+          },
+          "colors": {
+            "items": {
+              "$ref": "#/components/schemas/Color"
+            },
+            "type": "array",
+            "title": "Colors"
+          },
+          "color_name": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColorName"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sleeve": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sleeve"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mask_ratio": {
+            "type": "number",
+            "title": "Mask Ratio"
+          },
+          "retake": {
+            "type": "boolean",
+            "title": "Retake"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          },
+          "crop_png_base64": {
+            "type": "string",
+            "title": "Crop Png Base64"
+          },
+          "embedding": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 512,
+            "minItems": 512,
+            "title": "Embedding",
+            "description": "512D L2 FashionCLIP closet vector from the display-crop path, not the category input."
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version",
+            "description": "Active category checkpoint identity (name and SHA-256)."
+          },
+          "model_versions": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Model Versions",
+            "description": "Version map including category and closet-embedding preprocessing IDs."
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "category_candidates",
+          "colors",
+          "color_name",
+          "sleeve",
+          "mask_ratio",
+          "retake",
+          "needs_review",
+          "crop_png_base64",
+          "embedding",
+          "model_version",
+          "model_versions"
+        ],
+        "title": "GarmentAnalysis"
+      },
+      "GarmentAttributes": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schema Version"
+          },
+          "target": {
+            "$ref": "#/components/schemas/AttributeTarget"
+          },
+          "preprocessing": {
+            "$ref": "#/components/schemas/AttributePreprocessing"
+          },
+          "background_removal": {
+            "$ref": "#/components/schemas/AttributeBackgroundRemoval"
+          },
+          "category": {
+            "$ref": "#/components/schemas/CategoryMetadata"
+          },
+          "embedding_input_region": {
+            "$ref": "#/components/schemas/AttributeInputRegion"
+          },
+          "color": {
+            "$ref": "#/components/schemas/ColorMetadata"
+          },
+          "visual_texture": {
+            "$ref": "#/components/schemas/VisualTexture"
+          },
+          "fiber_material": {
+            "type": "null",
+            "title": "Fiber Material"
+          },
+          "fiber_material_reason": {
+            "type": "string",
+            "title": "Fiber Material Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schema_version",
+          "target",
+          "preprocessing",
+          "background_removal",
+          "category",
+          "embedding_input_region",
+          "color",
+          "visual_texture",
+          "fiber_material",
+          "fiber_material_reason"
+        ],
+        "title": "GarmentAttributes"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "RecommendRequest": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClosetItem"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Items"
+          },
+          "k": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "K",
+            "default": 5
+          },
+          "include_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Id"
+          },
+          "allow_layering": {
+            "type": "boolean",
+            "title": "Allow Layering",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "RecommendRequest"
+      },
+      "RecommendResponse": {
+        "properties": {
+          "outfits": {
+            "items": {
+              "$ref": "#/components/schemas/RecommendedOutfit"
+            },
+            "type": "array",
+            "title": "Outfits"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "outfits",
+          "model_version"
+        ],
+        "title": "RecommendResponse"
+      },
+      "RecommendedOutfit": {
+        "properties": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "template": {
+            "type": "string",
+            "title": "Template"
+          },
+          "roles": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Roles"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "score_parts": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Score Parts"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "template",
+          "roles",
+          "score",
+          "score_parts",
+          "reasons"
+        ],
+        "title": "RecommendedOutfit"
+      },
+      "Sleeve": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "민소매",
+              "반팔",
+              "7부",
+              "긴팔"
+            ],
+            "title": "Name"
+          },
+          "prob": {
+            "type": "number",
+            "title": "Prob"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "prob",
+          "needs_review"
+        ],
+        "title": "Sleeve"
+      },
+      "TextureCandidate": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "score"
+        ],
+        "title": "TextureCandidate"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VisualTexture": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "prob": {
+            "type": "null",
+            "title": "Prob"
+          },
+          "method": {
+            "type": "string",
+            "const": "zero_shot_similarity",
+            "title": "Method"
+          },
+          "score_type": {
+            "type": "string",
+            "const": "cosine_similarity",
+            "title": "Score Type"
+          },
+          "input_region": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AttributeInputRegion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prompt_version": {
+            "type": "string",
+            "title": "Prompt Version"
+          },
+          "non_exclusive": {
+            "type": "boolean",
+            "const": true,
+            "title": "Non Exclusive"
+          },
+          "candidate_policy": {
+            "type": "string",
+            "title": "Candidate Policy"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/TextureCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "review_options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Review Options"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "const": true,
+            "title": "Needs Review"
+          },
+          "review_reason": {
+            "type": "string",
+            "title": "Review Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "score",
+          "prob",
+          "method",
+          "score_type",
+          "input_region",
+          "prompt_version",
+          "non_exclusive",
+          "candidate_policy",
+          "candidates",
+          "review_options",
+          "needs_review",
+          "review_reason"
+        ],
+        "title": "VisualTexture"
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "manifest_version": 1,
+  "default_choice": "mlp",
+  "checkpoint": {
+    "filename": "garment4_mlp_secondhand_balanced264_20261124_seed0.pt",
+    "location": "ml/weights/garment4_mlp_secondhand_balanced264_20261124_seed0.pt",
+    "bytes": 135005,
+    "sha256": "59232b1a34deb046984cce8b9d68dfd2a852ae53aa899ce62e5aae695eb7bd10",
+    "local_source": "out/garment4_secondhand_balanced264_20261124T0429053807666Z/cumulative_mlp_seed0.pt",
+    "architecture": "MLP512->64->4 ReLU",
+    "classes_in_head_order": ["상의", "하의", "아우터", "원피스"],
+    "seed": 0,
+    "epochs": 100,
+    "weight_decay": 0.0,
+    "fixed_split_sha256": "13000a860e69e18bb261051663a342dde87eaecf0e35e4e15134abf9b3067162"
+  },
+  "feature_contract": {
+    "encoder": "patrickjohncyh/fashion-clip",
+    "encoder_revision": "7e3ba62ce16b379a1ab479346b66f192e76f51b7",
+    "embedding_dimension": 512,
+    "normalization": "L2",
+    "category_preprocessing_version": "exif_rgb_white_alpha_full_frame_fashionclip_l2_v1",
+    "category_input": "EXIF-corrected unsegmented original frame, transparency composited on white, RGB, then the pinned FashionCLIP processor (resize and center crop). Second-Hand source photos had already undergone upstream processing.",
+    "public_embedding": "The separate historical BiRefNet display-crop vector, not the category vector."
+  },
+  "training": {
+    "total": 5363,
+    "counts_by_class_in_head_order": [2346, 1311, 901, 805],
+    "sources": [
+      {
+        "name": "clothing-dataset",
+        "source": "https://github.com/alexeygrigorev/clothing-dataset",
+        "license": "CC0",
+        "train_count": 3099
+      },
+      {
+        "name": "Clothing Dataset for Second-Hand Fashion",
+        "creator": "Farrukh Nauman (RISE Research Institutes of Sweden AB)",
+        "collection_partners": ["RISE Research Institutes of Sweden AB", "Wargön Innovation AB", "Myrorna AB"],
+        "acknowledgments": ["Vinnova", "CISUTAC"],
+        "source": "https://doi.org/10.5281/zenodo.13788681",
+        "derivative_attribution": "Wargön Innovation, wargoninnovation/clothingdatasetsecondhand",
+        "derivative_source": "https://huggingface.co/datasets/wargoninnovation/clothingdatasetsecondhand/tree/2056e79dc1771bf32a67ad0f437b0250041ec117",
+        "license": "CC BY 4.0",
+        "license_url": "https://creativecommons.org/licenses/by/4.0/",
+        "derivative_changes": "Background removal, cleaning and resize to 224x224 as documented by the upstream dataset card.",
+        "local_changes": "Selected front-view items, filtered ambiguous/duplicate rows, remapped metadata labels to four project labels, built item-group splits and trained a FashionCLIP head; shards not modified or redistributed.",
+        "train_count": 2264,
+        "retained_train_count": 2000,
+        "additional_train_count": 264
+      }
+    ],
+    "not_used": ["Fashionpedia", "K-Fashion", "Sample4"]
+  },
+  "limitations": [
+    "The 200-image new holdout is balanced and from the same Second-Hand source, with 50 frontal samples per class. Seed 0: accuracy 89.50%, macro-F1 89.55%. Neither this nor the four diagnostic photos establishes production performance.",
+    "No confidence calibration. One representative garment is assumed; backgrounds, people, multiple garments and processor center-cropping can affect results.",
+    "Label and upstream photo-processing bias remain. Exact/perceptual hash audits cannot exclude semantic duplicates or overlap with encoder pretraining.",
+    "No endorsement or grant of other rights is implied. Dataset attribution is not permission to redistribute photos, third-party assets or restricted optional model heads. Review rights before separately sharing any checkpoint."
+  ],
+  "distribution": "Do not commit model binaries, datasets, source photos or out/. Provision this exact trusted file separately from Git (local copy or rights-reviewed team artifact channel). Keep this manifest alongside any authorized handoff and verify its SHA-256. Use only trusted local checkpoints and pinned, reviewed model caches."
+}
