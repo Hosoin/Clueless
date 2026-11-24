@@ -97,7 +97,8 @@ data/seed.ts ──(앱이 켜질 때 한 번 복사)──▶ store.ts 의 S �
 6. 화면 이동은 컴포넌트 안에서는 `useNavigate()`, 창 안의 버튼처럼 컴포넌트 밖에서는 `nav.ts`의 `go`를 씁니다.
 
 - 저장은 메모리뿐입니다. 새로고침하면 `seed.ts`의 처음 상태로 돌아갑니다. (`localStorage`도 쓰지 않습니다)
-- 백엔드가 생기면 `seed.ts`가 하던 일을 API 호출이 대신합니다. 방법은 [`docs/API_CONVENTION.md`](docs/API_CONVENTION.md)를 참고하세요.
+- **지금은 백엔드 API가 연결되지 않아서 모든 데이터가 `seed.ts`의 가짜 데이터입니다.** 백엔드는 `closet-service`(8081)와 `recommendation-service`(8082) 두 서비스이고, 아직 업무 API 없이 `GET /test`만 응답합니다.
+- API가 열리면 서비스별로 `seed.ts`가 하던 일을 `src/api/`의 요청 함수가 대신합니다. 그때까지는 같은 함수가 가짜 데이터를 돌려주는 방식으로 넘어갑니다. 자세한 방법은 [`docs/API_CONVENTION.md`](docs/API_CONVENTION.md)를 참고하세요.
 - 화면 구성에만 쓰는 보기 상태(`kView`, `cTab` 등)도 `S`에 있어서, 탭을 옮겨 다녀도 유지됩니다.
 
 ### 새 화면 추가하기
