@@ -27,6 +27,8 @@ export default function Home() {
   const nav = useNavigate()
   const scrRef = useRef<HTMLElement>(null)
   const foldRef = useRef<HTMLDivElement>(null)
+  // 돌리는 중에 다른 탭으로 가면 타이머를 멈추고 바로 추천 코디에 맞춰 둔다 (나간 뒤에도 emit()이 계속 불리지 않게)
+  useEffect(() => () => finishSpin(), []) // finishSpin은 돌릴 때마다 바뀌므로 나가는 시점의 것을 부름
   clampPos()
   const L = lists()
   const c = current(), o = S.outfits[S.oi], same = comboKey(c) === outfitKey(o), rows = rowsOf(c)
@@ -185,6 +187,11 @@ function Avatar({ c }: { c: Combo }) {
   return <div className="astage" ref={ref} />
 }
 
+/** 돌리기 타이머 id. 화면을 나갈 때 멈추려고 둔다 (돌고 있지 않으면 0) */
+let spinTimer = 0
+/** 돌리기를 바로 끝낸다: 타이머를 멈추고 줄을 멈출 자리(추천 코디)에 둔다. 돌고 있지 않으면 아무것도 안 함 */
+let finishSpin = () => {}
+
 /* 추천 코디로 맞추기: 줄마다 옷이 빠르게 돌다가 위에서부터 차례로 추천 코디에 멈춤 */
 function spinTo(i: number) {
   if (S.spinning) return
@@ -197,6 +204,12 @@ function spinTo(i: number) {
   const L = lists()
   const stop: Record<RowKey, number> = { t: 6, m: 7, j: 8, o: 9, b: 10 } // 줄마다 멈추는 차례 (전체 약 1초)
   S.spinning = true
+  // 화면을 나갈 때 Home의 useEffect 정리에서 불림. 다시 그리기는 하지 않는다 (홈이 이미 사라지는 중이고, 돌아오면 이 상태로 그려짐)
+  finishSpin = () => {
+    clearTimeout(spinTimer); spinTimer = 0
+    Object.assign(S.pos, target); Object.assign(S.on, onTarget); S.spinning = false; S.spinKeys.clear()
+    finishSpin = () => {}
+  }
   let tick = 0
   const run = () => {
     tick++
@@ -209,9 +222,9 @@ function spinTo(i: number) {
         if (k === 't' && L.t[S.pos.t].cat === '원피스') S.pos.t = (S.pos.t + 1) % n // 도는 동안 줄 수가 바뀌지 않게
       } else { S.pos[k] = target[k]; S.spinKeys.delete(k) }
     }
-    if (done) { Object.assign(S.on, onTarget); S.spinning = false; S.spinKeys.clear(); emit(); return }
+    if (done) { Object.assign(S.on, onTarget); S.spinning = false; S.spinKeys.clear(); spinTimer = 0; finishSpin = () => {}; emit(); return }
     emit()
-    setTimeout(run, 45 + tick * 8)
+    spinTimer = window.setTimeout(run, 45 + tick * 8)
   }
   run()
 }
