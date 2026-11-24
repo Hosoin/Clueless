@@ -9,7 +9,7 @@ main        ← 운영 (전체 팀 공용)
   ↑ PR (Create a merge commit)
 frontend    ← 스테이징 (개발 서버 자동 배포)
   ↑ PR (Squash and merge)
-feat/*, fix/*, docs/* ...   ← 작업 브랜치
+FE/feat/*, FE/fix/*, FE/docs/* ...   ← 작업 브랜치
 ```
 
 | 브랜치 | 역할 | 직접 커밋 |
@@ -20,21 +20,24 @@ feat/*, fix/*, docs/* ...   ← 작업 브랜치
 
 ### 작업 브랜치 이름
 
-`<type>/<짧은-설명>` 형식으로, type은 커밋 type과 같은 것을 씁니다. 설명은 영어 소문자와 `-`로 씁니다.
+`FE/<type>/<짧은-설명>` 형식입니다. 맨 앞에 `FE/`를 붙여서 브랜치 목록에서 프론트엔드 작업임을 바로 알아보게 합니다. type은 커밋 type과 같은 것을 쓰고, 설명은 영어 소문자와 `-`로 씁니다.
 
-- `feat/upload-candidate`
-- `fix/camera-off`
-- `docs/git-convention`
+- `FE/feat/upload-candidate`
+- `FE/fix/camera-off`
+- `FE/docs/git-convention`
+
+- `FE`는 대문자로 씁니다.
+- 장수 브랜치(`main`, `frontend`)에는 이 규칙을 적용하지 않습니다.
 
 ## 2. 작업 순서
 
 ```bash
 git switch frontend
 git pull
-git switch -c feat/my-work
+git switch -c FE/feat/my-work
 
 # 작업하고 커밋
-git push -u origin feat/my-work
+git push -u origin FE/feat/my-work
 # GitHub에서 base를 frontend로 해서 PR 생성
 ```
 
@@ -157,7 +160,7 @@ refactor(closet): 필터 로직을 훅으로 분리
 
 ### 긴급 수정(hotfix)
 
-- `main`에서 바로 고쳐야 할 때는 `main`에서 `fix/*` 브랜치를 따서 `main`으로 PR합니다.
+- `main`에서 바로 고쳐야 할 때는 `main`에서 `FE/fix/*` 브랜치를 따서 `main`으로 PR합니다.
 - 반영한 뒤에는 `main`을 `frontend`로 다시 머지해서 두 브랜치가 갈라지지 않게 합니다.
 
 ## 7. 브랜치 보호 설정
