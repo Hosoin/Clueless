@@ -172,7 +172,7 @@ class ClosetItem(BaseModel):
     subcategory: str | None = None  # 레이어드용 (셔츠, 니트, 티셔츠, 민소매 …)
     sleeve: Literal["민소매", "반팔", "7부", "긴팔"] | None = None  # 레이어드용
     tags: list[str] = []
-    embedding: list[float] = Field(min_length=EMB_DIM, max_length=EMB_DIM)  # 등록 때 analyze가 준 벡터
+    embedding: list[float] | None = Field(None, min_length=EMB_DIM, max_length=EMB_DIM)  # 등록 때 analyze가 준 벡터. 사진 없이 입력한 옷은 null (궁합에서 빠짐)
 
 
 class RecommendRequest(BaseModel):
@@ -203,7 +203,7 @@ def recommend_outfits(req: RecommendRequest, rec: Recommender = Depends(get_reco
         raise HTTPException(400, "옷 id가 중복되었습니다")
     if req.include_id and req.include_id not in ids:
         raise HTTPException(400, "include_id가 옷장 목록에 없습니다")
-    emb = {it.id: np.asarray(it.embedding, dtype=np.float32) for it in req.items}
+    emb = {it.id: np.asarray(it.embedding, dtype=np.float32) for it in req.items if it.embedding is not None}
     items = [it.model_dump(exclude={"embedding"}) for it in req.items]
     start = time.perf_counter()
     with _lock:

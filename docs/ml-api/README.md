@@ -30,17 +30,35 @@
 3. 백엔드: 응답(옷 id 목록, 점수, 근거)에 이미지 URL을 붙여 앱에 전달, 추천 기록 저장 (`model_version` 포함)
 4. 앱 → 백엔드: 좋아요·싫어요·입을래요 → 평가 저장 (추천 id와 연결)
 
-## 3. 데이터 저장 제안
+## 3. 데이터 저장 제안 (1차: 의류 두 테이블)
+
+1차는 모델이 구분할 수 있는 값에 집중해 옷 데이터를 두 테이블로 나눕니다. 추천·평가 테이블은 추천이 1차에 들어가면 추가합니다.
+칸별 설명은 노션 자료실 "DB 테이블 명세서 (의류·메타데이터)"와 같습니다.
 
 | 테이블 | 핵심 칸 | 메모 |
 | --- | --- | --- |
-| `garment` | id, user_id, category, subcategory(null), sleeve(null), color, material, tags, memo, image_url, **embedding(512)**, **embedding_model**, created_at | 벡터는 PostgreSQL `pgvector` `vector(512)` 권장 (나중에 비슷한 옷 검색). 안 되면 float 배열·JSON |
-| `outfit_recommendation` | id, user_id, created_at, **model_version**, conditions(JSON), score, score_parts(JSON), reasons(JSON) | |
-| `outfit_item` | recommendation_id, garment_id, **role**(null / 이너 / 겉), position | **코디는 고정 칸(top_id, bottom_id)이 아니라 목록**. 레이어드(상의 2벌)를 나중에 켜도 구조가 안 바뀜 |
-| `feedback` | recommendation_id, user_id, type(like / dislike / wear), created_at | 궁합·취향 모델 재학습 데이터 |
+| `garments` (의류·유저 데이터) | id, user_id, image_blob, name, subcategory, material, memo, tags, excluded, created_at, deleted_at | 누구의 옷인지, 사진 위치, 사용자가 직접 넣는 값. 지울 때는 `deleted_at`만 채움 |
+| `garment_metadata` (의류 메타데이터) | garment_id(PK·FK), category, sleeve, color, hex, **embedding(512)**, model_version, **embedding_model**, predicted, needs_review, analyzed_at, updated_at | 모델이 구분하는 값. `predicted`(모델 제안 원본)와 확정값을 같이 둬서 실사용 정확도를 잼. 사진 없이 입력한 옷은 embedding·predicted가 NULL |
 
+**`POST /v1/garments/analyze` 응답 → 저장 위치**
+
+| ML 응답 | 저장 위치 |
+| --- | --- |
+| `category.name` | `predicted.category`, `category` 기본값 (`덧입기`는 모델이 안 냄, 사용자가 고름) |
+| `category_candidates` (상위 3개) | 확인 화면 후보로만 사용, 저장 안 함 |
+| `sleeve.name` | `predicted.sleeve`, `sleeve` 기본값 (하의는 null) |
+| `color_name.name` | `predicted.color`, `color` 기본값 |
+| `colors[0].rgb` | `hex` (`#RRGGBB`로 변환) |
+| `needs_review`, `color_name.needs_review` | `needs_review` |
+| `embedding` | `embedding` (앱 응답에는 넣지 않음) |
+| `model_version` / `model_versions.embedding` | `model_version` / `embedding_model` |
+| `crop_png_base64` | Blob에 저장 → `garments.image_blob` |
+| `retake` | 저장 안 함. true면 다시 찍기 안내 |
+
+- **추천 요청에 옷을 넣을 때** `embedding`은 null이어도 됩니다 (사진 없이 입력한 옷). 그 옷은 궁합 점수에서만 빠집니다.
 - **`embedding_model`이 바뀌면 그 사용자의 벡터를 모두 다시 계산**해야 합니다 (모델이 다른 벡터끼리는 비교가 안 됨). ML API의 `/ready`가 현재 버전을 알려줍니다.
-- 원본 사진 보관 여부는 팀 결정 사항입니다. 크롭(배경 제거본)만 보관하면 얼굴 등 개인정보가 줄어듭니다.
+- 벡터 칸은 `real[]`로 시작하고, 비슷한 옷 검색을 붙일 때 pgvector `vector(512)`로 바꿉니다.
+- 원본 사진은 보관하지 않고 크롭(배경 제거본)만 보관하면 얼굴 등 개인정보가 줄어듭니다.
 
 ## 4. Spring Boot 쪽 구성 제안
 

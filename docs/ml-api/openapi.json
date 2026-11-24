@@ -246,20 +246,26 @@
             "default": []
           },
           "embedding": {
-            "items": {
-              "type": "number"
-            },
-            "type": "array",
-            "maxItems": 512,
-            "minItems": 512,
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array",
+                "maxItems": 512,
+                "minItems": 512
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Embedding"
           }
         },
         "type": "object",
         "required": [
           "id",
-          "category",
-          "embedding"
+          "category"
         ],
         "title": "ClosetItem"
       },

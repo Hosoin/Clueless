@@ -31,13 +31,15 @@ class Recommender:
         self.version = weights_path.stem
 
     def compat(self, outfits: list[Outfit], emb: dict[str, np.ndarray]) -> np.ndarray:
-        """코디마다 궁합 확률(0~1). 옷 수가 같은 코디끼리 묶어 한 번에 계산."""
-        out = np.full(len(outfits), 0.5)  # 옷 1벌(원피스 단독)은 쌍이 없어 궁합을 잴 수 없음 → 중립값
+        """코디마다 궁합 확률(0~1). 벡터가 있는 옷끼리만 재고, 옷 수가 같은 코디끼리 묶어 한 번에 계산.
+        사진 없이 직접 입력한 옷은 벡터가 없어 궁합에서 빠진다. 잴 쌍이 없으면(옷 1벌 등) 중립값 0.5."""
+        out = np.full(len(outfits), 0.5)
         onehot = np.eye(len(SLOTS), dtype=np.float32)
+        scored = [[it for it in o["items"] if it["id"] in emb] for o in outfits]
         with torch.no_grad():
-            for n in {len(o["items"]) for o in outfits} - {1}:
-                idx = [i for i, o in enumerate(outfits) if len(o["items"]) == n]
-                x = np.stack([[np.concatenate([emb[it["id"]], onehot[SLOTS.index(it["category"])]]) for it in outfits[i]["items"]] for i in idx])
+            for n in {len(s) for s in scored} - {0, 1}:
+                idx = [i for i, s in enumerate(scored) if len(s) == n]
+                x = np.stack([[np.concatenate([emb[it["id"]], onehot[SLOTS.index(it["category"])]]) for it in scored[i]] for i in idx])
                 out[idx] = torch.sigmoid(self.model(torch.tensor(x))).numpy()
         return out
 

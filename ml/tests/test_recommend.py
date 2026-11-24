@@ -65,3 +65,11 @@ dup = {"items": [{**closet[0], "embedding": [0.0] * 512}] * 2}
 assert client.post("/v1/outfits/recommend", json=dup).status_code == 400
 assert client.post("/v1/outfits/recommend", json={**body, "include_id": "nope"}).status_code == 400
 print("ok")
+
+# --- 사진 없이 입력한 옷(벡터 없음): 그 옷은 궁합에서 빠지고, 잴 쌍이 없으면 중립 0.5 ---
+noemb = {k: v for k, v in emb.items() if k != "b1"}
+p2 = real.compat(mixed, {**noemb, "d": np.zeros(512, np.float32)})
+assert len(p2) == len(mixed) and all(0 <= v <= 1 for v in p2)
+alone = [{"items": [{"id": "b1", "category": "하의"}, {"id": "zz", "category": "상의"}]}]
+assert real.compat(alone, {}).tolist() == [0.5]  # 둘 다 벡터 없음
+print("ok (벡터 없는 옷)")
