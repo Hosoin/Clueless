@@ -71,7 +71,8 @@ function Month() {
 function Day() {
   const d = calSel, ago = agoOf(d), w = wornOn(d), pl = ago <= 0 ? planOn(d) : null
   const pair = (ids: number[]) => (
-    <div className="pair">{ids.map((id) => { const it = byId(id)!; return <div className="slot" key={id}><Ph item={it} label={it.cat} /><p className="cap">{it.name}</p></div> })}</div>
+    // 지운 옷 등으로 id에 맞는 옷이 없으면 그 칸은 건너뛴다 (없는 옷을 그리려다 화면 전체가 멈추지 않게)
+    <div className="pair">{ids.map((id) => { const it = byId(id); return it && <div className="slot" key={id}><Ph item={it} label={it.cat} /><p className="cap">{it.name}</p></div> })}</div>
   )
   return (
     <div className="calday">
