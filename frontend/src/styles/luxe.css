@@ -6,6 +6,7 @@
   --ph:#EEEBE6; --ph2:#F3F0EB; --yellow:#111111; --pink:#111111; --frame:#1A1A1A;
   --serif:'Bodoni Moda', Didot, 'Times New Roman', serif;
   --navh:66px;
+  --danger:#A12A2A; /* 삭제처럼 되돌릴 수 없는 일에만 쓰는 빨강 (proto.css의 .danger 글씨색과 같은 값) */
 }
 body{background:var(--frame)}
 .phone{background:var(--ivory);box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 10px #0c0c0c,0 0 0 11px #2a2a2a}
@@ -27,6 +28,10 @@ nav button.on svg{stroke-width:1.5}
 nav button.on::after{content:"";width:3px;height:3px;border-radius:2px;background:var(--ink);margin-top:-1px}
 .screen{padding-bottom:calc(var(--navh) + 24px)}
 .phone.login-on .screen{padding-bottom:0}
+
+/* 되돌릴 수 없는 일(옷 삭제 등)의 확인 버튼: 채운 빨강 버튼. 채운 버튼이라 글자는 흰색.
+   .danger(빨간 글씨, proto.css)를 버튼에 같이 붙여 쓰므로 btn·solid·danger가 모두 있을 때만 적용 */
+.btn.solid.danger{background:var(--danger);border-color:var(--danger);color:var(--paper)}
 
 /* 제목·글씨 */
 .head{padding:20px 22px 0}
