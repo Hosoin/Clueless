@@ -39,7 +39,9 @@ export default function Home() {
   const isChosen = S.chosenKey === comboKey(c)
   const next = EXTRA.find((k) => !S.on[k] && L[k].length)
 
-  /* 첫 화면 한 장(아래 탭을 뺀 높이)에 코디 사진과 버튼이 모두 들어오게 */
+  /* 첫 화면 한 장(아래 탭을 뺀 높이)에 코디 사진과 버튼이 모두 들어오게.
+     높이는 창 크기에만 달려 있어서, 홈에 들어올 때 한 번 맞추고 그 뒤로는 창 크기가 바뀔 때만 다시 맞춘다.
+     의존성 배열([])이 없으면 코디를 돌리는 동안(약 45ms마다 다시 그림) 매번 resize 감지를 뗐다 다시 걸고 높이를 다시 계산했다 */
   useLayoutEffect(() => {
     const fit = () => {
       const scr = scrRef.current, fold = foldRef.current; if (!scr || !fold) return
@@ -50,7 +52,7 @@ export default function Home() {
     window.addEventListener('resize', fit)
     window.visualViewport?.addEventListener('resize', fit)
     return () => { window.removeEventListener('resize', fit); window.visualViewport?.removeEventListener('resize', fit) }
-  })
+  }, [])
 
   // 화보 배치: 가장 바깥 아우터를 왼쪽에 크게, 나머지는 오른쪽에 위에서부터 (아우터가 없으면 상의가 크게)
   const order = rows.map(([k]) => k)
