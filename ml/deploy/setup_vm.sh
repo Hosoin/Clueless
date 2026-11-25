@@ -39,13 +39,13 @@ for f in ml-weights-v0.2/garment4_mlp_both.pt ml-weights-v0.1/compat_mlp_polyvor
   [ -s "$W/$(basename "$f")" ] || sudo -u "$USER_NAME" curl -fsSL -o "$W/$(basename "$f")" "$RELEASE/$f"
 done
 
-# 사전학습 모델(FashionCLIP·BiRefNet)을 고정 버전으로 미리 받아 둔다: 첫 요청이 느리지 않고, 실행 중 외부 다운로드가 없다
+# 사전학습 모델(FashionCLIP·u2netp)을 고정 버전으로 미리 받아 둔다: 첫 요청이 느리지 않고, 실행 중 외부 다운로드가 없다
 sudo -u "$USER_NAME" -H bash -c "cd $APP/ml && $UV run --no-sync python -c \"
 from huggingface_hub import snapshot_download
 from ml.analyze import CLIP, CLIP_REVISION
-from ml.background import MODEL, REVISION
+from ml.background import ensure_model
 snapshot_download(CLIP, revision=CLIP_REVISION)
-snapshot_download(MODEL, revision=REVISION)\""
+ensure_model()\""
 
 # 환경 파일: 키는 처음 한 번만 만들고, 이후 실행에서는 건드리지 않는다
 mkdir -p /etc/clueless

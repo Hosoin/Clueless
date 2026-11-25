@@ -20,13 +20,13 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY ml ./ml
 
-# 사전학습 모델(FashionCLIP·BiRefNet)을 고정한 버전으로 미리 받아 둔다: 시작이 빨라지고, 실행 중 외부 다운로드가 없다
+# 사전학습 모델(FashionCLIP·u2netp)을 고정한 버전으로 미리 받아 둔다: 시작이 빨라지고, 실행 중 외부 다운로드가 없다
 RUN uv run --no-sync python -c "\
 from huggingface_hub import snapshot_download; \
 from ml.analyze import CLIP, CLIP_REVISION; \
-from ml.background import MODEL, REVISION; \
+from ml.background import ensure_model; \
 snapshot_download(CLIP, revision=CLIP_REVISION); \
-snapshot_download(MODEL, revision=REVISION)"
+ensure_model()"
 
 # root가 아닌 사용자로 실행
 RUN useradd --create-home --uid 10001 app && chown -R app /app /opt/hf
