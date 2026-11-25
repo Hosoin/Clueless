@@ -18,11 +18,12 @@
 ## 2. 호출 흐름
 
 **옷 등록**
-1. 앱 → 백엔드: 사진 업로드
-2. 백엔드 → ML `POST /v1/garments/analyze` (multipart `image`)
+1. 앱 → 백엔드: 사진 업로드 (앱에서 긴 변 1024px 정도로 줄여 올리면 업로드가 빨라짐. 결과는 같음)
+2. 백엔드 → ML `POST /v1/garments/analyze` (multipart `image`, CPU 약 0.3초)
 3. 백엔드: 응답의 `crop_png_base64`를 Blob에 저장, 나머지를 "임시 분석 결과"로 앱에 전달 (`embedding`은 앱에 보내지 않음)
 4. 앱: 확인 카드에서 사용자가 수정 (`needs_review`, `color_name.needs_review`, `sleeve.needs_review`가 true면 선택을 요구)
-5. 앱 → 백엔드: 확정값 저장. 백엔드가 확정값 + `embedding` + `model_versions.embedding`을 함께 저장
+5. 앱 → 백엔드: 확정값 저장 (3절 표)
+- 여러 장(예: 처음 옷장 채우기 100장)은 한 장씩 차례로 부르면 됨 (100장 약 30초). ML 서버는 요청을 하나씩 처리하므로 동시에 많이 보내도 빨라지지 않음
 
 **코디 추천**
 1. 앱 → 백엔드: "오늘 코디" (+ 꼭 넣을 옷 id)
@@ -30,34 +31,48 @@
 3. 백엔드: 응답(옷 id 목록, 점수, 근거)에 이미지 URL을 붙여 앱에 전달, 추천 기록 저장 (`model_version` 포함)
 4. 앱 → 백엔드: 좋아요·싫어요·입을래요 → 평가 저장 (추천 id와 연결)
 
-## 3. 데이터 저장 제안 (1차: 의류 두 테이블)
+## 3. 데이터 저장 (백엔드 테이블 명세서 1안: `user_info`, `closet_items`)
 
-1차는 모델이 구분할 수 있는 값에 집중해 옷 데이터를 두 테이블로 나눕니다. 추천·평가 테이블은 추천이 1차에 들어가면 추가합니다.
-칸별 설명은 노션 자료실 "DB 테이블 명세서 (의류·메타데이터)"와 같습니다.
-
-| 테이블 | 핵심 칸 | 메모 |
-| --- | --- | --- |
-| `garments` (의류·유저 데이터) | id, user_id, image_blob, name, subcategory, material, memo, tags, excluded, created_at, deleted_at | 누구의 옷인지, 사진 위치, 사용자가 직접 넣는 값. 지울 때는 `deleted_at`만 채움 |
-| `garment_metadata` (의류 메타데이터) | garment_id(PK·FK), category, sleeve, color, hex, **embedding(512)**, model_version, **embedding_model**, predicted, needs_review, analyzed_at, updated_at | 모델이 구분하는 값. `predicted`(모델 제안 원본)와 확정값을 같이 둬서 실사용 정확도를 잼. 사진 없이 입력한 옷은 embedding·predicted가 NULL |
-
-**`POST /v1/garments/analyze` 응답 → 저장 위치**
+**`POST /v1/garments/analyze` 응답 → `closet_items`**
 
 | ML 응답 | 저장 위치 |
 | --- | --- |
-| `category.name` | `predicted.category`, `category` 기본값 (`덧입기`는 모델이 안 냄, 사용자가 고름) |
-| `category_candidates` (상위 3개) | 확인 화면 후보로만 사용, 저장 안 함 |
-| `sleeve.name` | `predicted.sleeve`, `sleeve` 기본값 (하의는 null) |
-| `color_name.name` | `predicted.color`, `color` 기본값 |
-| `colors[0].rgb` | `hex` (`#RRGGBB`로 변환) |
-| `needs_review`, `color_name.needs_review` | `needs_review` |
-| `embedding` | `embedding` (앱 응답에는 넣지 않음) |
-| `model_version` / `model_versions.embedding` | `model_version` / `embedding_model` |
-| `crop_png_base64` | Blob에 저장 → `garments.image_blob` |
-| `retake` | 저장 안 함. true면 다시 찍기 안내 |
+| `category.name` (상의·하의·아우터·원피스) | `category` 기본값 (사용자 확인 후 확정) |
+| `color_name.name` | `color` 기본값 |
+| `style.tags` (1~2개, 강한 순) | `styles` 기본값 (사용자가 고치거나 비울 수 있음) |
+| `subcategory.name` (티셔츠·셔츠·청바지·반바지 …) | `subcategory` 기본값. 사용자가 `category`를 바꾸면 비우고 다시 고르게 함 |
+| `print.name` (무지·레터링·그래픽·체크 …) | `meta_json`에 보관. 표시 이름 예: "화이트 레터링 반팔 티셔츠" (색 + 프린트 + 소매 + 세부 종류) |
+| `crop_png_base64` | Blob에 저장 → `image_blob`(파일 키). `meta_json`에는 넣지 않음 |
+| **나머지 응답 전체** (`crop_png_base64`만 뺀 것) | `meta_json` 그대로. 아래 칸이 들어 있어야 추천이 다 됨 |
 
-- **추천 요청에 옷을 넣을 때** `embedding`은 null이어도 됩니다 (사진 없이 입력한 옷). 그 옷은 궁합 점수에서만 빠집니다.
-- **`embedding_model`이 바뀌면 그 사용자의 벡터를 모두 다시 계산**해야 합니다 (모델이 다른 벡터끼리는 비교가 안 됨). ML API의 `/ready`가 현재 버전을 알려줍니다.
-- 벡터 칸은 `real[]`로 시작하고, 비슷한 옷 검색을 붙일 때 pgvector `vector(512)`로 바꿉니다.
+`meta_json`에 꼭 남아야 하는 칸 (추천 요청에 다시 씀):
+
+| `meta_json` 안의 칸 | 쓰는 곳 |
+| --- | --- |
+| `embedding` (512개 숫자, 약 5KB) | 추천 요청의 `embedding` → 궁합 점수·세밀한 스타일 점수. 없으면 그 옷은 궁합에서 빠짐 |
+| `sleeve.name` | 추천 요청의 `sleeve` → 레이어드 추천 (겉옷 소매 ≤ 이너 소매) |
+| `model_versions.embedding` | 이 값이 바뀌면 그 사용자 옷의 `embedding`을 다시 계산해야 함 (`/ready`가 현재 버전을 알려줌) |
+| `style.scores`, `category_candidates`, `colors` | 모델 정확도 측정(제안값 vs 확정값), 색 견본 |
+
+- 사진 없이 수동 입력한 옷은 `meta_json`이 NULL → 추천 요청에 `embedding: null`. 사용자가 고른 `styles`로 스타일 점수를 대신함
+- 지금은 `meta_json` 안의 벡터로 충분합니다. 나중에 "비슷한 옷 찾기"를 DB에서 빠르게 하려면 pgvector `vector(512)` 칸을 따로 둡니다.
+
+**스타일 6개 코드 (명세서에서 미확정 → ML 제안)**
+- `미니멀`, `클래식`, `스트리트`, `캐주얼`, `페미닌`, `스포티` (ML 응답·요청이 이 한글 이름을 씀. 영문 코드로 바꾸려면 ML·백엔드가 같이 바꿈)
+- 같은 코드를 `closet_items.styles`, `user_info.preferred_styles`, 추천 요청의 `style`/`style_weights`에 씁니다.
+- 옷장 "캐주얼" 필터는 `styles`에 `미니멀`·`클래식`·`캐주얼` 중 하나가 있는 옷 (캐주얼 점수 = max(미니멀, 클래식)이라서)
+
+**`POST /v1/outfits/recommend` 요청 만들기**
+
+| 요청 칸 | 가져올 곳 |
+| --- | --- |
+| `items[].id` | `closet_items.id` (숫자 그대로 가능, 응답 id는 문자열) |
+| `items[].category`, `subcategory`, `tags`, `styles` | `closet_items` 같은 이름 칸 |
+| `items[].sleeve` | `meta_json.sleeve.name` (없으면 생략) |
+| `items[].embedding` | `meta_json.embedding` (없으면 null) |
+| `style` | 사용자가 추천 화면에서 고른 스타일 (없으면 생략) |
+| `style_weights` | `style`이 없을 때 `user_info.preferred_styles`를 같은 비중으로 (예: `{"스트리트": 0.5, "캐주얼": 0.5}`) |
+
 - 원본 사진은 보관하지 않고 크롭(배경 제거본)만 보관하면 얼굴 등 개인정보가 줄어듭니다.
 
 ## 4. Spring Boot 쪽 구성 제안
@@ -79,15 +94,33 @@ config/       MlProperties (@ConfigurationProperties("ml"))
 - **엔티티를 그대로 응답하지 않기:** 응답 DTO(record)로 매핑. 특히 `embedding`은 앱 응답에 넣지 않습니다.
 - **헬스 체크:** Actuator 헬스에 ML `/ready`를 넣으면 ML이 내려갔을 때 바로 보입니다.
 
-## 5. 로컬에서 같이 띄우기
+## 5. 띄우기
+
+**서비스 (Azure VM, docker compose):** 백엔드·DB와 같은 compose 파일에 `ml` 서비스를 추가합니다. 백엔드는 `http://ml:8000`으로 부르고, 8000번은 외부에 열지 않습니다 (`ports` 없이).
+
+```yaml
+  ml:
+    build: ./ml
+    environment:
+      ML_API_KEY: ${ML_API_KEY}        # 백엔드 ml.api-key와 같은 값 (.env, Git에 올리지 않음)
+    volumes:
+      - ./ml/weights:/app/weights:ro   # Release 가중치 + 팀 내부 공유 가중치(소매·색·스타일)
+    mem_limit: 3g                      # ML 서버 약 1GB. 넘치면 ML만 정리되고 백엔드·DB는 지킴
+    restart: always
+```
+
+- 가중치: `gh release download ml-weights-v0.1`, `ml-weights-v0.2`로 공개분을 받고, `sleeve_probe.pt`·`color_probe.pt`·`style_probe.pt`·`subcat_probe.pt`·`print_probe.pt`는 가진 팀원이 VM의 `ml/weights/`로 복사
+- 도커 없이 VM에 직접 설치하는 방법(예비용)은 [`ml/deploy/README.md`](../../ml/deploy/README.md)
+
+**개발용 (내 컴퓨터):**
 
 ```bash
-cd ml && uv sync && gh release download ml-weights-v0.1 -R Hosoin/Clueless -D weights
+cd ml && uv sync && gh release download ml-weights-v0.1 -R Hosoin/Clueless -D weights && gh release download ml-weights-v0.2 -R Hosoin/Clueless -D weights
 ML_API_KEY=dev-key uv run uvicorn ml.api:app --port 8000
 # 또는 컨테이너: docker build -t clueless-ml . && docker run -p 8000:8000 -v "$PWD/weights:/app/weights:ro" -e ML_API_KEY=dev-key clueless-ml
 ```
 
-Spring 쪽 `ml.base-url=http://localhost:8000`, `ml.api-key=dev-key`.
+Spring 쪽 `ml.base-url=http://localhost:8000`(compose 안에서는 `http://ml:8000`), `ml.api-key`=ML 쪽 `ML_API_KEY`와 같은 값.
 
 ## 6. 바뀌면 알려야 하는 것
 

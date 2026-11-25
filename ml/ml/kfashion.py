@@ -25,6 +25,7 @@ from ml.analyze import CLIP, CLIP_REVISION, pick_device
 from ml.background import square_crop
 from ml.colors import PALETTE, suggest_colors
 from ml.compat_data import CACHE, SLOTS, VALID
+from ml.garment import PROBE, load_probe
 from ml.kfashion_stats import entry_name
 
 COLOR_MAP = {"옐로우": "옐로"}  # K-Fashion 색 이름 → 우리 팔레트 이름 (실버·골드·네온은 팔레트에 없어 색 평가에서 뺀다)
@@ -171,11 +172,9 @@ def main() -> None:
     print(f"코디 {len(outfits)}개:", Counter(tuple(sorted(i.split("_")[1] for i in o)) for o in outfits).most_common())
 
     # 4분류 모델의 한국 착장 크롭 정확도 (학습엔 안 쓴 데이터)
-    probe_ck = torch.load("weights/garment4_probe_both.pt", map_location="cpu")
-    probe = torch.nn.Linear(512, 4)
-    probe.load_state_dict(probe_ck["state_dict"])
-    pred = probe(torch.tensor(emb)).argmax(1).tolist()
-    classes = probe_ck["classes"]
+    classes, probe, _ = load_probe(PROBE)
+    with torch.no_grad():
+        pred = probe(torch.tensor(emb)).argmax(1).tolist()
     truth = [i["slot"] for i in items]
     acc = np.mean([classes[p] == t for p, t in zip(pred, truth)])
     print(f"\n[4분류] K-Fashion 착장 크롭 {len(items)}개 정확도 {acc:.3f}")
