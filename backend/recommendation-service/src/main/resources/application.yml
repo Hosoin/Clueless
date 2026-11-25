@@ -1,5 +1,30 @@
 spring:
   application:
     name: recommendation-service
+  datasource:
+    url: 'jdbc:postgresql://${DB_HOST:20.41.112.42}:${DB_PORT:5432}/${DB_NAME:clueless_dev}'
+    username: '${DB_USER:clueless_app}'
+    password: '${DB_PASSWORD}'
+    hikari:
+      data-source-properties:
+        sslmode: verify-full
+        sslrootcert: '${DB_CA_CERT}'
+        # Use TLS with password auth, not pgJDBC's default client key files.
+        sslcert: ''
+        sslkey: ''
+        '[gssEncMode]': disable
+  sql:
+    init:
+      mode: never
 server:
   port: 8082
+---
+spring:
+  config:
+    activate:
+      on-profile: 'dev-no-ca & !prod & !production'
+  datasource:
+    hikari:
+      data-source-properties:
+        sslmode: require
+        sslrootcert: ''
