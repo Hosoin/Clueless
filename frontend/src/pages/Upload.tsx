@@ -2,8 +2,9 @@
 // 사진을 분석하면 "카멜 롱 코트", "아이보리 오버핏 니트"처럼 색·옷 이름까지 들어간 상세 후보 3개를
 // 정확도(확률) 높은 순으로 보여 준다. 사용자가 하나를 고르면 이름·종류·색·무늬가 한꺼번에 정해진다.
 // 모델이 틀려도 사용자가 한 번 눌러서 바로잡게 하려고, 1순위를 자동으로 고르지 않는다.
-// 지금은 후보가 가짜(DEMO_CANDS)다. 분류 모델 API가 생기면 startBatch 안의 setTimeout 부분을 API 호출로 바꾸고,
+// 지금은 후보가 가짜(DEMO_CANDS)다. 분류 모델 API가 생기면 scheduleAnalysis 안의 setTimeout 부분을 API 호출로 바꾸고,
 // 응답에서 상세 후보 3개를 꺼내 cands에 넣으면 된다.
+// 분석 타이머는 이 화면이 열려 있을 때만 돈다: 화면을 나가면 멈추고(pauseAnalysis), 돌아오면 남은 사진만 이어서 분석한다.
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Back } from '../components/Icons'
@@ -44,23 +45,48 @@ const DEMO_CANDS: Cand[][] = [
 ]
 // 예시 사진으로 쓸 옷장 옷 id (DEMO_CANDS와 순서가 같음)
 const DEMO_IDS = [4, 7, 10, 12, 5, 6]
+/** 지금 올려 둔 사진들. 화면을 나갔다 와도 이어서 정리할 수 있게 모듈 변수로 둔다 */
 let batch: Tile[] = []
+/** 돌고 있는 분석 타이머 id. 화면을 나갈 때 한꺼번에 멈추려고 모아 둔다 */
+let timers: number[] = []
+
+/** 분석 타이머를 모두 멈춘다. 화면을 나갈 때(Upload의 useEffect 정리)와 새 사진 묶음을 받을 때 부른다 */
+function pauseAnalysis() {
+  timers.forEach((t) => clearTimeout(t))
+  timers = []
+}
+
+/**
+ * 아직 분석이 안 끝난 사진만 분석 타이머를 건다. 새 묶음을 받았을 때와, 화면에 다시 들어왔을 때 부른다.
+ * 남은 사진마다 0.7초 간격으로 분석이 끝나는 것처럼 보이게 하고(묶음의 마지막 두 장은 일부러 더 늦게),
+ * 끝나면 상세 후보 3개를 채운다. 어떤 후보도 자동으로 고르지 않는다.
+ * 후보는 묶음 안의 순서(i)로 고르므로, 멈췄다 이어서 분석해도 같은 사진에는 같은 후보가 나온다.
+ */
+function scheduleAnalysis() {
+  pauseAnalysis() // 같은 사진에 타이머가 두 번 걸리지 않게 먼저 비움
+  let wait = 0 // 남은 사진 중 몇 번째인지 (이미 끝난 사진은 건너뛰고 간격을 셈)
+  batch.forEach((b, i) => {
+    if (b.done) return
+    timers.push(window.setTimeout(() => {
+      b.cands = DEMO_CANDS[i % DEMO_CANDS.length]; b.done = true; emit()
+    }, 700 + wait++ * 650 + (i >= batch.length - 2 ? 1800 : 0)))
+  })
+}
 
 /**
  * 사진 여러 장(최대 9장)을 받아 분석을 시작한다. files가 없으면 예시 사진 6장으로 해 본다.
- * 사진마다 0.7초 간격으로 분석이 끝나는 것처럼 보이게 하고(마지막 두 장은 일부러 더 늦게),
- * 끝나면 상세 후보 3개를 채운다. 어떤 후보도 자동으로 고르지 않는다.
+ * 새 묶음이 이전 묶음을 바꾸므로, 이전 묶음에 남아 있던(옷장에 넣지 않은) 사진의 주소는 해제한다.
+ * 옷장에 넣은 사진은 넣을 때 batch에서 빠지므로 여기서 해제되지 않는다 (옷장 사진으로 계속 쓰임).
  */
 function startBatch(files: FileList | Blob[] | null) {
+  batch.forEach((b) => { if (b.img?.startsWith('blob:')) URL.revokeObjectURL(b.img) }) // 예시 사진(앱 안 이미지)은 blob이 아니라 해제하지 않음
   const list: (Blob | undefined)[] = files && files.length ? [...files].slice(0, 9) : Array.from({ length: 6 })
   batch = list.map((f, i) => ({
     id: ++S.uid, img: f ? URL.createObjectURL(f) : photo(DEMO_IDS[i % DEMO_IDS.length]) || null,
     cands: [], picked: null, manual: false, done: false, name: null, cat: null, sub: null, color: null, pattern: '무지', hex: null,
   }))
   emit()
-  batch.forEach((b, i) => setTimeout(() => {
-    b.cands = DEMO_CANDS[i % DEMO_CANDS.length]; b.done = true; emit()
-  }, 700 + i * 650 + (i >= batch.length - 2 ? 1800 : 0)))
+  scheduleAnalysis()
 }
 
 /**
@@ -86,6 +112,8 @@ export default function Upload() {
   const nav = useNavigate()
   const album = useRef<HTMLInputElement>(null), shot = useRef<HTMLInputElement>(null)
   const [cam, setCam] = useState(false)
+  // 화면에 들어오면 남은 사진 분석을 이어서 하고, 나가면 멈춘다 (나간 뒤에도 타이머가 돌며 다시 그리지 않게)
+  useEffect(() => { scheduleAnalysis(); return pauseAnalysis }, [])
   const done = batch.filter((b) => b.done).length, ready = batch.filter(isSet).length, needPick = batch.filter((b) => b.done && !isSet(b)).length, left = batch.length - done
   return (
     <section className="screen on" id="s-upload">

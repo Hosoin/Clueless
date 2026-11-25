@@ -11,14 +11,18 @@
 body{background:var(--frame)}
 .phone{background:var(--ivory);box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 10px #0c0c0c,0 0 0 11px #2a2a2a}
 
-/* 위: 날짜 · 가운데 워드마크 · 날씨 */
-.top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:16px 22px 12px;background:var(--ivory);border-bottom:1px solid var(--line)}
+/* 위: 날짜 · 가운데 워드마크 · 날씨
+   폰 앱(viewport-fit=cover)에서는 화면이 노치·상태 표시줄 밑까지 그려지므로 그만큼(safe-area-inset-top) 더 내린다.
+   노치가 없는 화면과 데스크톱 브라우저에서는 값이 0이라 지금과 같다 */
+.top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:calc(16px + env(safe-area-inset-top, 0px)) 22px 12px;background:var(--ivory);border-bottom:1px solid var(--line)}
 .top .d{font-size:10px;letter-spacing:.18em;color:var(--soft)}
 .top .w{justify-self:end;font-size:10px;letter-spacing:.18em;color:var(--soft)}
 .logo{font-family:var(--serif);font-size:19px;font-weight:500;letter-spacing:.42em;padding-left:.42em;line-height:1.2;color:var(--ink);text-shadow:none;text-transform:uppercase}
 
-/* 아래 탭: 화면 위에 떠 있다가 아래로 스크롤하면 내려가며 숨음 */
-nav{position:absolute;left:0;right:0;bottom:0;z-index:20;padding:9px 10px 24px;background:rgba(251,250,248,.96);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-top:1px solid var(--line);transition:transform .28s ease}
+/* 아래 탭: 화면 위에 떠 있다가 아래로 스크롤하면 내려가며 숨음
+   아이폰 홈바 영역(safe-area-inset-bottom)만큼 아래 여백을 더해 탭이 홈바에 가리지 않게 한다.
+   탭 높이는 Layout이 재서 --navh로 넘기므로, 화면 아래 여백도 이 높이에 맞춰 함께 늘어난다 */
+nav{position:absolute;left:0;right:0;bottom:0;z-index:20;padding:9px 10px calc(24px + env(safe-area-inset-bottom, 0px));background:rgba(251,250,248,.96);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-top:1px solid var(--line);transition:transform .28s ease}
 nav.hide{transform:translateY(100%)}
 @media (prefers-reduced-motion:reduce){nav{transition:none}}
 nav button{min-height:0;gap:5px;font-size:10px;font-weight:400;letter-spacing:.06em;color:#9A958F}
@@ -104,10 +108,19 @@ h1 i{font-style:italic}
 .pc .cap span{display:flex;align-items:center;gap:8px;font-size:9px;letter-spacing:.2em;opacity:.9;text-transform:uppercase}
 .pc .cap span button{pointer-events:auto;background:none;border:none;padding:0;cursor:pointer;color:#fff;font-size:10px;letter-spacing:.04em;text-decoration:underline;text-underline-offset:2px;opacity:1}
 .pc .cap p{margin:2px 0 0;font-size:12px;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pc .pnav{position:absolute;top:8px;right:8px;display:flex;gap:4px;z-index:2}
-.pc .pnav button{width:26px;height:26px;border-radius:13px;background:rgba(251,250,248,.92);border:none;display:flex;align-items:center;justify-content:center;padding:0;color:var(--ink)}
+/* 화보 넘기기 화살표: 보이는 동그라미(26px, 사이 4px, 모서리에서 8px)는 그대로 두고 누르는 자리만 넓힌다.
+   26px만 누를 수 있으면 손가락이 조금만 빗나가도 밑의 사진(옷 고르기 창 열기)이 눌려서.
+   - 누르는 자리: 사진 위 끝부터 동그라미 아래 18px까지(높이 52px), 두 버튼 사이에 빈틈 없이 붙임
+   - 왼쪽(이전) 48px은 왼쪽으로 넓히고, 오른쪽(다음) 36px은 사진 오른쪽 끝까지 닿음
+   - 동그라미(::before)와 화살표(svg)는 버튼 안에서 원래 자리에 절대 위치로 둠 */
+.pc .pnav{position:absolute;top:0;right:0;display:flex;gap:0;z-index:2}
+.pc .pnav button{position:relative;width:48px;height:52px;background:none;border:none;padding:0;color:var(--ink)}
+.pc .pnav button:last-child{width:36px}
+.pc .pnav button::before{content:"";position:absolute;top:8px;right:2px;width:26px;height:26px;border-radius:13px;background:rgba(251,250,248,.92)}
+.pc .pnav button:last-child::before{right:auto;left:2px}
 .pc .pnav button:disabled{display:none}
-.pc .pnav svg{width:11px;height:11px}
+.pc .pnav svg{position:absolute;top:15.5px;right:9.5px;width:11px;height:11px}
+.pc .pnav button:last-child svg{right:auto;left:9.5px}
 .pc .ph .chip{top:auto;bottom:10px;right:10px}
 .spinning .pc.rolling .chip{opacity:0}
 .why{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:12px;padding-bottom:12px;border-bottom:1px solid var(--line)}
