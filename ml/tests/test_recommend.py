@@ -89,22 +89,26 @@ assert set(res[0]["items"]) == {"t2", "b2"} and res[0]["score_parts"]["taste"] =
 assert "모든 옷이 스트리트 스타일이에요." in res[0]["reasons"] and all("스트리트" not in r for r in res[1]["reasons"])
 assert recommend(closet, emb, fake_compat, k=1, styles=styles, style_weights=None)[0]["items"] == ["t1", "b1"]  # 스타일 없으면 그대로
 
-# --- 색 궁합: 화이트·민트 셔츠는 흰색과는 맞아도 레드와는 민트가 부딪혀 감점, 민트 포인트를 맞추면 근거 ---
-assert harmony("민트", "레드") == -1 and harmony("화이트", "레드") == 0.5 and harmony("민트", "스카이블루") == 0.0 and harmony("민트", "그린") == 0.7
-wm = {"id": "t", "category": "상의", "colors": [{"name": "화이트", "ratio": 0.62}, {"name": "민트", "ratio": 0.31}, {"name": "그레이", "ratio": 0.07}]}
+# --- 색 궁합 (프론트 색 이름): 화이트·그린 셔츠는 흰색과는 맞아도 레드와는 그린이 부딪혀 감점, 그린 포인트를 맞추면 근거 ---
+assert harmony("그린", "레드") == -1 and harmony("화이트", "레드") == 0.5 and harmony("그린", "스카이") == 0.0 and harmony("그린", "카키") == 0.7
+wm = {"id": "t", "category": "상의", "colors": [{"name": "화이트", "ratio": 0.62}, {"name": "그린", "ratio": 0.31}, {"name": "그레이", "ratio": 0.07}]}
 d = color_dist(wm)
-assert set(d) == {"화이트", "민트"} and abs(d["화이트"] - 0.62 / 0.93) < 1e-9  # 15% 미만(그레이)은 빼고 다시 합 1로
-# 사용자가 대표색을 고쳤으면(모델 1위 화이트 → 사용자 아이보리) 1위 자리를 바꾸고 보조색(민트)은 유지
+assert set(d) == {"화이트", "그린"} and abs(d["화이트"] - 0.62 / 0.93) < 1e-9  # 15% 미만(그레이)은 빼고 다시 합 1로
+# 사용자가 대표색을 고쳤으면(모델 1위 화이트 → 사용자 아이보리) 1위 자리를 바꾸고 보조색(그린)은 유지
 d2 = color_dist({**wm, "color": "아이보리"})
-assert set(d2) == {"아이보리", "민트"} and abs(d2["아이보리"] - 0.62 / 0.93) < 1e-9, d2
+assert set(d2) == {"아이보리", "그린"} and abs(d2["아이보리"] - 0.62 / 0.93) < 1e-9, d2
 assert color_dist({**wm, "color": "화이트"}) == d  # 같으면 그대로
-red, black, mint = ({"id": i, "category": "하의", "color": c} for i, c in (("r", "레드"), ("k", "블랙"), ("m", "민트")))
+red, black, mint = ({"id": i, "category": "하의", "color": c} for i, c in (("r", "레드"), ("k", "블랙"), ("m", "그린")))
 sc, why = color_scores([{"items": [wm, red]}, {"items": [wm, black]}, {"items": [wm, mint]}, {"items": [wm, {"id": "x", "category": "하의"}]}])
-assert sc[0] < sc[1] < sc[2] and sc[3] == 0.5, sc  # 레드(충돌) < 블랙(무채색) < 민트(포인트 맞춤), 색 모르는 옷만 있으면 중립
-assert "민트 포인트 색을 맞췄어요." in why[2] and not why[0]
+assert sc[0] < sc[1] < sc[2] and sc[3] == 0.5, sc  # 레드(충돌) < 블랙(무채색) < 그린(포인트 맞춤), 색 모르는 옷만 있으면 중립
+assert "그린 포인트 색을 맞췄어요." in why[2] and not why[0]
 # API: color·colors 칸을 받고 score_parts에 color가 나온다
-r = client.post("/v1/outfits/recommend", json={"items": [{"id": 1, "category": "상의", "colors": wm["colors"]}, {"id": 2, "category": "하의", "color": "레드"}, {"id": 3, "category": "하의", "color": "민트"}], "k": 2})
+r = client.post("/v1/outfits/recommend", json={"items": [{"id": 1, "category": "상의", "colors": wm["colors"]}, {"id": 2, "category": "하의", "color": "레드"}, {"id": 3, "category": "하의", "color": "그린"}], "k": 2})
 assert r.status_code == 200 and r.json()["outfits"][0]["items"] == ["1", "3"] and "color" in r.json()["outfits"][0]["score_parts"], r.text
+# 프론트 이름(덧입기·카디건·데님)으로 보낸 옷장도 받는다 (내부에서 아우터·가디건·청바지로)
+r = client.post("/v1/outfits/recommend", json={"items": [{"id": 1, "category": "상의", "subcategory": "티셔츠", "sleeve": "반팔"}, {"id": 2, "category": "덧입기", "subcategory": "카디건", "sleeve": "긴팔"},
+                                                         {"id": 3, "category": "하의", "subcategory": "데님"}], "k": 5})
+assert r.status_code == 200 and any(set(o["items"]) == {"1", "2", "3"} for o in r.json()["outfits"]), r.text
 print("ok (색)")
 
 # style_scores: 기준값을 넘는 스타일이 없으면 캐주얼(기본 아이템), 태그는 최대 2개

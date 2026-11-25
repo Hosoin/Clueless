@@ -31,17 +31,24 @@
 3. 백엔드: 응답(옷 id 목록, 점수, 근거)에 이미지 URL을 붙여 앱에 전달, 추천 기록 저장 (`model_version` 포함)
 4. 앱 → 백엔드: 좋아요·싫어요·입을래요 → 평가 저장 (추천 id와 연결)
 
+## 이름 기준 (앱 화면 = 공식)
+
+API의 모든 이름은 **프론트 `frontend/src/data/seed.ts`와 같아요**: 종류(`CATS` 5개, 덧입기 포함), 세부 종류(`SUBS`), 색(`COLORS` 18개), 무늬(`PATTERNS`), 스타일(`STYLES`).
+- 분석 응답은 이 이름으로 나오고, 추천 요청도 이 이름으로 보내면 됩니다 (ML 내부 학습 이름과의 변환은 `ml/ml/vocab.py`).
+- 모델이 구분하지 못하는 프론트 세부 종류(맨투맨·와이드 팬츠·카고 팬츠·레깅스·점퍼·셔츠/니트 원피스·뷔스티에)는 가까운 것으로 제안하고, 사용자가 확인 카드에서 고릅니다.
+- `seed.ts` 목록이 바뀌면 `ml/ml/vocab.py`도 같이 고쳐야 합니다.
+
 ## 3. 데이터 저장 (백엔드 테이블 명세서 1안: `user_info`, `closet_items`)
 
 **`POST /v1/garments/analyze` 응답 → `closet_items`**
 
 | ML 응답 | 저장 위치 |
 | --- | --- |
-| `category.name` (상의·하의·아우터·원피스) | `category` 기본값 (사용자 확인 후 확정) |
+| `category.name` (상의·덧입기·하의·아우터·원피스) | `category` 기본값 (사용자 확인 후 확정) |
 | `color_name.name` | `color` 기본값 |
 | `style.tags` (1~2개, 강한 순) | `styles` 기본값 (사용자가 고치거나 비울 수 있음) |
-| `subcategory.name` (티셔츠·셔츠·청바지·반바지 …) | `subcategory` 기본값. 사용자가 `category`를 바꾸면 비우고 다시 고르게 함 |
-| `print.name` (무지·레터링·그래픽·체크 …) | `meta_json`에 보관. 표시 이름 예: "화이트 레터링 반팔 티셔츠" (색 + 프린트 + 소매 + 세부 종류) |
+| `subcategory.name` (티셔츠·후드·데님·스커트·카디건 …) | `subcategory` 기본값. 사용자가 `category`를 바꾸면 비우고 다시 고르게 함 |
+| `print.name` (무지·스트라이프·체크·도트·플라워·프린트) | `meta_json`에 보관. 앱 `pattern` 기본값으로 쓸 수 있음 (closet_items에는 무늬 칸이 없음) |
 | `crop_png_base64` | Blob에 저장 → `image_blob`(파일 키). `meta_json`에는 넣지 않음 |
 | **나머지 응답 전체** (`crop_png_base64`만 뺀 것) | `meta_json` 그대로. 아래 칸이 들어 있어야 추천이 다 됨 |
 
