@@ -28,6 +28,15 @@ SLEEVE_CATEGORIES = {"상의", "아우터", "원피스"}  # 하의에는 소매�
 # 스타일 6개. K-Fashion 23개 스타일을 묶어 5개를 학습하고(train_style), 캐주얼은 K-Fashion에 없어 max(미니멀, 클래식)으로 계산
 STYLES = ["미니멀", "클래식", "스트리트", "캐주얼", "페미닌", "스포티"]
 TRAINED_STYLES = ["미니멀", "클래식", "스트리트", "페미닌", "스포티"]
+# 세부 종류: ml/categories.py 이름 중 K-Fashion에 라벨이 있는 것 (맨투맨은 K-Fashion에서 티셔츠로 묶여 따로 없음)
+SUBCAT_GROUP = {"티셔츠": "상의", "셔츠": "상의", "블라우스": "상의", "니트": "상의", "후드티": "상의", "민소매": "상의",
+                "슬랙스": "하의", "청바지": "하의", "트레이닝 바지": "하의", "반바지": "하의", "치마": "하의",
+                "재킷": "아우터", "코트": "아우터", "가디건": "아우터", "조끼": "아우터", "패딩": "아우터",
+                "원피스": "원피스", "점프수트": "원피스"}
+SUBCATS = list(SUBCAT_GROUP)
+SUBCAT_PROBE = WEIGHTS_DIR / "subcat_probe.pt"  # 없으면 세부 종류 생략 (AI-Hub 학습분, 팀 내부 공유)
+PRINTS = ["무지", "레터링", "그래픽", "체크", "스트라이프", "플로럴", "도트", "기타무늬"]
+PRINT_PROBE = WEIGHTS_DIR / "print_probe.pt"  # 없으면 프린트 생략
 MAX_TAGS = 2  # 옷마다 붙는 스타일 태그 최대 개수 (기준값이 낮은 스트리트가 거의 모든 옷에 붙는 것을 막음)
 STYLE_MAP = {"모던": "미니멀", "젠더리스": "미니멀", "클래식": "클래식", "소피스트케이티드": "클래식", "프레피": "클래식",
              "스트리트": "스트리트", "힙합": "스트리트", "펑크": "스트리트", "키치": "스트리트",
@@ -94,7 +103,8 @@ class GarmentClassifier:
         self.classes, self.probe, clip = head
         self.sleeve, self.color = load_probe(SLEEVE_PROBE), load_probe(COLOR_PROBE)
         self.style = load_style_head()
-        for h in (self.sleeve, self.color, load_probe(STYLE_PROBE)):  # 같은 벡터를 쓰므로 같은 FashionCLIP으로 학습된 것만
+        self.subcat, self.print = load_probe(SUBCAT_PROBE), load_probe(PRINT_PROBE)
+        for h in (self.sleeve, self.color, load_probe(STYLE_PROBE), self.subcat, self.print):  # 같은 벡터를 쓰므로 같은 FashionCLIP으로 학습된 것만
             assert h is None or h[2] == clip, "분류기마다 FashionCLIP 버전이 다릅니다"
         self.clip = CLIPModel.from_pretrained(clip, revision=CLIP_REVISION).to(self.device).eval()
         self.proc = CLIPProcessor.from_pretrained(clip, revision=CLIP_REVISION)
@@ -107,6 +117,8 @@ class GarmentClassifier:
             "sleeve": SLEEVE_PROBE.stem if self.sleeve else None,
             "color": COLOR_PROBE.stem if self.color else "rule",
             "style": STYLE_PROBE.stem if self.style else None,
+            "subcategory": SUBCAT_PROBE.stem if self.subcat else None,
+            "print": PRINT_PROBE.stem if self.print else None,
         }
 
     @torch.no_grad()
@@ -135,6 +147,8 @@ class GarmentClassifier:
             "color_name": None,  # 색 모델이 고른 대표색 이름 (모델이 있을 때)
             "sleeve": None,  # 상의·아우터·원피스만
             "style": style_scores(self.style, emb)[0] if self.style else None,  # 여러 스타일 동시 가능 (tags)
+            "subcategory": None,  # 4분류 1위 칸 안의 세부 종류 (closet_items.subcategory 기본값)
+            "print": None,  # 무지·레터링·그래픽 … (비슷한 옷 구분·자동 이름용)
             "needs_review": ranked[0][1] < REVIEW_PROB,
         }
         if self.color:
@@ -147,6 +161,16 @@ class GarmentClassifier:
             result["color_name"] = {"name": c[0][0], "prob": round(c[0][1], 3), "candidates": cands, "needs_review": c[0][1] < COLOR_REVIEW_PROB}
         elif colors:
             result["color_name"] = {"name": colors[0]["name"], "prob": None, "candidates": [{"name": x["name"], "prob": None} for x in colors], "needs_review": True}
+        if self.subcat:
+            # 확정 전이라 1위 칸 기준. 사용자가 칸을 바꾸면 앱은 subcategory를 비우고 직접 고르게 한다
+            sub = [(n, p) for n, p in rank(self.subcat, emb) if SUBCAT_GROUP[n] == ranked[0][0]]
+            total = sum(p for _, p in sub) or 1.0
+            sub = [(n, p / total) for n, p in sub]
+            result["subcategory"] = {"name": sub[0][0], "prob": round(sub[0][1], 3), "needs_review": sub[0][1] < REVIEW_PROB,
+                                     "candidates": [{"name": n, "prob": round(p, 3)} for n, p in sub[:3]]}
+        if self.print:
+            pr = rank(self.print, emb)
+            result["print"] = {"name": pr[0][0], "prob": round(pr[0][1], 3)}
         if self.sleeve and ranked[0][0] in SLEEVE_CATEGORIES:
             s = rank(self.sleeve, emb)
             # 7부 경계(반팔↔7부↔긴팔)를 자주 헷갈리므로 확신이 낮으면 사용자에게 고르게 한다

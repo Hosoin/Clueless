@@ -410,6 +410,26 @@
               }
             ]
           },
+          "subcategory": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Subcategory"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "print": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Print"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "mask_ratio": {
             "type": "number",
             "title": "Mask Ratio"
@@ -481,6 +501,34 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Print": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "무지",
+              "레터링",
+              "그래픽",
+              "체크",
+              "스트라이프",
+              "플로럴",
+              "도트",
+              "기타무늬"
+            ],
+            "title": "Name"
+          },
+          "prob": {
+            "type": "number",
+            "title": "Prob"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "prob"
+        ],
+        "title": "Print"
       },
       "RecommendRequest": {
         "properties": {
@@ -706,6 +754,37 @@
           "tags"
         ],
         "title": "Style"
+      },
+      "Subcategory": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "prob": {
+            "type": "number",
+            "title": "Prob"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Category"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "prob",
+          "needs_review",
+          "candidates"
+        ],
+        "title": "Subcategory"
       },
       "ValidationError": {
         "properties": {

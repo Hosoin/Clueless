@@ -40,6 +40,8 @@
 | `category.name` (상의·하의·아우터·원피스) | `category` 기본값 (사용자 확인 후 확정) |
 | `color_name.name` | `color` 기본값 |
 | `style.tags` (1~2개, 강한 순) | `styles` 기본값 (사용자가 고치거나 비울 수 있음) |
+| `subcategory.name` (티셔츠·셔츠·청바지·반바지 …) | `subcategory` 기본값. 사용자가 `category`를 바꾸면 비우고 다시 고르게 함 |
+| `print.name` (무지·레터링·그래픽·체크 …) | `meta_json`에 보관. 표시 이름 예: "화이트 레터링 반팔 티셔츠" (색 + 프린트 + 소매 + 세부 종류) |
 | `crop_png_base64` | Blob에 저장 → `image_blob`(파일 키). `meta_json`에는 넣지 않음 |
 | **나머지 응답 전체** (`crop_png_base64`만 뺀 것) | `meta_json` 그대로. 아래 칸이 들어 있어야 추천이 다 됨 |
 
@@ -107,7 +109,7 @@ config/       MlProperties (@ConfigurationProperties("ml"))
     restart: always
 ```
 
-- 가중치: `gh release download ml-weights-v0.1`, `ml-weights-v0.2`로 공개분을 받고, `sleeve_probe.pt`·`color_probe.pt`·`style_probe.pt`는 가진 팀원이 VM의 `ml/weights/`로 복사
+- 가중치: `gh release download ml-weights-v0.1`, `ml-weights-v0.2`로 공개분을 받고, `sleeve_probe.pt`·`color_probe.pt`·`style_probe.pt`·`subcat_probe.pt`·`print_probe.pt`는 가진 팀원이 VM의 `ml/weights/`로 복사
 - 도커 없이 VM에 직접 설치하는 방법(예비용)은 [`ml/deploy/README.md`](../../ml/deploy/README.md)
 
 **개발용 (내 컴퓨터):**

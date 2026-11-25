@@ -34,14 +34,14 @@ sudo BRANCH=다른브랜치 bash ml/deploy/setup_vm.sh    # 머지 전 브랜치
 
 ## 소매·색 가중치 (팀 내부 공유)
 
-`sleeve_probe.pt`, `color_probe.pt`, `style_probe.pt`는 AI-Hub(K-Fashion) 데이터로 학습해 공개 Release에 올리지 않습니다. 가진 팀원이 VM으로 직접 복사합니다.
+`sleeve_probe.pt`, `color_probe.pt`, `style_probe.pt`, `subcat_probe.pt`, `print_probe.pt`는 AI-Hub(K-Fashion) 데이터로 학습해 공개 Release에 올리지 않습니다. 가진 팀원이 VM으로 직접 복사합니다.
 없어도 서버는 뜹니다 (소매·스타일 생략, 색은 규칙으로 대체).
 
 ```bash
 # 내 컴퓨터에서
-scp weights/sleeve_probe.pt weights/color_probe.pt weights/style_probe.pt <사용자>@<VM 주소>:/tmp/
+scp weights/sleeve_probe.pt weights/color_probe.pt weights/style_probe.pt weights/subcat_probe.pt weights/print_probe.pt <사용자>@<VM 주소>:/tmp/
 # VM에서
-sudo install -o clueless -m 640 /tmp/sleeve_probe.pt /tmp/color_probe.pt /tmp/style_probe.pt /opt/clueless/ml/weights/ && rm /tmp/*_probe.pt
+sudo install -o clueless -m 640 /tmp/sleeve_probe.pt /tmp/color_probe.pt /tmp/style_probe.pt /tmp/subcat_probe.pt /tmp/print_probe.pt /opt/clueless/ml/weights/ && rm /tmp/*_probe.pt
 sudo systemctl restart clueless-ml
 ```
 

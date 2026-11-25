@@ -118,6 +118,18 @@ class Style(BaseModel):
     tags: list[StyleName]  # 이 옷에 붙는 스타일 1~2개, 강한 순 (아무것도 안 맞으면 ["캐주얼"]). 옷장 필터·표시용
 
 
+class Subcategory(BaseModel):
+    name: str  # 티셔츠·셔츠·청바지·반바지·원피스 … (category 칸 안에서)
+    prob: float
+    needs_review: bool
+    candidates: list[Category]  # 같은 칸 안 상위 3개
+
+
+class Print(BaseModel):
+    name: Literal["무지", "레터링", "그래픽", "체크", "스트라이프", "플로럴", "도트", "기타무늬"]
+    prob: float
+
+
 class GarmentAnalysis(BaseModel):
     category: Category  # 제안값. 최종값은 사용자가 확인 화면에서 정한다
     category_candidates: list[Category]  # 확률 높은 순, 4개
@@ -125,6 +137,8 @@ class GarmentAnalysis(BaseModel):
     color_name: ColorName | None  # 확인 카드에 미리 골라 둘 대표색
     sleeve: Sleeve | None  # 상의·아우터·원피스만, 하의는 null
     style: Style | None = None  # 스타일 모델이 없으면 null
+    subcategory: Subcategory | None = None  # closet_items.subcategory 기본값. 모델이 없으면 null
+    print: Print | None = None  # 프린트. meta_json에 보관, 표시 이름·비슷한 옷 구분용
     mask_ratio: float  # 사진에서 옷이 차지하는 비율
     retake: bool  # true면 "다시 찍어 주세요" 안내 (옷이 너무 작거나 배경 제거 실패)
     needs_review: bool  # true면 카테고리를 사용자에게 고르게 한다

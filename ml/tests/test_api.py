@@ -19,6 +19,8 @@ class FakeClassifier:
             "colors": [{"name": "네이비", "rgb": (31, 40, 77), "ratio": 1.0}],
             "color_name": {"name": "네이비", "prob": 0.8, "candidates": [{"name": "네이비", "prob": 0.8}], "needs_review": False},
             "sleeve": {"name": "긴팔", "prob": 0.7, "needs_review": False},
+            "subcategory": {"name": "티셔츠", "prob": 0.8, "needs_review": False, "candidates": [{"name": "티셔츠", "prob": 0.8}]},
+            "print": {"name": "레터링", "prob": 0.7},
             "style": {"scores": {"미니멀": 0.2, "클래식": 0.1, "스트리트": 0.8, "캐주얼": 0.2, "페미닌": 0.1, "스포티": 0.6}, "tags": ["스트리트", "스포티"]},
             "mask_ratio": 0.5,
             "retake": False,
@@ -46,6 +48,7 @@ body = r.json()
 assert body["category"]["name"] == "상의" and len(body["embedding"]) == 512
 assert body["sleeve"]["name"] == "긴팔" and body["color_name"]["name"] == "네이비"
 assert body["style"]["tags"] == ["스트리트", "스포티"] and len(body["style"]["scores"]) == 6
+assert body["subcategory"]["name"] == "티셔츠" and body["print"]["name"] == "레터링"
 assert base64.b64decode(body["crop_png_base64"])[:8] == b"\x89PNG\r\n\x1a\n"
 
 # 큰 이미지는 긴 변 2048로 줄여서 모델에 넘김

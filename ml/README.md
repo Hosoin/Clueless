@@ -48,6 +48,7 @@ uv run uvicorn ml.api:app --port 8000   # 요청·응답 명세: http://localhos
 | `sleeve_probe.pt` | 소매 기장 (없으면 소매 생략) | K-Fashion + clothing-dataset | 팀 내부 공유 (AI-Hub 데이터로 학습, 공개 저장소에 올리지 않음) |
 | `color_probe.pt` | 대표색 (없으면 규칙으로 대체) | K-Fashion | 팀 내부 공유 (같은 이유) |
 | `style_probe.pt` | 스타일 6개 점수·태그 (없으면 스타일 생략, 스타일 추천 요청은 503). `uv run python -m ml.train_style` | K-Fashion 스타일 라벨 | 팀 내부 공유 (같은 이유) |
+| `subcat_probe.pt`, `print_probe.pt` | 세부 종류(티셔츠·청바지 …)·프린트(무지·레터링 …). 없으면 생략. `uv run python -m ml.train_attrs` | K-Fashion (+ clothing-dataset) | 팀 내부 공유 (같은 이유) |
 
 ## 3. 다시 학습하기
 
