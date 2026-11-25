@@ -4,7 +4,7 @@
 전체 흐름은 [파이프라인 정리 페이지](https://claude.ai/artifact/SbG46qG5RoNZA5RjT9xx1X)를 참고하세요.
 
 ```
-옷 사진 → 배경 제거(BiRefNet) → FashionCLIP(옷 1벌 = 512 벡터) → 작은 분류기들(4분류는 MLP, 소매·색은 Linear, 직접 학습)
+옷 사진 → 배경 제거(u2netp) → FashionCLIP(옷 1벌 = 512 벡터) → 작은 분류기들(4분류는 MLP, 소매·색은 Linear, 직접 학습)
 옷장(벡터들) → 후보 조합 → 궁합 모델(직접 학습) + 취향·트렌드(예정) → 코디 상위 5개 + 근거
 ```
 
@@ -34,7 +34,7 @@ uv run uvicorn ml.api:app --port 8000   # 요청·응답 명세: http://localhos
 - **백엔드 연동:** [`docs/ml-api/`](../docs/ml-api/README.md) (흐름, 저장 구조 제안, `openapi.json`)
 - 장치는 자동 선택: NVIDIA GPU(cuda) → 맥 GPU(mps) → CPU. `CLUELESS_DEVICE=cpu`로 강제할 수 있습니다.
 - 윈도우 + NVIDIA: 기본 설치되는 torch는 CPU 버전입니다. GPU를 쓰려면 CUDA용 torch로 바꿔야 합니다.
-- 사전학습 모델(FashionCLIP, BiRefNet 등)은 처음 실행할 때 Hugging Face에서 받아 캐시에 둡니다.
+- 사전학습 모델은 처음 실행할 때 받아 캐시에 둡니다 (FashionCLIP은 Hugging Face, u2netp는 GitHub, 둘 다 버전·해시 고정).
 
 ## 2. 가중치
 
@@ -47,6 +47,7 @@ uv run uvicorn ml.api:app --port 8000   # 요청·응답 명세: http://localhos
 | `compat_mlp_polyvore.pt` | 코디 궁합 (추천 API 필수) | Polyvore | Release `ml-weights-v0.1` |
 | `sleeve_probe.pt` | 소매 기장 (없으면 소매 생략) | K-Fashion + clothing-dataset | 팀 내부 공유 (AI-Hub 데이터로 학습, 공개 저장소에 올리지 않음) |
 | `color_probe.pt` | 대표색 (없으면 규칙으로 대체) | K-Fashion | 팀 내부 공유 (같은 이유) |
+| `style_probe.pt` | 스타일 6개 점수·태그 (없으면 스타일 생략, 스타일 추천 요청은 503). `uv run python -m ml.train_style` | K-Fashion 스타일 라벨 | 팀 내부 공유 (같은 이유) |
 
 ## 3. 다시 학습하기
 
@@ -121,7 +122,7 @@ uv run python -m ml.eval_fashionpedia               # Fashionpedia 검증 1,158�
 | 항목 | 라이선스 | 쓰임 |
 | --- | --- | --- |
 | [FashionCLIP](https://huggingface.co/patrickjohncyh/fashion-clip) | MIT | 옷 벡터 |
-| [BiRefNet_lite](https://huggingface.co/ZhengPeng7/BiRefNet_lite) | MIT | 배경 제거 (원격 코드라 커밋 고정) |
+| [u2netp](https://github.com/xuebinqin/U-2-Net) (rembg ONNX 배포본) | Apache-2.0 | 배경 제거 (파일 해시 고정). 예전 BiRefNet_lite(MIT)보다 CPU에서 약 40배 빠름 |
 | [YOLOS-Fashionpedia](https://huggingface.co/valentinafeve/yolos-fashionpedia) | MIT | 착장 탐지 |
 | [SAM vit-base](https://huggingface.co/facebook/sam-vit-base) | Apache-2.0 | 착장 분할 |
 | [clothing-dataset](https://github.com/alexeygrigorev/clothing-dataset) | CC0 | 4분류·소매 학습 |

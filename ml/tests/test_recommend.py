@@ -1,9 +1,11 @@
 """추천 조립 확인: 점수 순서, 다양성, 근거, API 입력 검증. 실행: uv run python -m tests.test_recommend"""
 
 import numpy as np
+import torch
 from fastapi.testclient import TestClient
 
 from ml import api
+from ml.garment import STYLES, style_scores
 from ml.recommend import recommend
 
 closet = [
@@ -64,7 +66,36 @@ assert client.post("/v1/outfits/recommend", json=bad).status_code == 422
 dup = {"items": [{**closet[0], "embedding": [0.0] * 512}] * 2}
 assert client.post("/v1/outfits/recommend", json=dup).status_code == 400
 assert client.post("/v1/outfits/recommend", json={**body, "include_id": "nope"}).status_code == 400
+# 스타일을 고르면 요청이 스타일 모델 없이 오면 503 (FakeRecommender.style 없음 = 모델 없음)
+FakeRecommender.style = None
+assert client.post("/v1/outfits/recommend", json={**body, "style": "스트리트"}).status_code == 503
+# 백엔드 closet_items 형태: id가 bigint(숫자), 벡터 없이 styles만 → 스타일 모델 없이도 스타일 추천
+nums = {"items": [{"id": 1, "category": "상의", "styles": ["캐주얼"]}, {"id": 2, "category": "상의", "styles": ["스트리트"], "tags": ["최애"]},
+                  {"id": 3, "category": "하의", "styles": ["스트리트"]}, {"id": 4, "category": "하의"}], "style": "스트리트", "k": 1}
+r = client.post("/v1/outfits/recommend", json=nums)
+assert r.status_code == 200 and r.json()["outfits"][0]["items"] == ["2", "3"], r.text
+assert "모든 옷이 스트리트 스타일이에요." in r.json()["outfits"][0]["reasons"]
+assert client.post("/v1/outfits/recommend", json={**nums, "items": [{"id": 9, "category": "상의", "styles": ["고딕"]}]}).status_code == 422
+assert client.post("/v1/outfits/recommend", json={**body, "style": "고딕"}).status_code == 422
 print("ok")
+
+# --- 스타일 취향: 궁합은 t1+b1이 높아도, 스트리트를 고르면 스트리트 옷(t2+b2)이 1위 ---
+def st(street: float, tags: list[str]) -> dict:
+    return {"scores": {s: (street if s == "스트리트" else 0.1) for s in STYLES}, "tags": tags}
+
+styles = {"t1": st(0.1, ["캐주얼"]), "b1": st(0.1, ["캐주얼"]), "t2": st(0.95, ["스트리트"]), "b2": st(0.95, ["스트리트"])}
+res = recommend(closet, emb, fake_compat, k=2, styles=styles, style_weights={"스트리트": 1.0})
+assert set(res[0]["items"]) == {"t2", "b2"} and res[0]["score_parts"]["taste"] == 0.95, res[0]
+assert "모든 옷이 스트리트 스타일이에요." in res[0]["reasons"] and all("스트리트" not in r for r in res[1]["reasons"])
+assert recommend(closet, emb, fake_compat, k=1, styles=styles, style_weights=None)[0]["items"] == ["t1", "b1"]  # 스타일 없으면 그대로
+
+# style_scores: 기준값을 넘는 스타일이 없으면 캐주얼(기본 아이템), 태그는 최대 2개
+zero = torch.nn.Linear(512, 5)
+torch.nn.init.zeros_(zero.weight), torch.nn.init.zeros_(zero.bias)  # 모든 점수 0.5
+assert style_scores((zero, [0.6] * 5), np.zeros(512))[0]["tags"] == ["캐주얼"]
+out = style_scores((zero, [0.4, 0.4, 0.3, 0.45, 0.4]), np.zeros((2, 512)))  # 모두 넘으면 넘은 비율 큰 2개만 (스트리트 0.5/0.3, 그다음 0.5/0.4 중)
+assert len(out) == 2 and len(out[0]["tags"]) == 2 and out[0]["tags"][0] == "스트리트" and out[0]["scores"]["캐주얼"] == 0.5, out[0]
+print("ok (스타일)")
 
 # --- 사진 없이 입력한 옷(벡터 없음): 그 옷은 궁합에서 빠지고, 잴 쌍이 없으면 중립 0.5 ---
 noemb = {k: v for k, v in emb.items() if k != "b1"}

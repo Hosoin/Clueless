@@ -23,9 +23,9 @@ from typing import Literal
 import numpy as np
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Request, UploadFile
 from PIL import Image, UnidentifiedImageError
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from ml.garment import PROBE, GarmentClassifier
+from ml.garment import PROBE, STYLES, GarmentClassifier, style_scores
 from ml.recommend import Recommender, recommend
 from ml.settings import API_KEY
 
@@ -109,12 +109,22 @@ class Sleeve(BaseModel):
     needs_review: bool  # true면 소매 기장을 사용자에게 고르게 한다
 
 
+StyleName = Literal["미니멀", "클래식", "스트리트", "캐주얼", "페미닌", "스포티"]
+assert list(StyleName.__args__) == STYLES  # garment.STYLES와 같은 순서·이름
+
+
+class Style(BaseModel):
+    scores: dict[StyleName, float]  # 스타일마다 0~1 (6개 모두)
+    tags: list[StyleName]  # 이 옷에 붙는 스타일 1~2개, 강한 순 (아무것도 안 맞으면 ["캐주얼"]). 옷장 필터·표시용
+
+
 class GarmentAnalysis(BaseModel):
     category: Category  # 제안값. 최종값은 사용자가 확인 화면에서 정한다
     category_candidates: list[Category]  # 확률 높은 순, 4개
     colors: list[Color]  # 넓은 순 (색 견본용 rgb)
     color_name: ColorName | None  # 확인 카드에 미리 골라 둘 대표색
     sleeve: Sleeve | None  # 상의·아우터·원피스만, 하의는 null
+    style: Style | None = None  # 스타일 모델이 없으면 null
     mask_ratio: float  # 사진에서 옷이 차지하는 비율
     retake: bool  # true면 "다시 찍어 주세요" 안내 (옷이 너무 작거나 배경 제거 실패)
     needs_review: bool  # true면 카테고리를 사용자에게 고르게 한다
@@ -137,8 +147,7 @@ def ready() -> dict:
     return {"status": "ready", "versions": {**get_classifier().versions, "compat": get_recommender().version}}
 
 
-@v1.post("/garments/analyze", response_model=GarmentAnalysis)
-def analyze(image: UploadFile, clf: GarmentClassifier = Depends(get_classifier)) -> GarmentAnalysis:
+def read_image(image: UploadFile) -> Image.Image:
     data = image.file.read(MAX_BYTES + 1)
     if len(data) > MAX_BYTES:
         raise HTTPException(413, f"이미지는 {MAX_BYTES // 1024 // 1024}MB 이하여야 합니다")
@@ -148,6 +157,13 @@ def analyze(image: UploadFile, clf: GarmentClassifier = Depends(get_classifier))
     except (UnidentifiedImageError, Image.DecompressionBombError, OSError):
         raise HTTPException(400, "이미지 파일을 읽을 수 없습니다 (jpg, png, webp 등)")
     img.thumbnail((MAX_SIDE, MAX_SIDE))
+    return img
+
+
+@v1.post("/garments/analyze", response_model=GarmentAnalysis)
+def analyze(image: UploadFile, clf: GarmentClassifier = Depends(get_classifier)) -> GarmentAnalysis:
+    """옷 사진 → 확인 카드 값 + 크롭·벡터 (CPU 4스레드 약 0.3초, 대부분 배경 제거)."""
+    img = read_image(image)
 
     start = time.perf_counter()
     with _lock:
@@ -167,19 +183,24 @@ def analyze(image: UploadFile, clf: GarmentClassifier = Depends(get_classifier))
 
 
 class ClosetItem(BaseModel):
+    model_config = ConfigDict(coerce_numbers_to_str=True)  # 백엔드 closet_items.id(bigint)를 숫자로 보내도 받음. 응답의 id는 문자열
     id: str
     category: Literal["상의", "하의", "아우터", "원피스"]  # 사용자가 확인한 값
     subcategory: str | None = None  # 레이어드용 (셔츠, 니트, 티셔츠, 민소매 …)
     sleeve: Literal["민소매", "반팔", "7부", "긴팔"] | None = None  # 레이어드용
-    tags: list[str] = []
+    tags: list[str] = []  # 자유 라벨 (closet_items.tags)
+    styles: list[StyleName] = []  # closet_items.styles. 벡터가 없는 옷은 이 값으로 스타일 점수를 대신한다
     embedding: list[float] | None = Field(None, min_length=EMB_DIM, max_length=EMB_DIM)  # 등록 때 analyze가 준 벡터. 사진 없이 입력한 옷은 null (궁합에서 빠짐)
 
 
 class RecommendRequest(BaseModel):
+    model_config = ConfigDict(coerce_numbers_to_str=True)
     items: list[ClosetItem] = Field(max_length=MAX_CLOSET)
     k: int = Field(5, ge=1, le=20)
     include_id: str | None = None  # 이 옷이 들어간 코디만 (잘 안 입는 옷 활용)
     allow_layering: bool = False  # 사용자 설정 "레이어드 추천 받기"
+    style: StyleName | None = None  # 사용자가 고른 스타일. 주면 style_weights보다 우선
+    style_weights: dict[StyleName, float] | None = None  # 취향: 착용 기록의 스타일 비중 (예: {"스트리트": 0.6, "캐주얼": 0.4})
 
 
 class RecommendedOutfit(BaseModel):
@@ -187,7 +208,7 @@ class RecommendedOutfit(BaseModel):
     template: str
     roles: dict[str, str]  # 레이어드일 때 {옷 id: 이너|겉}
     score: float
-    score_parts: dict[str, float]  # compat(궁합) / taste(취향, 아직 0) / trend(트렌드, 아직 0)
+    score_parts: dict[str, float]  # compat(궁합) / taste(스타일 맞춤, 스타일을 안 주면 0) / trend(트렌드, 아직 0)
     reasons: list[str]  # 실제로 적용한 규칙·점수만
 
 
@@ -204,12 +225,21 @@ def recommend_outfits(req: RecommendRequest, rec: Recommender = Depends(get_reco
     if req.include_id and req.include_id not in ids:
         raise HTTPException(400, "include_id가 옷장 목록에 없습니다")
     emb = {it.id: np.asarray(it.embedding, dtype=np.float32) for it in req.items if it.embedding is not None}
-    items = [it.model_dump(exclude={"embedding"}) for it in req.items]
+    items = [it.model_dump(exclude={"embedding", "styles"}) for it in req.items]
+    weights = {req.style: 1.0} if req.style else {s: w for s, w in (req.style_weights or {}).items() if w > 0} or None
+    if weights and rec.style is None and emb:
+        raise HTTPException(503, "스타일 모델(style_probe.pt)이 서버에 없습니다")
     start = time.perf_counter()
     with _lock:
-        outfits = recommend(items, emb, lambda os: rec.compat(os, emb), k=req.k, include_id=req.include_id, allow_layering=req.allow_layering)
+        styles = dict(zip(emb, style_scores(rec.style, np.stack(list(emb.values()))))) if weights and emb else {}
+        if weights:  # 벡터 없는 옷(사진 없이 입력 등)은 사용자가 고른 styles로: 있으면 1, 없으면 0
+            for it in req.items:
+                if it.embedding is None and it.styles:
+                    styles[it.id] = {"scores": {s: float(s in it.styles) for s in STYLES}, "tags": list(it.styles)}
+        outfits = recommend(items, emb, lambda os: rec.compat(os, emb), k=req.k, include_id=req.include_id, allow_layering=req.allow_layering,
+                            styles=styles, style_weights=weights)
     log_event(event="recommend", ms=round((time.perf_counter() - start) * 1000), closet=len(items), returned=len(outfits),
-              top_score=outfits[0]["score"] if outfits else None, layering=req.allow_layering)
+              top_score=outfits[0]["score"] if outfits else None, layering=req.allow_layering, style=req.style)
     return RecommendResponse(outfits=outfits, model_version=rec.version)
 
 

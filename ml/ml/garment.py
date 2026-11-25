@@ -14,6 +14,7 @@ from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
 from ml.analyze import CLIP_REVISION, pick_device
+from ml.background import MODEL as BG_MODEL
 from ml.background import BackgroundRemover
 from ml.colors import suggest_colors
 from ml.settings import WEIGHTS_DIR
@@ -22,7 +23,15 @@ from ml.settings import WEIGHTS_DIR
 PROBE = next((p for p in (WEIGHTS_DIR / "garment4_mlp_both.pt", WEIGHTS_DIR / "garment4_probe_both.pt") if p.exists()), WEIGHTS_DIR / "garment4_mlp_both.pt")
 SLEEVE_PROBE = WEIGHTS_DIR / "sleeve_probe.pt"  # 없으면 소매 기장은 결과에서 빠진다
 COLOR_PROBE = WEIGHTS_DIR / "color_probe.pt"  # 없으면 색 이름은 규칙(k-means + 팔레트)만 쓴다
+STYLE_PROBE = WEIGHTS_DIR / "style_probe.pt"  # 없으면 스타일 점수는 결과에서 빠진다 (AI-Hub 학습분, 팀 내부 공유)
 SLEEVE_CATEGORIES = {"상의", "아우터", "원피스"}  # 하의에는 소매가 없다
+# 스타일 6개. K-Fashion 23개 스타일을 묶어 5개를 학습하고(train_style), 캐주얼은 K-Fashion에 없어 max(미니멀, 클래식)으로 계산
+STYLES = ["미니멀", "클래식", "스트리트", "캐주얼", "페미닌", "스포티"]
+TRAINED_STYLES = ["미니멀", "클래식", "스트리트", "페미닌", "스포티"]
+MAX_TAGS = 2  # 옷마다 붙는 스타일 태그 최대 개수 (기준값이 낮은 스트리트가 거의 모든 옷에 붙는 것을 막음)
+STYLE_MAP = {"모던": "미니멀", "젠더리스": "미니멀", "클래식": "클래식", "소피스트케이티드": "클래식", "프레피": "클래식",
+             "스트리트": "스트리트", "힙합": "스트리트", "펑크": "스트리트", "키치": "스트리트",
+             "페미닌": "페미닌", "로맨틱": "페미닌", "섹시": "페미닌", "스포티": "스포티"}  # 나머지(리조트·컨트리 등)는 어느 스타일도 아님
 # shortcut: 기준값 초안. 팀원 프리셋 사진 평가에서 "확인 필요"가 실제 오답을 잘 잡는지 보고 다시 정한다.
 REVIEW_PROB = 0.6  # 1위 확률이 이보다 낮으면 사용자 확인 요청
 MIN_MASK_RATIO = 0.05  # 옷이 사진의 5% 미만이면 다시 찍기 안내
@@ -53,6 +62,30 @@ def rank(head: tuple[list[str], torch.nn.Module, str], emb: np.ndarray) -> list[
     return sorted(zip(head[0], probs), key=lambda x: -x[1])
 
 
+def load_style_head(path: Path = STYLE_PROBE) -> tuple[torch.nn.Module, list[float]] | None:
+    head = load_probe(path)
+    if head is None:
+        return None
+    assert head[0] == TRAINED_STYLES, "스타일 가중치의 스타일 순서가 코드와 다릅니다"
+    return head[1], torch.load(path, map_location="cpu")["thresholds"]
+
+
+def style_scores(head: tuple[torch.nn.Module, list[float]], emb: np.ndarray) -> list[dict]:
+    """벡터 (N, 512) → 옷마다 {"scores": {스타일: 0~1}, "tags": [붙은 스타일]}. 한 옷에 여러 스타일이 붙을 수 있다.
+    tags: 기준값(val F1 최고)을 넘는 스타일 중 넘은 비율(점수/기준값)이 큰 순서로 최대 MAX_TAGS개.
+    아무 스타일도 기준값을 못 넘으면 기본 아이템으로 보고 ["캐주얼"]. 캐주얼 점수 = max(미니멀, 클래식) (추천 점수에 씀)."""
+    with torch.no_grad():
+        p = torch.sigmoid(head[0](torch.tensor(np.atleast_2d(emb), dtype=torch.float32))).numpy()
+    out = []
+    for row in p:
+        s = dict(zip(TRAINED_STYLES, row.tolist()))
+        passed = sorted((s[st] / t, st) for st, t in zip(TRAINED_STYLES, head[1]) if s[st] >= t)
+        tags = [st for _, st in passed[::-1][:MAX_TAGS]] or ["캐주얼"]
+        s["캐주얼"] = max(s["미니멀"], s["클래식"])
+        out.append({"scores": {st: round(s[st], 3) for st in STYLES}, "tags": tags})  # 강한 순
+    return out
+
+
 class GarmentClassifier:
     def __init__(self, probe_path: Path = PROBE, device: str | None = None) -> None:
         self.device = device or pick_device()
@@ -60,7 +93,8 @@ class GarmentClassifier:
         assert head, f"{probe_path}가 없습니다 (README의 가중치 받기 참고)"
         self.classes, self.probe, clip = head
         self.sleeve, self.color = load_probe(SLEEVE_PROBE), load_probe(COLOR_PROBE)
-        for h in (self.sleeve, self.color):  # 같은 벡터를 쓰므로 같은 FashionCLIP으로 학습된 것만
+        self.style = load_style_head()
+        for h in (self.sleeve, self.color, load_probe(STYLE_PROBE)):  # 같은 벡터를 쓰므로 같은 FashionCLIP으로 학습된 것만
             assert h is None or h[2] == clip, "분류기마다 FashionCLIP 버전이 다릅니다"
         self.clip = CLIPModel.from_pretrained(clip, revision=CLIP_REVISION).to(self.device).eval()
         self.proc = CLIPProcessor.from_pretrained(clip, revision=CLIP_REVISION)
@@ -68,9 +102,11 @@ class GarmentClassifier:
         # 응답에 넣는 버전. embedding이 바뀌면 옷장 DB의 벡터를 모두 다시 계산해야 한다
         self.versions = {
             "embedding": f"{clip}@{CLIP_REVISION[:7]}",
+            "background": BG_MODEL,  # 크롭 이미지를 만든 배경 제거 모델
             "category": probe_path.stem,
             "sleeve": SLEEVE_PROBE.stem if self.sleeve else None,
             "color": COLOR_PROBE.stem if self.color else "rule",
+            "style": STYLE_PROBE.stem if self.style else None,
         }
 
     @torch.no_grad()
@@ -83,17 +119,22 @@ class GarmentClassifier:
         image = image.convert("RGB")
         mask, crop = self.remover(image)
         emb = self.embed(crop)
-        ranked = rank((self.classes, self.probe, ""), emb)
         mask_ratio = float(mask.mean())
         colors = [{**c, "ratio": round(c["ratio"], 2)} for c in suggest_colors(np.array(image), mask)]
+        result = self._card(emb, colors)
+        result.update(mask_ratio=round(mask_ratio, 3), retake=mask_ratio < MIN_MASK_RATIO)  # 옷이 너무 작게 찍힘(또는 배경 제거 실패)
+        return result, crop, emb
+
+    def _card(self, emb: np.ndarray, colors: list[dict]) -> dict:
+        """벡터(+ 규칙 색) → 확인 카드 값."""
+        ranked = rank((self.classes, self.probe, ""), emb)
         result = {
             "category": {"name": ranked[0][0], "prob": round(ranked[0][1], 3)},  # 제안값, 최종값은 사용자가 확인
             "category_candidates": [{"name": c, "prob": round(p, 3)} for c, p in ranked],
             "colors": colors,  # 규칙: 옷 픽셀 k-means → 팔레트 (색 견본 rgb와 비율)
             "color_name": None,  # 색 모델이 고른 대표색 이름 (모델이 있을 때)
             "sleeve": None,  # 상의·아우터·원피스만
-            "mask_ratio": round(mask_ratio, 3),
-            "retake": mask_ratio < MIN_MASK_RATIO,  # 옷이 너무 작게 찍힘(또는 배경 제거 실패)
+            "style": style_scores(self.style, emb)[0] if self.style else None,  # 여러 스타일 동시 가능 (tags)
             "needs_review": ranked[0][1] < REVIEW_PROB,
         }
         if self.color:
@@ -110,7 +151,7 @@ class GarmentClassifier:
             s = rank(self.sleeve, emb)
             # 7부 경계(반팔↔7부↔긴팔)를 자주 헷갈리므로 확신이 낮으면 사용자에게 고르게 한다
             result["sleeve"] = {"name": s[0][0], "prob": round(s[0][1], 3), "needs_review": s[0][1] < REVIEW_PROB}
-        return result, crop, emb
+        return result
 
     def __call__(self, path: Path, out_dir: Path) -> dict:
         result, crop, emb = self.analyze(Image.open(path))

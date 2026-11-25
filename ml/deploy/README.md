@@ -10,7 +10,7 @@ VM ─ Nginx(443) ─ 백엔드 Spring ─┬─ ML API 127.0.0.1:8000  ← 이 
 ## 필요한 VM
 
 - Ubuntu 22.04 또는 24.04
-- ML만 메모리 약 4.5GB, 사진 한 장 분석 약 8초(맥 CPU 기준, VM에서 다시 측정). 백엔드·DB와 같이 쓰면 **메모리 16GB·4코어 이상** 권장 (예: `Standard_D4s_v5`)
+- ML만 메모리 약 1GB, 사진 한 장 분석 약 0.3~0.5초(맥 기준, VM에서 다시 측정). 백엔드·DB와 같이 쓰면 **메모리 16GB·4코어 이상** 권장 (예: `Standard_D4s_v5`)
 - 디스크: 코드·의존성·모델 합쳐 약 5GB
 
 ## 설치·업데이트 (같은 명령)
@@ -25,20 +25,20 @@ sudo BRANCH=다른브랜치 bash ml/deploy/setup_vm.sh    # 머지 전 브랜치
 1. 서비스 전용 사용자 `clueless` 생성, 코드를 `/opt/clueless`에 받기 (배포 전용 폴더라 업데이트하면 덮어씀)
 2. uv 설치 → 의존성 설치 (리눅스는 CPU 전용 torch)
 3. 공개 가중치 받기: Release `ml-weights-v0.2`(4분류 MLP), `ml-weights-v0.1`(궁합)
-4. FashionCLIP·BiRefNet을 고정 버전으로 미리 받기
+4. FashionCLIP·u2netp(배경 제거)를 고정 버전으로 미리 받기
 5. `/etc/clueless/ml.env`에 `ML_API_KEY`를 처음 한 번 만들기 (이후 실행에서는 그대로 둠)
 6. systemd 서비스 `clueless-ml` 등록·시작 → `/ready` 응답 확인
 
 ## 소매·색 가중치 (팀 내부 공유)
 
-`sleeve_probe.pt`, `color_probe.pt`는 AI-Hub(K-Fashion) 데이터로 학습해 공개 Release에 올리지 않습니다. 가진 팀원이 VM으로 직접 복사합니다.
-없어도 서버는 뜹니다 (소매 생략, 색은 규칙으로 대체).
+`sleeve_probe.pt`, `color_probe.pt`, `style_probe.pt`는 AI-Hub(K-Fashion) 데이터로 학습해 공개 Release에 올리지 않습니다. 가진 팀원이 VM으로 직접 복사합니다.
+없어도 서버는 뜹니다 (소매·스타일 생략, 색은 규칙으로 대체).
 
 ```bash
 # 내 컴퓨터에서
-scp weights/sleeve_probe.pt weights/color_probe.pt <사용자>@<VM 주소>:/tmp/
+scp weights/sleeve_probe.pt weights/color_probe.pt weights/style_probe.pt <사용자>@<VM 주소>:/tmp/
 # VM에서
-sudo install -o clueless -m 640 /tmp/sleeve_probe.pt /tmp/color_probe.pt /opt/clueless/ml/weights/ && rm /tmp/*_probe.pt
+sudo install -o clueless -m 640 /tmp/sleeve_probe.pt /tmp/color_probe.pt /tmp/style_probe.pt /opt/clueless/ml/weights/ && rm /tmp/*_probe.pt
 sudo systemctl restart clueless-ml
 ```
 
