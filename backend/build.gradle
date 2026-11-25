@@ -21,11 +21,36 @@ subprojects {
     dependencies {
         implementation platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES)
         implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+        implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+        runtimeOnly 'org.postgresql:postgresql'
         testImplementation 'org.springframework.boot:spring-boot-starter-test'
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     }
 
+    sourceSets.test.java.srcDir rootProject.file('src/test/java')
+
+    def localConfigImport = "optional:${rootProject.file('.env').toURI().toASCIIString()}[.properties]"
+    // An automatic import could otherwise take precedence over explicit config locations.
+    def hasExternalConfig = ['SPRING_CONFIG_IMPORT', 'SPRING_CONFIG_LOCATION', 'SPRING_CONFIG_ADDITIONAL_LOCATION']
+            .any { providers.environmentVariable(it).isPresent() }
+
+    tasks.named('bootRun') {
+        workingDir rootProject.projectDir
+        if (!hasExternalConfig) environment 'SPRING_CONFIG_IMPORT', localConfigImport
+    }
+
     tasks.named('test') {
-        useJUnitPlatform()
+        useJUnitPlatform { excludeTags 'live-postgres' }
+    }
+
+    tasks.register('livePostgresTest', Test) {
+        group = 'verification'
+        description = 'Verifies the application context against the external development PostgreSQL over TLS.'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform { includeTags 'live-postgres' }
+        workingDir rootProject.projectDir
+        if (!hasExternalConfig) environment 'SPRING_CONFIG_IMPORT', localConfigImport
+        doNotTrackState('The database and connection environment can change between runs.')
     }
 }
