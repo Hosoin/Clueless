@@ -94,8 +94,21 @@ config/       MlProperties (@ConfigurationProperties("ml"))
 
 ## 5. 띄우기
 
-**서비스 (Azure VM, Docker 없이):** 백엔드·DB와 같은 VM에서 ML API를 systemd 서비스로 띄웁니다. 백엔드는 `http://127.0.0.1:8000`으로 부르고, 8000번은 외부에 열지 않습니다.
-설치·키·운영은 [`ml/deploy/README.md`](../../ml/deploy/README.md) (`sudo bash ml/deploy/setup_vm.sh` 한 번).
+**서비스 (Azure VM, docker compose):** 백엔드·DB와 같은 compose 파일에 `ml` 서비스를 추가합니다. 백엔드는 `http://ml:8000`으로 부르고, 8000번은 외부에 열지 않습니다 (`ports` 없이).
+
+```yaml
+  ml:
+    build: ./ml
+    environment:
+      ML_API_KEY: ${ML_API_KEY}        # 백엔드 ml.api-key와 같은 값 (.env, Git에 올리지 않음)
+    volumes:
+      - ./ml/weights:/app/weights:ro   # Release 가중치 + 팀 내부 공유 가중치(소매·색·스타일)
+    mem_limit: 3g                      # ML 서버 약 1GB. 넘치면 ML만 정리되고 백엔드·DB는 지킴
+    restart: always
+```
+
+- 가중치: `gh release download ml-weights-v0.1`, `ml-weights-v0.2`로 공개분을 받고, `sleeve_probe.pt`·`color_probe.pt`·`style_probe.pt`는 가진 팀원이 VM의 `ml/weights/`로 복사
+- 도커 없이 VM에 직접 설치하는 방법(예비용)은 [`ml/deploy/README.md`](../../ml/deploy/README.md)
 
 **개발용 (내 컴퓨터):**
 
@@ -105,7 +118,7 @@ ML_API_KEY=dev-key uv run uvicorn ml.api:app --port 8000
 # 또는 컨테이너: docker build -t clueless-ml . && docker run -p 8000:8000 -v "$PWD/weights:/app/weights:ro" -e ML_API_KEY=dev-key clueless-ml
 ```
 
-Spring 쪽 `ml.base-url=http://localhost:8000`(VM에서는 `http://127.0.0.1:8000`), `ml.api-key`=ML 쪽 `ML_API_KEY`와 같은 값.
+Spring 쪽 `ml.base-url=http://localhost:8000`(compose 안에서는 `http://ml:8000`), `ml.api-key`=ML 쪽 `ML_API_KEY`와 같은 값.
 
 ## 6. 바뀌면 알려야 하는 것
 

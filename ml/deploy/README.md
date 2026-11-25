@@ -1,4 +1,7 @@
-# ML API를 Azure VM에 올리기 (Docker 없이)
+# ML API를 Azure VM에 올리기 (Docker 없이, 예비용)
+
+> **예비용입니다.** 11/25 팀 결정으로 백엔드·DB·ML을 docker compose로 함께 올립니다 ([`docs/ml-api/README.md`](../../docs/ml-api/README.md) 5절). 도커를 쓸 수 없을 때만 이 방법을 씁니다.
+> 백엔드가 컨테이너 안에 있으면 `127.0.0.1`은 컨테이너 자신이라 이 방식의 ML에 닿지 않습니다.
 
 백엔드·DB와 같은 VM에서 ML API를 systemd 서비스로 띄웁니다. 백엔드만 부르므로 `127.0.0.1:8000`에만 열고, 외부에는 공개하지 않습니다.
 

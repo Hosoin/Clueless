@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# [예비용] 팀은 docker compose로 배포한다 (docs/ml-api/README.md 5절). 도커를 못 쓸 때만:
 # Azure VM(Ubuntu 22.04/24.04)에 ML API를 Docker 없이 설치한다. 여러 번 실행해도 안전하다 (업데이트도 이 스크립트로).
 # 실행: sudo bash ml/deploy/setup_vm.sh            (저장소를 받은 뒤, 저장소 루트에서)
 # 결과: /opt/clueless (코드), /opt/clueless/ml/weights (가중치), /etc/clueless/ml.env (키), systemd 서비스 clueless-ml
