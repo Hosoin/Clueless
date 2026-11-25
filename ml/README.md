@@ -49,6 +49,7 @@ uv run uvicorn ml.api:app --port 8000   # 요청·응답 명세: http://localhos
 | `color_probe.pt` | 대표색 (없으면 규칙으로 대체) | K-Fashion | 팀 내부 공유 (같은 이유) |
 | `style_probe.pt` | 스타일 6개 점수·태그 (없으면 스타일 생략, 스타일 추천 요청은 503). `uv run python -m ml.train_style` | K-Fashion 스타일 라벨 | 팀 내부 공유 (같은 이유) |
 | `subcat_probe.pt`, `print_probe.pt` | 세부 종류(티셔츠·청바지 …)·프린트(무지·레터링 …). 없으면 생략. `uv run python -m ml.train_attrs` | K-Fashion (+ clothing-dataset) | 팀 내부 공유 (같은 이유) |
+| `garment4_mlp_real.pt`, `color_probe_real.pt` | 실사진(중고거래·웹·팀원 촬영 842장)을 섞은 4분류·대표색. 있으면 우선 사용. `uv run python -m ml.train_real_mix` | clothing-dataset·K-Fashion + 실사진 | 팀 내부 공유 (실사진은 평가 허락 범위라 공개 금지) |
 
 ## 3. 다시 학습하기
 
