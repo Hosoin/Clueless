@@ -128,13 +128,31 @@ export const wearList = (c: Combo) => K.map((k) => c[k]).filter(Boolean) as Item
 export const comboToLook = (c: Combo): Look => ({ top: c.t?.id ?? null, mid: c.m?.id ?? null, jacket: c.j?.id ?? null, outer: c.o?.id ?? null, bottom: c.b?.id ?? null })
 export function clampPos() { const L = lists(); for (const k of K) S.pos[k] = Math.max(0, Math.min(S.pos[k], L[k].length - 1)) }
 
+/**
+ * i번째 추천 코디로 홈의 줄(S.pos, S.on)을 맞춘다.
+ * 겹옷 줄(덧입기·재킷·코트)은 코디의 옷이 그 줄에 실제로 있을 때만 켠다.
+ * 추천에서 뺀 옷은 줄에서 빠지므로, 그 옷을 가리키는 겹을 그대로 켜면 "옷이 없어요"만 뜬 하얀 칸이 생겨서
+ * (예: 덧입기가 한 벌뿐인데 그 옷을 뺀 경우). 뺀 옷이 든 코디를 어떻게 다시 짤지는 추천 서버(ML)가 정할 일이라
+ * 여기서는 화면에 빈 칸만 생기지 않게 한다.
+ */
 export function applyOutfit(i: number) {
   S.oi = i; const o: Outfit = S.outfits[i]
   if (S.fresh && recentIn(o).length) S.fresh = false // 추천 코디에 최근 입은 옷이 있으면 그대로 보여 줌
-  S.on.m = !!o.mid; S.on.j = !!o.jacket; S.on.o = !!o.outer
   const L = lists(), at = (arr: Item[], id: number) => Math.max(0, arr.findIndex((x) => x.id === id))
+  const inRow = (k: ExtraKey, id?: number | null) => !!id && L[k].some((x) => x.id === id)
+  S.on.m = inRow('m', o.mid); S.on.j = inRow('j', o.jacket); S.on.o = inRow('o', o.outer)
   const ids: Record<RowKey, number | null | undefined> = { t: o.top, m: o.mid, j: o.jacket, o: o.outer, b: o.bottom }
   K.forEach((k) => { const id = ids[k]; if (id) S.pos[k] = at(L[k], id) })
+}
+/**
+ * 옷을 추천에서 빼거나 되돌린 직후 홈의 줄을 정리한다.
+ * 켜져 있던 겹옷 줄에 남은 옷이 없으면 끄고(하얀 '옷이 없어요' 칸 방지), 줄마다 고른 위치가 줄 길이를 넘지 않게 맞춘다.
+ * 지금 고른 다른 옷은 그대로 둔다.
+ */
+export function tidyRows() {
+  const L = lists()
+  EXTRA.forEach((k) => { if (S.on[k] && !L[k].length) S.on[k] = false })
+  clampPos()
 }
 /** 커뮤니티 따라 입기 등: 지정한 옷으로 줄을 맞춤 */
 export function setCombo(ids: number[]) {
