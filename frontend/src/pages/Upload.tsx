@@ -206,7 +206,7 @@ function Camera({ onClose, onFail }: { onClose: (shots: Blob[]) => void; onFail:
           c.toBlob((b) => { if (b) setShots((s) => [...s, b]) }, 'image/jpeg', 0.85)
           if (flash.current) { flash.current.style.opacity = '.8'; setTimeout(() => { if (flash.current) flash.current.style.opacity = '0' }, 80) }
         }} />
-        <span style={{ minWidth: 56, textAlign: 'right', color: '#FAF7EF', fontSize: 13 }}>{shots.length ? shots.length + '장' : ''}</span>
+        <span style={{ minWidth: 56, textAlign: 'right', color: 'var(--ivory)', fontSize: 13 }}>{shots.length ? shots.length + '장' : ''}</span>
       </div>
     </div>
   )

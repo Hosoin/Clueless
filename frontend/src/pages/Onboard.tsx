@@ -4,7 +4,6 @@ import { Navigate, useNavigate } from 'react-router'
 import { Back } from '../components/Icons'
 import { MODES, STYLES } from '../data/seed'
 import { S, emit, useApp } from '../store'
-import { toast } from '../ui'
 
 export default function Onboard() {
   useApp()
@@ -21,8 +20,8 @@ export default function Onboard() {
     const v = ob.nick.trim()
     if (v.length < 2) return setErr('닉네임은 2자 이상이에요')
     S.me.nick = v; S.pref.mode = ob.mode; if (ob.mode === 'taste') S.pref.styles = [...ob.styles]; S.onboarded = true
+    // 첫 설정이 끝나면 홈으로만 보냄. "오늘의 코디를 골랐어요" 알림은 홈 화면에 바로 코디가 보여서 군더더기라 띄우지 않는다
     nav('/')
-    toast(S.pref.mode === 'taste' ? `${S.pref.styles.join('·')} 취향으로 오늘의 코디를 골랐어요` : '요즘 유행에 맞춰 오늘의 코디를 골랐어요')
   }
   return (
     <section className="screen on" id="s-onboard" style={{ display: 'flex' }}>
