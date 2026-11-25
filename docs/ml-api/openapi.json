@@ -262,6 +262,31 @@
             "title": "Styles",
             "default": []
           },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "colors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ColorShare"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colors"
+          },
           "embedding": {
             "anyOf": [
               {
@@ -360,6 +385,26 @@
           "needs_review"
         ],
         "title": "ColorName"
+      },
+      "ColorShare": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ratio": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "ratio"
+        ],
+        "title": "ColorShare"
       },
       "GarmentAnalysis": {
         "properties": {

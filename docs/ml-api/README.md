@@ -69,9 +69,13 @@
 | `items[].id` | `closet_items.id` (숫자 그대로 가능, 응답 id는 문자열) |
 | `items[].category`, `subcategory`, `tags`, `styles` | `closet_items` 같은 이름 칸 |
 | `items[].sleeve` | `meta_json.sleeve.name` (없으면 생략) |
+| `items[].color` | `closet_items.color` (대표색) |
+| `items[].colors` | `meta_json.colors` (분석 응답의 색과 면적 비율. 수동 등록 옷은 생략 → 대표색 하나로 계산) |
 | `items[].embedding` | `meta_json.embedding` (없으면 null) |
 | `style` | 사용자가 추천 화면에서 고른 스타일 (없으면 생략) |
 | `style_weights` | `style`이 없을 때 `user_info.preferred_styles`를 같은 비중으로 (예: `{"스트리트": 0.5, "캐주얼": 0.5}`) |
+
+- **색 궁합:** 옷마다 면적 15% 이상인 색끼리 규칙표(무채색·같은 계열 +, 보색 충돌 −)로 점수를 내서 `score_parts.color`(0.5 = 중립)에 반영합니다. 흰색·민트 셔츠처럼 여러 색인 옷은 민트 부분의 궁합도 면적만큼 따집니다. 보조색을 다른 옷과 맞추면 "민트 포인트 색을 맞췄어요." 근거가 붙습니다. 규칙표는 초안이라 가중치를 낮게(0.3) 시작합니다.
 
 - 원본 사진은 보관하지 않고 크롭(배경 제거본)만 보관하면 얼굴 등 개인정보가 줄어듭니다.
 
@@ -109,7 +113,7 @@ config/       MlProperties (@ConfigurationProperties("ml"))
     restart: always
 ```
 
-- 가중치: `gh release download ml-weights-v0.1`, `ml-weights-v0.2`로 공개분을 받고, `sleeve_probe.pt`·`color_probe.pt`·`style_probe.pt`·`subcat_probe.pt`·`print_probe.pt`는 가진 팀원이 VM의 `ml/weights/`로 복사
+- 가중치: `gh release download ml-weights-v0.1`, `ml-weights-v0.2`로 공개분을 받고, `sleeve_probe.pt`·`color_probe.pt`·`style_probe.pt`·`subcat_probe.pt`·`print_probe.pt`·`garment4_mlp_real.pt`·`color_probe_real.pt`는 가진 팀원이 VM의 `ml/weights/`로 복사
 - 도커 없이 VM에 직접 설치하는 방법(예비용)은 [`ml/deploy/README.md`](../../ml/deploy/README.md)
 
 **개발용 (내 컴퓨터):**

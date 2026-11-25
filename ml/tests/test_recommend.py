@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from ml import api
 from ml.garment import STYLES, style_scores
-from ml.recommend import recommend
+from ml.recommend import color_dist, color_scores, harmony, recommend
 
 closet = [
     {"id": "t1", "category": "상의"},
@@ -88,6 +88,24 @@ res = recommend(closet, emb, fake_compat, k=2, styles=styles, style_weights={"�
 assert set(res[0]["items"]) == {"t2", "b2"} and res[0]["score_parts"]["taste"] == 0.95, res[0]
 assert "모든 옷이 스트리트 스타일이에요." in res[0]["reasons"] and all("스트리트" not in r for r in res[1]["reasons"])
 assert recommend(closet, emb, fake_compat, k=1, styles=styles, style_weights=None)[0]["items"] == ["t1", "b1"]  # 스타일 없으면 그대로
+
+# --- 색 궁합: 화이트·민트 셔츠는 흰색과는 맞아도 레드와는 민트가 부딪혀 감점, 민트 포인트를 맞추면 근거 ---
+assert harmony("민트", "레드") == -1 and harmony("화이트", "레드") == 0.5 and harmony("민트", "스카이블루") == 0.0 and harmony("민트", "그린") == 0.7
+wm = {"id": "t", "category": "상의", "colors": [{"name": "화이트", "ratio": 0.62}, {"name": "민트", "ratio": 0.31}, {"name": "그레이", "ratio": 0.07}]}
+d = color_dist(wm)
+assert set(d) == {"화이트", "민트"} and abs(d["화이트"] - 0.62 / 0.93) < 1e-9  # 15% 미만(그레이)은 빼고 다시 합 1로
+# 사용자가 대표색을 고쳤으면(모델 1위 화이트 → 사용자 아이보리) 1위 자리를 바꾸고 보조색(민트)은 유지
+d2 = color_dist({**wm, "color": "아이보리"})
+assert set(d2) == {"아이보리", "민트"} and abs(d2["아이보리"] - 0.62 / 0.93) < 1e-9, d2
+assert color_dist({**wm, "color": "화이트"}) == d  # 같으면 그대로
+red, black, mint = ({"id": i, "category": "하의", "color": c} for i, c in (("r", "레드"), ("k", "블랙"), ("m", "민트")))
+sc, why = color_scores([{"items": [wm, red]}, {"items": [wm, black]}, {"items": [wm, mint]}, {"items": [wm, {"id": "x", "category": "하의"}]}])
+assert sc[0] < sc[1] < sc[2] and sc[3] == 0.5, sc  # 레드(충돌) < 블랙(무채색) < 민트(포인트 맞춤), 색 모르는 옷만 있으면 중립
+assert "민트 포인트 색을 맞췄어요." in why[2] and not why[0]
+# API: color·colors 칸을 받고 score_parts에 color가 나온다
+r = client.post("/v1/outfits/recommend", json={"items": [{"id": 1, "category": "상의", "colors": wm["colors"]}, {"id": 2, "category": "하의", "color": "레드"}, {"id": 3, "category": "하의", "color": "민트"}], "k": 2})
+assert r.status_code == 200 and r.json()["outfits"][0]["items"] == ["1", "3"] and "color" in r.json()["outfits"][0]["score_parts"], r.text
+print("ok (색)")
 
 # style_scores: 기준값을 넘는 스타일이 없으면 캐주얼(기본 아이템), 태그는 최대 2개
 zero = torch.nn.Linear(512, 5)

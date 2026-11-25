@@ -196,6 +196,11 @@ def analyze(image: UploadFile, clf: GarmentClassifier = Depends(get_classifier))
     )
 
 
+class ColorShare(BaseModel):
+    name: str
+    ratio: float = Field(ge=0, le=1)
+
+
 class ClosetItem(BaseModel):
     model_config = ConfigDict(coerce_numbers_to_str=True)  # 백엔드 closet_items.id(bigint)를 숫자로 보내도 받음. 응답의 id는 문자열
     id: str
@@ -204,6 +209,8 @@ class ClosetItem(BaseModel):
     sleeve: Literal["민소매", "반팔", "7부", "긴팔"] | None = None  # 레이어드용
     tags: list[str] = []  # 자유 라벨 (closet_items.tags)
     styles: list[StyleName] = []  # closet_items.styles. 벡터가 없는 옷은 이 값으로 스타일 점수를 대신한다
+    color: str | None = None  # closet_items.color (대표색). colors가 없을 때 색 궁합에 쓴다
+    colors: list[ColorShare] | None = None  # meta_json.colors (분석 응답의 색과 면적 비율). 색 궁합에 쓴다
     embedding: list[float] | None = Field(None, min_length=EMB_DIM, max_length=EMB_DIM)  # 등록 때 analyze가 준 벡터. 사진 없이 입력한 옷은 null (궁합에서 빠짐)
 
 
@@ -222,7 +229,7 @@ class RecommendedOutfit(BaseModel):
     template: str
     roles: dict[str, str]  # 레이어드일 때 {옷 id: 이너|겉}
     score: float
-    score_parts: dict[str, float]  # compat(궁합) / taste(스타일 맞춤, 스타일을 안 주면 0) / trend(트렌드, 아직 0)
+    score_parts: dict[str, float]  # compat(궁합) / taste(스타일 맞춤, 스타일을 안 주면 0) / color(색 조합, 0.5 = 중립) / trend(트렌드, 아직 0)
     reasons: list[str]  # 실제로 적용한 규칙·점수만
 
 
