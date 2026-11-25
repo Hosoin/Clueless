@@ -11,14 +11,17 @@ import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "spring.datasource.url=jdbc:postgresql://localhost:1/binding_test",
         "spring.datasource.username=binding_test", "spring.datasource.password=synthetic",
-        "DB_CA_CERT=synthetic CA.pem"
+        "DB_CA_CERT=synthetic CA.pem",
+        "GOOGLE_CLIENT_ID=", "GOOGLE_CLIENT_SECRET="
 })
 class ClosetServiceApplicationTests {
 
@@ -50,5 +53,14 @@ class ClosetServiceApplicationTests {
         assertThat(response.getHeaders().getContentType())
                 .isEqualTo(new MediaType("text", "plain", StandardCharsets.UTF_8));
         assertThat(response.getBody()).isEqualTo("closet-service 테스트 요청");
+    }
+
+    @Test
+    void missingGoogleCredentialsDoNotExposeProtectedRoutes() {
+        var client = RestClient.create("http://localhost:" + port);
+        for (String path : new String[] {"/login/success", "/oauth2/authorization/google", "/api/auth/me"}) {
+            assertThatExceptionOfType(HttpClientErrorException.Unauthorized.class)
+                    .isThrownBy(() -> client.get().uri(path).retrieve().toBodilessEntity());
+        }
     }
 }

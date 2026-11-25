@@ -54,3 +54,9 @@ subprojects {
         doNotTrackState('The database and connection environment can change between runs.')
     }
 }
+
+project(':closet-service') {
+    dependencies {
+        implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-client'
+    }
+}
