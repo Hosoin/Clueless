@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+/backend/certs/*
+!/backend/certs/ca.crt
 secrets/
 credentials.json
 service-account*.json
