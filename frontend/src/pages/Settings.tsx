@@ -5,7 +5,7 @@ import { logout } from '../api/auth'
 import { Back } from '../components/Icons'
 import { STYLES } from '../data/seed'
 import { toLogin } from '../nav'
-import { S, emit, keepSel, useApp } from '../store'
+import { S, clearMe, emit, keepSel, useApp } from '../store'
 import { closeAll, openSheet, toast } from '../ui'
 
 /** 좋아하는 스타일 고르기 (설정에서 추천 방식을 '취향대로'로 바꿀 때) */
@@ -32,6 +32,7 @@ function Switch({ label, on, set }: { label: string; on: boolean; set: (v: boole
 export default function Settings() {
   useApp()
   const nav = useNavigate()
+  const [loggingOut, setLoggingOut] = useState(false) // 로그아웃 요청 중인지 (버튼 연타 막기)
   const [noti, setNoti] = useState(true), [cnoti, setCnoti] = useState(true)
   const setMode = (m: 'taste' | 'trend') => { S.pref.mode = m; toast(m === 'taste' ? '내 취향대로 추천할게요' : '요즘 유행대로 추천할게요'); emit() }
   return (
@@ -60,11 +61,14 @@ export default function Settings() {
         <div className="sec"><h3>계정</h3>
           {S.loggedIn ? (
             <><div className="setrow"><p>로그인 계정</p><p style={{ fontSize: 13, color: 'var(--soft)' }}>Google</p></div>
-              <button className="link" style={{ padding: 0 }} onClick={async () => {
+              <button className="link" style={{ padding: 0 }} disabled={loggingOut} onClick={async () => {
+                // 요청 중에는 버튼을 막아 연타로 로그아웃 요청이 여러 번 가지 않게 한다
+                setLoggingOut(true)
                 // 서버 로그인이면 서버 세션도 끝낸다. 서버가 실패하면 로그인 상태를 그대로 두고 알린다
-                try { await logout() } catch { return toast('로그아웃하지 못했어요. 잠시 후 다시 해 주세요') }
-                S.loggedIn = false; toast('로그아웃했어요'); emit()
-              }}>로그아웃</button></>
+                try { await logout() } catch { setLoggingOut(false); return toast('로그아웃하지 못했어요. 잠시 후 다시 해 주세요') }
+                // 성공하면 내 정보를 비우고 로그인 화면으로 보낸다. replace로 이동해 뒤로가기로 설정 화면에 돌아오지 않게 한다
+                clearMe(); toast('로그아웃했어요'); nav('/login', { replace: true })
+              }}>{loggingOut ? '로그아웃하는 중' : '로그아웃'}</button></>
           ) : <div className="login"><button className="btn solid" onClick={() => toLogin('/settings')}>로그인하기</button></div>}
         </div>
       </div>

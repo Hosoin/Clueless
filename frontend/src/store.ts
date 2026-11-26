@@ -5,6 +5,10 @@ import { COLORS, ME, TRENDS, seedHistory, seedItems, seedOutfits, seedPosts, see
 import type { Hist, Item, Look, Outfit, Plan, Post, Saved } from './data/types'
 
 /* ---------- 상태 ---------- */
+/** 처음 상태의 내 정보와 추천 취향. 앱을 켤 때와 로그아웃할 때(clearMe) 같은 값으로 시작하려고 함수로 둔다 */
+const newMe = () => ({ ...ME, photo: null as string | null }) // photo: 프로필 사진 (없으면 닉네임 첫 글자)
+const newPref = () => ({ mode: 'trend' as 'trend' | 'taste', styles: [] as string[] })
+
 export const S = {
   items: seedItems(),
   outfits: seedOutfits(),
@@ -12,8 +16,8 @@ export const S = {
   history: seedHistory(),
   plans: [] as Plan[],
   posts: seedPosts(),
-  me: { ...ME, photo: null as string | null }, // photo: 프로필 사진 (없으면 닉네임 첫 글자)
-  pref: { mode: 'trend' as 'trend' | 'taste', styles: [] as string[] },
+  me: newMe(),
+  pref: newPref(),
   loggedIn: false,
   onboarded: false,
   RECENT: 3, // 이 날수 안에 입은 옷은 추천에서 뺌
@@ -171,6 +175,15 @@ export function tidyRows() {
   const L = lists()
   EXTRA.forEach((k) => { if (S.on[k] && !L[k].length) S.on[k] = false })
   clampPos()
+}
+/**
+ * 로그아웃한 뒤 앱에 남은 내 정보를 처음 상태로 비운다 (docs/API_CONVENTION.md 4장).
+ * 비우지 않으면 다음 사람이 로그인 화면을 거쳐 들어와도 앞 사람의 닉네임·프로필 사진·첫 설정 결과가 그대로 보인다.
+ * 첫 설정 여부(onboarded)도 풀어서, 다시 로그인하면 첫 설정부터 한다. 서버 세션과 CSRF 토큰은 api/auth.ts의 logout이 정리한다
+ */
+export function clearMe() {
+  S.me = newMe(); S.pref = newPref()
+  S.loggedIn = false; S.onboarded = false; S.ob = null; S.loginBack = '/'
 }
 /** 커뮤니티 따라 입기 등: 지정한 옷으로 줄을 맞춤. 줄에 없는 옷(추천에서 뺀 옷)은 건너뜀 */
 export function setCombo(ids: number[]) {
