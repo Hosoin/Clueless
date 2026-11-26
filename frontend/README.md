@@ -162,11 +162,104 @@ docker run --rm -p 5173:80 -e API_UPSTREAM=http://host.docker.internal:8081 clue
 ```
 
 - **`/api`는 nginx가 백엔드로 전달합니다.** 개발 서버의 프록시(`vite.config.ts`)와 같은 방식이라, 브라우저에게는 같은 출처로 보여서 CORS 설정 없이도 로그인 쿠키가 같이 갑니다. 그래서 `VITE_CLOSET_API_URL`은 비워 둔 채로 빌드합니다.
-- **`API_UPSTREAM`**: `/api`를 넘길 `closet-service` 주소입니다. 실행할 때 `-e`로 바꿀 수 있습니다. 기본값은 compose 안에서 쓰는 `http://closet-service:8081`이고, 내 PC에서 켠 백엔드는 `http://host.docker.internal:8081`입니다. **끝에 `/`나 경로를 붙이지 않습니다.** 붙이면 모든 `/api` 요청이 백엔드의 `/`로 가서 로그인이 안 된 것처럼 보입니다. 기본값의 서비스 이름(`closet-service`)은 BE와 합의하기 전의 임시값입니다. 백엔드가 꺼져 있어도 nginx는 뜨고, 그동안 `/api` 요청만 502가 됩니다.
+- **`API_UPSTREAM`**: `/api`를 넘길 `closet-service` 주소입니다. 실행할 때 `-e`로 바꿀 수 있습니다. 기본값은 VM의 공용 네트워크(`clueless`) 안에서 쓰는 `http://closet-service:8081`이고([VM에 배포하기](#vm에-배포하기-공용-네트워크)), 내 PC에서 켠 백엔드는 `http://host.docker.internal:8081`입니다. **끝에 `/`나 경로를 붙이지 않습니다.** 붙이면 모든 `/api` 요청이 백엔드의 `/`로 가서 로그인이 안 된 것처럼 보입니다. 기본값의 서비스 이름(`closet-service`)은 백엔드 컨테이너가 공용 네트워크에서 쓸 이름입니다. 백엔드가 꺼져 있어도 nginx는 뜨고, 그동안 `/api` 요청만 502가 됩니다.
 - **포트를 5173으로 여는 이유**: 백엔드가 Google 로그인에 성공하면 `http://localhost:5173`의 앱 주소로 돌려보내도록 고정되어 있습니다(`SecurityConfig.java`). 다른 포트로 열면 로그인 뒤 개발 서버 주소로 돌아갑니다. 백엔드에서 이 주소를 설정으로 바꿀 수 있게 되면 포트를 자유롭게 바꿀 수 있습니다. 같은 포트를 쓰므로 `npm run dev`와 동시에 켤 수 없습니다.
 - **백엔드가 돌려보내는 주소에는 `#`이 있어야 합니다.** 앱은 `HashRouter`라서 화면 주소가 `/#/...`이고, nginx는 늘 `/`만 받습니다. `#` 없이 `/home` 같은 주소로 오면 nginx에 그런 파일이 없어 404가 됩니다. (개발 서버는 없는 경로에도 `index.html`을 줘서 이 문제가 보이지 않습니다) 지금 백엔드는 `/home`으로 보내고 있어 `#/...`로 바꿔 달라고 BE에 요청했습니다. 반영되기 전에는 Docker 이미지에서 Google 로그인 뒤 404가 뜹니다.
 - **`VITE_` 값은 빌드할 때 고정됩니다.** 실행할 때 `-e`로 넘겨도 바뀌지 않고, 바꾸려면 `--build-arg`로 다시 빌드합니다. 빌드 결과를 열면 누구나 볼 수 있으므로 비밀값을 넣지 않습니다.
 - 백엔드·ML 이미지와 전체를 함께 띄우는 `docker-compose.yml`은 BE·ML 팀과 정한 뒤 추가합니다.
+
+### VM에 배포하기 (공용 네트워크)
+
+프론트와 백엔드를 같은 Azure VM(Ubuntu)에 컨테이너로 띄웁니다. 둘을 잇는 방법은 **공용 Docker 네트워크 `clueless`** 로 정했습니다.
+
+**왜 공용 네트워크인가**
+
+- 컨테이너는 같은 Docker 네트워크에 있을 때만 서로를 이름(`closet-service`)으로 찾을 수 있습니다. docker compose는 프로젝트마다 네트워크를 따로 만들어서, 그냥 띄우면 프론트(nginx)가 백엔드를 찾지 못하고 `/api`가 502가 됩니다.
+- 그래서 프론트와 백엔드가 함께 들어갈 네트워크 `clueless`를 하나 만들고, 백엔드를 이름으로 부릅니다.
+
+| | 공용 네트워크 (사용) | VM 내부 IP + 포트 (사용 안 함) |
+| --- | --- | --- |
+| 프론트가 백엔드를 찾는 방법 | 이름 `http://closet-service:8081` | 주소 `http://172.16.0.4:8081` |
+| 컨테이너·IP가 바뀌면 | 그대로 동작 | 설정을 고쳐야 함 |
+| 백엔드에 접근할 수 있는 것 | 같은 네트워크에 넣은 컨테이너만 | VM 안의 누구나 (8081을 VM에 열어야 함) |
+
+```
+인터넷 ──▶ VM:80 ──▶ clueless-frontend (nginx)
+                         │  [Docker 네트워크 clueless]
+                         └─ /api ──▶ closet-service:8081 (백엔드)
+```
+
+**프론트 배포 순서**
+
+VM에서는 소스를 받거나 빌드하지 않습니다. **내 PC에서 이미지를 만들어 파일로 올리고**, VM은 그 파일을 불러와 실행만 합니다.
+
+```
+[내 PC] 빌드 → 이미지를 파일(.tar.gz)로 저장 ──scp──▶ [VM] 파일을 이미지로 불러오기 → 실행
+```
+
+준비: 내 PC에 Docker Desktop이 켜져 있어야 하고, VM에는 Docker가 설치되어 있고 접속 계정이 `docker` 그룹에 들어 있어야 합니다. 공용 네트워크는 VM에서 처음 한 번만 만듭니다(`docker network create clueless`, 이미 만들어 둠).
+
+```bash
+# ── 내 PC (저장소 루트에서) ──────────────────────────────
+# 1. 배포할 코드로 맞추고 이미지 빌드 (VM CPU가 x86_64라서 linux/amd64로 맞춤)
+git switch frontend-dev && git pull
+docker build --platform linux/amd64 -t clueless-frontend:latest ./frontend
+
+# 2. 이미지를 파일로 저장 (이 파일은 커밋하지 않음)
+docker save clueless-frontend:latest | gzip > clueless-frontend.tar.gz
+
+# 3. VM으로 업로드 (평소 ssh 접속에 쓰는 키와 계정)
+scp -i <개인키 경로> clueless-frontend.tar.gz <사용자>@<VM_IP>:~/
+
+# ── VM ──────────────────────────────────────────────────
+# 4. 파일을 이미지로 불러오기
+gunzip -c ~/clueless-frontend.tar.gz | docker load
+
+# 5. 실행: 이전 컨테이너를 지우고, 공용 네트워크에 넣어 외부에는 80만 연다
+docker rm -f clueless-frontend 2>/dev/null
+docker run -d --name clueless-frontend --restart unless-stopped \
+  --network clueless -p 80:80 \
+  -e API_UPSTREAM=http://closet-service:8081 clueless-frontend:latest
+
+# 6. 확인하고 업로드한 파일 정리
+curl -I http://localhost              # 200: 화면
+curl -i http://localhost/api/auth/me  # 401: 백엔드 연결 OK / 502: 백엔드가 아직 없거나 네트워크에 없음
+rm ~/clueless-frontend.tar.gz
+```
+
+- 업데이트할 때도 1~6번을 그대로 반복합니다. 5번에서 이전 컨테이너를 지우고 새 이미지로 띄웁니다.
+- `--platform linux/amd64`는 다른 CPU의 PC(예: Apple 실리콘 Mac)에서 빌드해도 VM에서 돌아가게 하려고 붙입니다.
+- 버전을 구분하려면 `latest` 대신 날짜 태그(예: `clueless-frontend:20261126`)를 쓰고, 5번의 이미지 이름도 같이 바꿉니다.
+- Azure NSG 인바운드에서 **80 포트만** 허용합니다. 8081은 공용 네트워크 안에서만 쓰므로 외부에 열지 않습니다.
+- VM에서는 80 포트로 엽니다. 위의 "포트를 5173으로 여는 이유"는 내 PC에서 띄울 때의 이야기입니다.
+- 개인키와 `.tar.gz` 파일은 저장소 폴더 안에 두지 않습니다. (저장소가 공개되어 있습니다)
+- 나중에 배포가 잦아지면 이미지 저장소(Azure Container Registry, GitHub Container Registry)에 올리고 VM에서 `docker pull`하는 방식으로 바꾸는 것을 검토합니다.
+
+**백엔드(BE)가 맞춰야 할 것**
+
+- 백엔드 컨테이너를 `clueless` 네트워크에 넣고, 서비스 이름 `closet-service`, 포트 8081로 띄웁니다. 그러면 프론트 설정은 바꿀 필요가 없습니다.
+- 8081은 `ports:`로 VM에 열지 않아도 됩니다.
+
+```yaml
+# 백엔드 compose 예시
+services:
+  closet-service:
+    # image, environment 등 생략
+    networks: [clueless]
+networks:
+  clueless:
+    external: true   # 위 1번에서 만든 네트워크를 그대로 씀
+```
+
+- 이미 떠 있는 컨테이너를 나중에 넣을 때는 `docker network connect clueless <컨테이너 이름>`을 씁니다. 이때 다른 컨테이너가 부를 이름이 `closet-service`가 되도록 `--alias closet-service`를 붙입니다.
+
+**아직 남은 것 (Google 로그인)**
+
+공용 네트워크로 `/api`는 연결되지만, VM에서 Google 로그인까지 되려면 아래가 더 필요합니다.
+
+1. 도메인 정하기: Google은 리디렉션 주소에 IP를 받지 않습니다. (Azure DNS 이름 또는 `nip.io`)
+2. 프론트: nginx가 `/oauth2/`, `/login/oauth2/`도 백엔드로 넘기고, 배포 빌드의 Google 로그인 주소를 상대 주소로 바꾸기 (지금은 `http://localhost:8081`)
+3. BE: 로그인 성공 주소를 `http://<도메인>/#/onboard`로, Google 콘솔에 `http://<도메인>/login/oauth2/code/google` 등록
 
 ## 폰에서 보기
 
