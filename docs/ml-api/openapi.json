@@ -1,0 +1,875 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Clueless ML",
+    "version": "0.2.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "summary": "Ready",
+        "description": "모델이 메모리에 올라왔는지. 서버 시작 직후 모델을 올리는 동안은 503.",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Ready Ready Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/garments/analyze": {
+      "post": {
+        "summary": "Analyze",
+        "description": "옷 사진 → 확인 카드 값 + 크롭·벡터 (CPU 4스레드 약 0.3초, 대부분 배경 제거).",
+        "operationId": "analyze_v1_garments_analyze_post",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyze_v1_garments_analyze_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GarmentAnalysis"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/outfits/recommend": {
+      "post": {
+        "summary": "Recommend Outfits",
+        "operationId": "recommend_outfits_v1_outfits_recommend_post",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_analyze_v1_garments_analyze_post": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "Body_analyze_v1_garments_analyze_post"
+      },
+      "Category": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "prob": {
+            "type": "number",
+            "title": "Prob"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "prob"
+        ],
+        "title": "Category"
+      },
+      "ClosetItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "상의",
+              "덧입기",
+              "하의",
+              "아우터",
+              "원피스"
+            ],
+            "title": "Category"
+          },
+          "subcategory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subcategory"
+          },
+          "sleeve": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "민소매",
+                  "반팔",
+                  "7부",
+                  "긴팔"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleeve"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
+          "styles": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "미니멀",
+                "클래식",
+                "스트리트",
+                "캐주얼",
+                "페미닌",
+                "스포티"
+              ]
+            },
+            "type": "array",
+            "title": "Styles",
+            "default": []
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "colors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ColorShare"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colors"
+          },
+          "embedding": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array",
+                "maxItems": 512,
+                "minItems": 512
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "category"
+        ],
+        "title": "ClosetItem"
+      },
+      "Color": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "rgb": {
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Rgb"
+          },
+          "ratio": {
+            "type": "number",
+            "title": "Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "rgb",
+          "ratio"
+        ],
+        "title": "Color"
+      },
+      "ColorName": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "prob": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prob"
+          },
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "prob",
+          "candidates",
+          "needs_review"
+        ],
+        "title": "ColorName"
+      },
+      "ColorShare": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ratio": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "ratio"
+        ],
+        "title": "ColorShare"
+      },
+      "GarmentAnalysis": {
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "category_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Category"
+            },
+            "type": "array",
+            "title": "Category Candidates"
+          },
+          "colors": {
+            "items": {
+              "$ref": "#/components/schemas/Color"
+            },
+            "type": "array",
+            "title": "Colors"
+          },
+          "color_name": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColorName"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sleeve": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sleeve"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "style": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Style"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subcategory": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Subcategory"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "print": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Print"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mask_ratio": {
+            "type": "number",
+            "title": "Mask Ratio"
+          },
+          "retake": {
+            "type": "boolean",
+            "title": "Retake"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          },
+          "crop_png_base64": {
+            "type": "string",
+            "title": "Crop Png Base64"
+          },
+          "embedding": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Embedding"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "model_versions": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Model Versions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "category_candidates",
+          "colors",
+          "color_name",
+          "sleeve",
+          "mask_ratio",
+          "retake",
+          "needs_review",
+          "crop_png_base64",
+          "embedding",
+          "model_version",
+          "model_versions"
+        ],
+        "title": "GarmentAnalysis"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Print": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "무지",
+              "스트라이프",
+              "체크",
+              "도트",
+              "플라워",
+              "프린트"
+            ],
+            "title": "Name"
+          },
+          "prob": {
+            "type": "number",
+            "title": "Prob"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "prob"
+        ],
+        "title": "Print"
+      },
+      "RecommendRequest": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClosetItem"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Items"
+          },
+          "k": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "K",
+            "default": 5
+          },
+          "include_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Id"
+          },
+          "allow_layering": {
+            "type": "boolean",
+            "title": "Allow Layering",
+            "default": false
+          },
+          "style": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "미니멀",
+                  "클래식",
+                  "스트리트",
+                  "캐주얼",
+                  "페미닌",
+                  "스포티"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style"
+          },
+          "style_weights": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "미니멀",
+                    "클래식",
+                    "스트리트",
+                    "캐주얼",
+                    "페미닌",
+                    "스포티"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Weights"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "RecommendRequest"
+      },
+      "RecommendResponse": {
+        "properties": {
+          "outfits": {
+            "items": {
+              "$ref": "#/components/schemas/RecommendedOutfit"
+            },
+            "type": "array",
+            "title": "Outfits"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "outfits",
+          "model_version"
+        ],
+        "title": "RecommendResponse"
+      },
+      "RecommendedOutfit": {
+        "properties": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "template": {
+            "type": "string",
+            "title": "Template"
+          },
+          "roles": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Roles"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "score_parts": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Score Parts"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "template",
+          "roles",
+          "score",
+          "score_parts",
+          "reasons"
+        ],
+        "title": "RecommendedOutfit"
+      },
+      "Sleeve": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "민소매",
+              "반팔",
+              "7부",
+              "긴팔"
+            ],
+            "title": "Name"
+          },
+          "prob": {
+            "type": "number",
+            "title": "Prob"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "prob",
+          "needs_review"
+        ],
+        "title": "Sleeve"
+      },
+      "Style": {
+        "properties": {
+          "scores": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "enum": [
+                "미니멀",
+                "클래식",
+                "스트리트",
+                "캐주얼",
+                "페미닌",
+                "스포티"
+              ]
+            },
+            "type": "object",
+            "title": "Scores"
+          },
+          "tags": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "미니멀",
+                "클래식",
+                "스트리트",
+                "캐주얼",
+                "페미닌",
+                "스포티"
+              ]
+            },
+            "type": "array",
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scores",
+          "tags"
+        ],
+        "title": "Style"
+      },
+      "Subcategory": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "prob": {
+            "type": "number",
+            "title": "Prob"
+          },
+          "needs_review": {
+            "type": "boolean",
+            "title": "Needs Review"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Category"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "prob",
+          "needs_review",
+          "candidates"
+        ],
+        "title": "Subcategory"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

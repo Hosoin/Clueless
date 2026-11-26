@@ -8,8 +8,9 @@ import { Ph } from '../components/Ph'
 import { COLORS, STYLES, TRENDS } from '../data/seed'
 import type { Item, Look } from '../data/types'
 import {
-  EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, current, clampPos, emit, firstFresh, fit, hexOf,
-  isPast, isRecent, keepSel, layersFor, lists, matchText, outfitKey, rowKey, saveLook, stepFit, useApp,
+
+  EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, comboToLook, current, clampPos, emit, firstFresh, fit, hexOf,
+  isPast, isRecent, keepSel, layersFor, lists, matchText, rowKey, saveLook, showsOutfit, stepFit, useApp,
   wearList, wearToday, worn, wornKey, wornNote, iga, eun, type Combo, type ExtraKey, type RowKey,
 } from '../store'
 import { closeAll, openSheet, showIn, toast } from '../ui'
@@ -56,7 +57,8 @@ export default function Home() {
   useEffect(() => () => finishSpin(), []) // finishSpin은 돌릴 때마다 바뀌므로 나가는 시점의 것을 부름
   clampPos()
   const L = lists()
-  const c = current(), o = S.outfits[S.oi], same = comboKey(c) === outfitKey(o), rows = rowsOf(c)
+  // same: 지금 줄이 마지막으로 맞춘 추천 코디 그대로인지. 뺀 옷이 든 코디도 맞춘 그대로면 같은 코디로 본다 (store.ts showsOutfit)
+  const c = current(), o = S.outfits[S.oi], same = showsOutfit(c), rows = rowsOf(c)
   const ps = wearList(c), m = matchText(ps)
   const tr = same ? TRENDS.find((t) => t.k === o.ref) : TRENDS.find((t) => t.up && ps.some((it) => it.tags.includes(t.k)))
   const rec = ps.filter(isPast), hidden = S.fresh ? S.items.filter(isPast).length : 0

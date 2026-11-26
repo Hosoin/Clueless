@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { Item } from '../data/types'
-import { deleteItem, emit, hexOf, iga, swatchBg, worn } from '../store'
+import { deleteItem, emit, hexOf, iga, swatchBg, tidyRows, worn } from '../store'
 import { closeAll, openModal, toast } from '../ui'
 
 /** 옷 사진 칸: 사진 + 오른쪽 위 색 동그라미. 누르면 크게 보기 (onClick을 주면 그걸 대신 함) */
@@ -44,6 +44,7 @@ export function lightbox(it: Item) {
       <div className="row2">
         <button className="btn" onClick={() => {
           it.ex = !it.ex; closeAll()
+          tidyRows() // 뺀 옷이 홈 줄에 남아 하얀 '옷이 없어요' 칸이 생기지 않게 줄을 정리
           toast(it.ex ? '이 옷은 추천에 넣지 않을게요. 옷장의 추천 제외에서 되돌릴 수 있어요' : '다시 추천에 넣을게요'); emit()
         }}>{it.ex ? '다시 추천받기' : '추천에서 빼기'}</button>
         <button className="btn solid" onClick={closeAll}>닫기</button>
