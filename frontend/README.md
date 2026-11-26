@@ -75,6 +75,8 @@ frontend/
 │  └─ assets/             옷 사진(clothes), 커뮤니티 사진(community), 탭 무늬 이미지
 ├─ public/                빌드에 그대로 복사되는 파일 (avatar.js, 아이콘, 아바타 원본 이미지)
 ├─ docs/                  LIBRARIES.md(사용 라이브러리), API_CONVENTION.md(백엔드 통신 규칙 초안)
+├─ nginx/                 Docker 이미지의 nginx 설정 템플릿 (정적 파일 서빙, /api 전달)
+├─ Dockerfile             웹 배포용 이미지 (아래 Docker로 띄우기)
 ├─ CLAUDE.md              작업 규칙, 용어 사전, 재사용 목록
 └─ GIT_CONVENTION.md      브랜치, 커밋, PR 규칙
 ```
@@ -140,7 +142,30 @@ data/seed.ts ──(앱이 켜질 때 한 번 복사)──▶ store.ts 의 S �
 - **로그아웃**: 설정 화면의 로그아웃이 서버 세션도 끝냅니다(`POST /api/auth/logout`).
 - **방금 로그인했는지 구분하는 방법**: Google 버튼을 누를 때 `sessionStorage`에 표시를 남기고(`markGoogleLoginStart`), 앱이 다시 열리면 읽고 바로 지웁니다(`takeGoogleLoginReturn`). 표시가 있으면 첫 설정, 없으면 홈입니다.
 - **지금의 한계**: 가입 여부를 서버가 알려 주지 않아서, Google 로그인을 할 때마다(이미 가입한 사람도) 첫 설정이 뜹니다. 카카오·Apple 버튼은 백엔드에 없어서 가짜 로그인입니다.
-- 폰 앱(Capacitor)이나 배포에서는 프록시가 없으므로 `VITE_CLOSET_API_URL`에 백엔드 전체 주소를 적고, 백엔드가 CORS와 쿠키를 허용해야 합니다.
+- 폰 앱(Capacitor)에서는 프록시가 없으므로 `VITE_CLOSET_API_URL`에 백엔드 전체 주소를 적고, 백엔드가 CORS와 쿠키를 허용해야 합니다. 웹 배포(Docker)는 nginx가 개발 서버 프록시와 같은 일을 합니다. (아래 [Docker로 띄우기](#docker로-띄우기))
+
+## Docker로 띄우기
+
+웹 배포용 이미지입니다. Node로 빌드하고 nginx로 띄웁니다. 폰 앱은 이 이미지를 쓰지 않고 `npm run build`로 만든 `dist/`를 앱 안에 넣습니다.
+
+| 파일 | 역할 |
+| --- | --- |
+| `Dockerfile` | 1단계 `node:22-alpine`에서 `npm ci`·`npm run build`, 2단계 `nginx:1.27-alpine`이 `dist/`를 서빙 |
+| `nginx/default.conf.template` | 정적 파일 서빙과 캐시 헤더, `/api` → `closet-service` 전달. 컨테이너가 시작할 때 환경 변수가 채워짐 |
+| `.dockerignore` | `node_modules`, `dist`, `.env*`를 이미지에서 뺌 (`.env.local`이 이미지에 들어가지 않게) |
+
+```bash
+# 저장소 루트에서
+docker build -t clueless-frontend ./frontend
+docker run --rm -p 5173:80 -e API_UPSTREAM=http://host.docker.internal:8081 clueless-frontend
+# http://localhost:5173
+```
+
+- **`/api`는 nginx가 백엔드로 전달합니다.** 개발 서버의 프록시(`vite.config.ts`)와 같은 방식이라, 브라우저에게는 같은 출처로 보여서 CORS 설정 없이도 로그인 쿠키가 같이 갑니다. 그래서 `VITE_CLOSET_API_URL`은 비워 둔 채로 빌드합니다.
+- **`API_UPSTREAM`**: `/api`를 넘길 `closet-service` 주소입니다. 실행할 때 `-e`로 바꿀 수 있습니다. 기본값은 compose 안에서 쓰는 `http://closet-service:8081`이고, 내 PC에서 켠 백엔드는 `http://host.docker.internal:8081`입니다. 백엔드가 꺼져 있어도 nginx는 뜨고, 그동안 `/api` 요청만 502가 됩니다.
+- **포트를 5173으로 여는 이유**: 백엔드가 Google 로그인에 성공하면 `http://localhost:5173/home`으로 보내도록 고정되어 있습니다(`SecurityConfig.java`). 다른 포트로 열면 로그인 뒤 개발 서버 주소로 돌아갑니다. 백엔드에서 이 주소를 설정으로 바꿀 수 있게 되면 포트를 자유롭게 바꿀 수 있습니다. 같은 포트를 쓰므로 `npm run dev`와 동시에 켤 수 없습니다.
+- **`VITE_` 값은 빌드할 때 고정됩니다.** 실행할 때 `-e`로 넘겨도 바뀌지 않고, 바꾸려면 `--build-arg`로 다시 빌드합니다. 빌드 결과를 열면 누구나 볼 수 있으므로 비밀값을 넣지 않습니다.
+- 백엔드·ML 이미지와 전체를 함께 띄우는 `docker-compose.yml`은 BE·ML 팀과 정한 뒤 추가합니다.
 
 ## 폰에서 보기
 
