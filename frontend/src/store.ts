@@ -210,9 +210,19 @@ export function logWear(ps: (Item | null | undefined)[]) {
   const today = S.history.find((h) => h.ago === 0)
   if (today) today.ids = ids; else S.history.unshift({ ago: 0, ids })
 }
+/**
+ * 오늘 입기: ps(입을 옷들)를 오늘 입은 것으로 표시하고, 오늘 기록을 이 코디로 바꾼다.
+ * 오늘 이미 다른 코디를 입었다면 그 기록은 덮어쓰인다. 그래서 새 코디에서 빠진 옷은
+ * '마지막으로 입은 날'을 다시 계산해 원래대로 돌린다 (안 하면 계속 '오늘 입음'으로 남음).
+ * 홈의 '오늘 코디로 정했어요' 표시(S.chosenKey)도 푼다. 오늘 코디가 바뀌었으니 예전 표시는 맞지 않다.
+ * 홈에서 부를 때는 이 함수 뒤에 chosenKey를 새 코디로 다시 정한다 (Home.tsx chooseToday)
+ */
 export function wearToday(ps: Item[]) {
+  const before = S.history.find((h) => h.ago === 0)?.ids ?? [] // 덮어쓰기 전 오늘 입은 옷
   ps.forEach((it) => { if (it.prevWorn === undefined) it.prevWorn = it.lastWorn; it.lastWorn = 0 })
   logWear(ps)
+  before.filter((id) => !ps.some((it) => it.id === id)).forEach(recalcWorn) // 오늘 기록에서 빠진 옷만
+  S.chosenKey = null
 }
 /** 입은 기록을 고치면 옷마다 마지막으로 입은 날을 다시 계산 */
 export function recalcWorn(id: number) {
