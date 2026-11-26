@@ -5,7 +5,7 @@ import { logout } from '../api/auth'
 import { Back } from '../components/Icons'
 import { STYLES } from '../data/seed'
 import { toLogin } from '../nav'
-import { S, emit, useApp } from '../store'
+import { S, emit, keepSel, useApp } from '../store'
 import { closeAll, openSheet, toast } from '../ui'
 
 /** 좋아하는 스타일 고르기 (설정에서 추천 방식을 '취향대로'로 바꿀 때) */
@@ -45,7 +45,7 @@ export default function Settings() {
         </div>
         <div className="sec"><h3>추천</h3>
           <div className="setrow"><div><p>최근 입은 옷 빼기 기준</p><p className="sub2">이 기간 안에 입은 옷은 추천에서 빼요</p></div>
-            <div className="chips2">{[3, 7, 14].map((n) => <button key={n} className={n === S.RECENT ? 'on' : ''} onClick={() => { S.RECENT = n; toast(`최근 ${n}일 안에 입은 옷은 추천에서 뺄게요`); emit() }}>{n}일</button>)}</div></div>
+            <div className="chips2">{[3, 7, 14].map((n) => <button key={n} className={n === S.RECENT ? 'on' : ''} onClick={() => { keepSel(() => { S.RECENT = n }); toast(`최근 ${n}일 안에 입은 옷은 추천에서 뺄게요`) }}>{n}일</button>)}</div></div>
           <div className="setrow"><div><p>추천 방식</p><p className="sub2">오늘의 코디를 고르는 기준이에요</p></div>
             <div className="chips2">{([['taste', '취향대로'], ['trend', '유행대로']] as const).map(([k, l]) => (
               <button key={k} className={S.pref.mode === k ? 'on' : ''} style={{ whiteSpace: 'nowrap' }} onClick={() => { if (k === 'taste' && !S.pref.styles.length) styleSheet(() => setMode('taste')); else setMode(k) }}>{l}</button>

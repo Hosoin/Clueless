@@ -4,7 +4,7 @@ import { Plus } from '../components/Icons'
 import { Ph } from '../components/Ph'
 import { CATS, COLORS } from '../data/seed'
 import type { Item } from '../data/types'
-import { S, displayName, emit, useApp, worn, wornKey } from '../store'
+import { S, displayName, emit, keepSel, useApp, worn, wornKey } from '../store'
 import { toast } from '../ui'
 
 const SORTS = ['최근 넣은 순', '오래 안 입은 옷', '최근 입은 옷', 'AI 추천 많은 순']
@@ -72,7 +72,7 @@ export default function Closet() {
                 <div className="erow" key={i.id}>
                   <Ph item={i} as="span" />
                   <p>{displayName(i)}<span>{i.cat} · {worn(i)}</span></p>
-                  <button className="btn" onClick={() => { i.ex = false; toast('다시 추천에 넣을게요'); emit() }}>다시 추천받기</button>
+                  <button className="btn" onClick={() => { keepSel(() => { i.ex = false }); toast('다시 추천에 넣을게요') }}>다시 추천받기</button>
                 </div>
               )) : <div className="empty">추천에서 뺀 옷이 없어요<br />옷 사진을 누르고 "추천에서 빼기"를 고르면 여기에 모여요</div>}
             </div>

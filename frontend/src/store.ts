@@ -171,11 +171,19 @@ export function setCombo(ids: number[]) {
     if ((EXTRA as RowKey[]).includes(k)) S.on[k as ExtraKey] = true
   })
 }
-/** 줄 구성(겹 수, 최근 입은 옷 빼기 등)을 바꿔도 지금 고른 옷은 그대로 둠 */
+/**
+ * 홈의 줄 목록이 바뀌는 일(fn)을 해도 지금 고른 옷은 그대로 둔다.
+ * 홈은 고른 옷을 옷 id가 아니라 줄 안의 순서(S.pos)로 기억한다. 그래서 옷 등록(맨 앞에 끼워 넣음), 삭제, 추천에서 빼기,
+ * 최근 입은 옷 빼기 기준 변경처럼 줄 목록이 바뀌면 같은 번호가 다른 옷을 가리켜, 고른 옷이 저절로 바뀌었다.
+ * fn 전에 고른 옷을 기억해 두고, fn 뒤에 그 옷을 줄에서 다시 찾아 번호를 맞춘다.
+ * 고른 옷이 줄에서 빠졌으면(지웠거나 추천에서 뺀 옷) 찾을 수 없어 번호를 그대로 두고, 그 번호가 줄 길이를 넘거나
+ * 겹옷 줄에 남은 옷이 없으면 tidyRows가 정리한다 (하얀 '옷이 없어요' 칸 방지).
+ */
 export function keepSel(fn: () => void) {
   const c = current(); fn()
   const L = lists()
   for (const k of K) { const it = c[k]; if (it) { const i = L[k].findIndex((x) => x.id === it.id); if (i >= 0) S.pos[k] = i } }
+  tidyRows()
   emit()
 }
 
@@ -237,8 +245,14 @@ export function saveLook(next: Look) {
   return dup
 }
 
-/** 옷 삭제: 추천 코디·저장한 코디·입은 기록·입을 계획에서도 함께 빠짐 */
+/**
+ * 옷 삭제: 추천 코디·저장한 코디·입은 기록·입을 계획에서도 함께 빠짐.
+ * 홈 줄에서도 옷이 빠지므로 keepSel로 감싸 홈에서 고른 다른 옷이 바뀌지 않게 한다 (keepSel이 끝에 emit)
+ */
 export function deleteItem(it: Item) {
+  keepSel(() => removeItem(it))
+}
+function removeItem(it: Item) {
   const id = it.id, i = S.items.indexOf(it); if (i < 0) return
   S.items.splice(i, 1)
   const F = ['top', 'mid', 'jacket', 'outer', 'bottom'] as const
@@ -253,7 +267,6 @@ export function deleteItem(it: Item) {
   // 입을 계획(캘린더)에서도 뺀다. 남겨 두면 캘린더가 지운 옷을 찾다가 멈춤. 옷이 하나도 안 남은 계획은 지운다
   for (let k = S.plans.length - 1; k >= 0; k--) { const p: Plan = S.plans[k]; p.ids = p.ids.filter((x) => x !== id); if (!p.ids.length) S.plans.splice(k, 1) }
   S.chosenKey = null
-  emit()
 }
 
 /* ---------- 캘린더 ---------- */

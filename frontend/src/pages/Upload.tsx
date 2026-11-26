@@ -16,7 +16,7 @@ import { CATS, COLORS, MATERIALS, SUBS, photo } from '../data/seed'
 import type { Category } from '../data/types'
 import { resizeImage } from '../image'
 import { go } from '../nav'
-import { S, emit, useApp } from '../store'
+import { S, emit, keepSel, useApp } from '../store'
 import { askPermission, closeAll, openSheet, toast } from '../ui'
 
 /**
@@ -130,10 +130,11 @@ const isSet = (b: Tile) => b.done && !!b.cat && !!b.color
  */
 function putInCloset() {
   const take = batch.filter(isSet)
-  take.forEach((b) => S.items.unshift({
+  // 옷장 맨 앞에 끼워 넣으면 홈의 줄 순서가 밀리므로 keepSel로 감싸 홈에서 고른 옷이 바뀌지 않게 한다
+  keepSel(() => take.forEach((b) => S.items.unshift({
     id: b.id, name: b.name || `${b.color} ${b.sub || b.cat}`, cat: b.cat!, sub: b.sub, color: b.color!, hex: b.hex, material: b.material,
     rec: 0, tags: [], lastWorn: null, img: b.img || undefined, isNew: true, added: Date.now(),
-  }))
+  })))
   batch = batch.filter((b) => !isSet(b))
   closeAll()
   toast(`${take.length}벌을 옷장에 넣었어요`)

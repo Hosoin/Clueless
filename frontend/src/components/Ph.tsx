@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { Item } from '../data/types'
-import { deleteItem, emit, hexOf, iga, tidyRows, worn } from '../store'
+import { deleteItem, emit, hexOf, iga, keepSel, worn } from '../store'
 import { closeAll, openModal, toast } from '../ui'
 // 별명이 있으면 별명, 없으면 원래 이름 (옷 크게 보기 제목)
 import { displayName } from '../store'
@@ -47,9 +47,10 @@ export function lightbox(it: Item) {
       {it.credit && <p className="credit">사진 {it.credit} · Unsplash</p>}
       <div className="row2">
         <button className="btn" onClick={() => {
-          it.ex = !it.ex; closeAll()
-          tidyRows() // 뺀 옷이 홈 줄에 남아 하얀 '옷이 없어요' 칸이 생기지 않게 줄을 정리
-          toast(it.ex ? '이 옷은 추천에 넣지 않을게요. 옷장의 추천 제외에서 되돌릴 수 있어요' : '다시 추천에 넣을게요'); emit()
+          // 추천에서 빼거나 되돌리면 홈 줄 목록이 바뀐다. keepSel로 감싸 홈에서 고른 다른 옷은 그대로 두고,
+          // 빈 겹옷 줄은 끈다(하얀 '옷이 없어요' 칸 방지. keepSel 안의 tidyRows)
+          keepSel(() => { it.ex = !it.ex }); closeAll()
+          toast(it.ex ? '이 옷은 추천에 넣지 않을게요. 옷장의 추천 제외에서 되돌릴 수 있어요' : '다시 추천에 넣을게요')
         }}>{it.ex ? '다시 추천받기' : '추천에서 빼기'}</button>
         <button className="btn solid" onClick={closeAll}>닫기</button>
       </div>
