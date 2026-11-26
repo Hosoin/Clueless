@@ -1,0 +1,8 @@
+**
+!build.gradle
+!settings.gradle
+!gradlew
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+!closet-service/src/main/java/**/*.java
+!closet-service/src/main/resources/application.yml
