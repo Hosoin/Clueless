@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import { Gear, Heart } from '../components/Icons'
 import { Face } from '../components/Face'
 import { writeSheet } from '../components/WriteSheet'
+import { JPEG_QUALITY, PROFILE_SIDE, resizeImage } from '../image'
 import { openPost, toLogin } from '../nav'
 import { S, emit, useApp } from '../store'
 import { askPermission, closeAll, openSheet, toast } from '../ui'
@@ -64,7 +65,11 @@ function Profile() {
         </div>
         <input type="file" ref={file} accept="image/*" hidden onChange={(e) => {
           const f = e.target.files?.[0]; e.target.value = ''; if (!f) return
-          const r = new FileReader(); r.onload = () => setPhoto(String(r.result)); r.readAsDataURL(f)
+          // 폰 원본(수 MB)을 그대로 data URL로 들고 있지 않게, 256×256 정사각형 JPEG로 줄이고(가운데 기준으로 자름) 저장한다 (코드 리뷰 18번).
+          // 줄이기에 실패하면(브라우저가 못 여는 형식 등) resizeImage가 원본을 돌려주므로 지금처럼 원본이 들어간다
+          resizeImage(f, PROFILE_SIDE, JPEG_QUALITY, 'cover').then((small) => {
+            const r = new FileReader(); r.onload = () => setPhoto(String(r.result)); r.readAsDataURL(small)
+          })
         }} />
       </div>
       <label className="field2"><span>닉네임</span><input maxLength={12} value={nick} onChange={(e) => setNick(e.target.value)} /><em>{e1}</em></label>
