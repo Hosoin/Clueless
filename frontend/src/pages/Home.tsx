@@ -234,7 +234,7 @@ function Avatar({ c }: { c: Combo }) {
   const key = S.spinning ? `spin-${S.spinKeys.size}` : comboKey(c)
   useEffect(() => {
     const el = ref.current; if (!el) return
-    const f = (it: Item | null) => it ? { id: it.id, name: it.name, category: it.cat, color: it.color, colorHex: hexOf(it), pattern: it.pattern, image: it.img || null } : null
+    const f = (it: Item | null) => it ? { id: it.id, name: it.name, category: it.cat, color: it.color, colorHex: hexOf(it), image: it.img || null } : null
     const data = { top: f(c.t), layer: f(c.m), jacket: f(c.j), coat: f(c.o), bottom: f(c.b), isDress: c.dress }
     if (typeof window.renderAvatar === 'function') {
       try { window.renderAvatar(el, data) } catch (e) { el.innerHTML = `<p class="avph">avatar.js 오류: ${(e as Error).message}</p>` }

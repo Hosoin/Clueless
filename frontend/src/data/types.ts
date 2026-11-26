@@ -9,7 +9,7 @@ export type Item = {
   sub?: string | null // 세부 종류 (티셔츠·셔츠·니트·코트 등). SUBS의 값. 모르면 없음
   color: string // COLORS의 키
   hex?: string | null // 사진에서 뽑은 색
-  pattern: string
+  material?: string | null // 재질 (면·니트·데님 등). MATERIALS의 값. 모르면 없음. 노션 테이블 명세서 closet_items.material(선택)과 같은 칸
   rec: number // AI가 오늘의 코디에 넣어 준 횟수
   tags: string[] // 트렌드 키워드
   lastWorn: number | null // 며칠 전에 입었는지, null = 아직 안 입음

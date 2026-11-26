@@ -9,7 +9,7 @@ import { Ph } from '../components/Ph'
 import { CATS } from '../data/seed'
 import type { Hist, Item, Look } from '../data/types'
 import {
-  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, recalcWorn, swatchBg, useApp, wearToday, wornNote, wornOn,
+  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, recalcWorn, useApp, wearToday, wornNote, wornOn,
 } from '../store'
 // 입은 날의 코디를 저장할 때 쓰는 함수 (달력의 "이 코디 저장하기" 버튼)
 import { rowKey, saveLook } from '../store'
@@ -203,7 +203,7 @@ function editHist(h: Hist) {
         <h4>빠뜨린 옷 더하기</h4>
         {CATS.filter((c) => rest.some((i) => i.cat === c)).map((c) => (
           <div key={c}><p className="optcat">{c}</p>
-            <div className="opts">{rest.filter((i) => i.cat === c).map((i) => <button key={i.id} className="opt" onClick={() => { ids.push(i.id); emit() }}><i style={{ background: swatchBg(hexOf(i), i.pattern) }} />{i.name}</button>)}</div></div>
+            <div className="opts">{rest.filter((i) => i.cat === c).map((i) => <button key={i.id} className="opt" onClick={() => { ids.push(i.id); emit() }}><i style={{ background: hexOf(i) }} />{i.name}</button>)}</div></div>
         ))}
         <div className="row2">
           <button className="btn" onClick={() => askDeleteHist(h, () => { ids = []; finish('입은 기록을 지웠어요') })}>이날 안 입었어요</button>

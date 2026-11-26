@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { Item } from '../data/types'
-import { deleteItem, emit, hexOf, iga, swatchBg, tidyRows, worn } from '../store'
+import { deleteItem, emit, hexOf, iga, tidyRows, worn } from '../store'
 import { closeAll, openModal, toast } from '../ui'
 // 별명이 있으면 별명, 없으면 원래 이름 (옷 크게 보기 제목)
 import { displayName } from '../store'
@@ -12,7 +12,7 @@ export function Ph({ item, label = '', onClick, style, className = '', as = 'but
   const inner = (
     <>
       {item?.img && <img src={item.img} alt="" />}
-      {item && <span className="chip" style={{ background: swatchBg(hexOf(item), item.pattern) }} />}
+      {item && <span className="chip" style={{ background: hexOf(item) }} />}
       {!item?.img && label && <p className="lbl">{label}</p>}
     </>
   )
@@ -31,7 +31,7 @@ export function lightbox(it: Item) {
     <>
       <button className="ph big" style={{ cursor: 'default' }}>
         {it.img && <img src={it.img} alt="" />}
-        <span className="chip" style={{ background: swatchBg(hexOf(it), it.pattern) }} />
+        <span className="chip" style={{ background: hexOf(it) }} />
         <p className="lbl">{it.img ? '' : '사진 자리'}</p>
       </button>
       <h3>{displayName(it)}</h3>

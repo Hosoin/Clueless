@@ -12,7 +12,8 @@ export const COLORS: Record<string, string> = {
   스카이: '#9DBBD9', 카키: '#6B6B3E', 그린: '#2F5130', 버건디: '#7A2436', 레드: '#C2353A',
   핑크: '#E7A9C2', 옐로: '#E8C547', 퍼플: '#6C5A8E',
 }
-export const PATTERNS = ['무지', '스트라이프', '체크', '도트', '플라워', '프린트'] as const
+// 재질: 옷 등록에서 고르는 값 (Item.material). 자주 입는 옷감 위주로 8개. 백엔드·ML과 값 이름을 맞출 때 이 목록을 기준으로 한다
+export const MATERIALS = ['면', '니트', '데님', '울', '가죽', '린넨', '시폰', '폴리'] as const
 export const CATS = ['상의', '덧입기', '하의', '아우터', '원피스'] as const
 // 종류별 세부 종류. 옷 등록의 고치기 창에서 종류를 고르면 그 종류의 세부 종류만 보여 준다.
 // 아우터의 '코트'·'패딩'은 홈에서 맨 겉(코트 칸)으로, 나머지는 재킷 칸으로 겹쳐 입는 순서를 정하는 데도 쓰인다
@@ -33,7 +34,6 @@ export const TRENDS: Trend[] = [
   { k: '뷔스티에', up: true, why: '겹쳐 입는 코디가 늘며 검색 관심도 상승' },
   { k: '카고 팬츠', up: false, why: '검색 관심도 하락' },
   { k: '린넨 셔츠', up: false, why: '계절이 지나 검색 관심도 하락' },
-  { k: '체크 셔츠', up: false, why: '검색 관심도 하락' },
   { k: '스키니 진', up: false, why: '와이드 핏에 밀려 하락' },
   { k: '크롭 티셔츠', up: false, why: '계절이 지나 검색 관심도 하락' },
 ]
@@ -42,22 +42,22 @@ const CREDITS: Record<number, string> = { 1: 'Yuliia Pakhomova', 2: 'Nynne Schr�
 
 // lastWorn: 며칠 전에 입었는지 (null = 아직 안 입음)
 const raw: Omit<Item, 'img' | 'credit'>[] = [
-  { id: 1, name: '아이보리 오버핏 니트', cat: '상의', color: '아이보리', pattern: '무지', rec: 1, tags: ['오버핏 니트'], lastWorn: 120, added: 12 },
-  { id: 2, name: '그레이 오버핏 니트', cat: '상의', color: '그레이', pattern: '무지', rec: 0, tags: ['오버핏 니트'], lastWorn: 200, added: 11 },
-  { id: 3, name: '블랙 오버핏 니트', cat: '상의', color: '블랙', pattern: '무지', rec: 2, tags: ['오버핏 니트'], lastWorn: 14, added: 10 },
-  { id: 4, name: '화이트 티셔츠', cat: '상의', color: '화이트', pattern: '무지', rec: 3, tags: [], lastWorn: 1, added: 9 },
-  { id: 5, name: '네이비 스트라이프 셔츠', cat: '상의', color: '네이비', pattern: '스트라이프', rec: 1, tags: [], lastWorn: 45, added: 8 },
-  { id: 13, name: '그린 체크 셔츠', cat: '상의', color: '그린', pattern: '체크', rec: 0, tags: ['체크 셔츠'], lastWorn: null, added: 13 },
-  { id: 6, name: '인디고 와이드 데님', cat: '하의', color: '데님', pattern: '무지', rec: 2, tags: ['와이드 데님'], lastWorn: 14, added: 7 },
-  { id: 7, name: '블랙 플리츠 스커트', cat: '하의', color: '블랙', pattern: '무지', rec: 0, tags: ['플리츠 스커트'], lastWorn: 300, added: 6 },
-  { id: 8, name: '카키 카고 팬츠', cat: '하의', color: '카키', pattern: '무지', rec: 1, tags: ['카고 팬츠'], lastWorn: 45, added: 5 },
-  { id: 9, name: '그레이 슬랙스', cat: '하의', color: '그레이', pattern: '무지', rec: 4, tags: [], lastWorn: 1, added: 4 },
-  { id: 10, name: '카멜 롱 코트', cat: '아우터', color: '카멜', pattern: '무지', rec: 4, tags: ['트렌치 코트'], lastWorn: 20, added: 3 },
-  { id: 11, name: '블랙 레더 재킷', cat: '아우터', color: '블랙', pattern: '무지', rec: 0, tags: ['레더 재킷'], lastWorn: 400, added: 2 },
-  { id: 12, name: '아이보리 크로셰 원피스', cat: '원피스', color: '아이보리', pattern: '무지', rec: 1, tags: [], lastWorn: 20, added: 1 },
-  { id: 15, name: '화이트 하이넥 셔링 티', cat: '상의', color: '화이트', pattern: '무지', rec: 0, tags: [], lastWorn: 9, added: 15 },
-  { id: 14, name: '블랙 벨벳 뷔스티에', cat: '덧입기', color: '블랙', pattern: '무지', rec: 0, tags: ['뷔스티에'], lastWorn: 60, added: 14 },
-  { id: 16, name: '차콜 와이드 슬랙스', cat: '하의', color: '차콜', pattern: '무지', rec: 0, tags: [], lastWorn: 9, added: 16 },
+  { id: 1, name: '아이보리 오버핏 니트', cat: '상의', color: '아이보리', rec: 1, tags: ['오버핏 니트'], lastWorn: 120, added: 12 },
+  { id: 2, name: '그레이 오버핏 니트', cat: '상의', color: '그레이', rec: 0, tags: ['오버핏 니트'], lastWorn: 200, added: 11 },
+  { id: 3, name: '블랙 오버핏 니트', cat: '상의', color: '블랙', rec: 2, tags: ['오버핏 니트'], lastWorn: 14, added: 10 },
+  { id: 4, name: '화이트 티셔츠', cat: '상의', color: '화이트', rec: 3, tags: [], lastWorn: 1, added: 9 },
+  { id: 5, name: '네이비 셔츠', cat: '상의', color: '네이비', rec: 1, tags: [], lastWorn: 45, added: 8 },
+  { id: 13, name: '그린 셔츠', cat: '상의', color: '그린', rec: 0, tags: [], lastWorn: null, added: 13 },
+  { id: 6, name: '인디고 와이드 데님', cat: '하의', color: '데님', rec: 2, tags: ['와이드 데님'], lastWorn: 14, added: 7 },
+  { id: 7, name: '블랙 플리츠 스커트', cat: '하의', color: '블랙', rec: 0, tags: ['플리츠 스커트'], lastWorn: 300, added: 6 },
+  { id: 8, name: '카키 카고 팬츠', cat: '하의', color: '카키', rec: 1, tags: ['카고 팬츠'], lastWorn: 45, added: 5 },
+  { id: 9, name: '그레이 슬랙스', cat: '하의', color: '그레이', rec: 4, tags: [], lastWorn: 1, added: 4 },
+  { id: 10, name: '카멜 롱 코트', cat: '아우터', color: '카멜', rec: 4, tags: ['트렌치 코트'], lastWorn: 20, added: 3 },
+  { id: 11, name: '블랙 레더 재킷', cat: '아우터', color: '블랙', rec: 0, tags: ['레더 재킷'], lastWorn: 400, added: 2 },
+  { id: 12, name: '아이보리 크로셰 원피스', cat: '원피스', color: '아이보리', rec: 1, tags: [], lastWorn: 20, added: 1 },
+  { id: 15, name: '화이트 하이넥 셔링 티', cat: '상의', color: '화이트', rec: 0, tags: [], lastWorn: 9, added: 15 },
+  { id: 14, name: '블랙 벨벳 뷔스티에', cat: '덧입기', color: '블랙', rec: 0, tags: ['뷔스티에'], lastWorn: 60, added: 14 },
+  { id: 16, name: '차콜 와이드 슬랙스', cat: '하의', color: '차콜', rec: 0, tags: [], lastWorn: 9, added: 16 },
 ]
 export const seedItems = (): Item[] => raw.map((i) => ({ ...i, tags: [...i.tags], img: photo(i.id), credit: CREDITS[i.id] }))
 
@@ -65,7 +65,7 @@ export const seedItems = (): Item[] => raw.map((i) => ({ ...i, tags: [...i.tags]
 export const seedOutfits = (): Outfit[] => [
   { top: 1, bottom: 6, outer: 10, ref: '오버핏 니트', reason: '요즘 뜨는 오버핏 니트로 맞춰 봤어요' },
   { top: 15, mid: 14, bottom: 16, jacket: 11, ref: '뷔스티에', reason: '하이넥 위에 뷔스티에를 겹치고 레더 재킷까지 걸쳤어요' },
-  { top: 13, bottom: 6, ref: '와이드 데님', reason: '체크 셔츠엔 무지 데님을 맞췄어요' },
+  { top: 13, bottom: 6, ref: '와이드 데님', reason: '요즘 유행하는 와이드 데님을 맞췄어요' },
   { top: 2, bottom: 7, outer: 10, ref: '오버핏 니트', reason: '그레이 니트에 플리츠 스커트로 부드럽게 맞췄어요' },
   { top: 12, jacket: 11, ref: '레더 재킷', reason: '크로셰 원피스에 레더 재킷을 걸쳐 봤어요' },
 ]
@@ -96,8 +96,8 @@ export const seedPosts = (): Post[] => [
     t: '크로셰 원피스 하나로 끝', body: '더운 날엔 크로셰 원피스 하나면 충분해요. 가방만 바꿔 들었어요.',
     wear: [['아이보리 크로셰 원피스', '#F1E9D6', 12, 'same']] },
   { id: 4, user: 'jiwoo.fit', img: cpic('p4'), pos: '50% 30%', min: 1500, ago: '어제', ch: false, likes: 143, cmts: 12,
-    t: '스트라이프 셔츠 출근룩', body: '진한 스트라이프 셔츠에 무늬 스커트를 맞춰 봤어요. 무늬끼리도 색만 맞추면 괜찮아요.',
-    wear: [['스트라이프 셔츠', '#7A2436', 5, 'like'], ['프린트 롱스커트', '#6E4B32', null]] },
+    t: '버건디 셔츠 출근룩', body: '진한 버건디 셔츠에 브라운 롱스커트를 맞춰 봤어요. 색만 맞추면 출근룩도 금방이에요.',
+    wear: [['버건디 셔츠', '#7A2436', 5, 'like'], ['브라운 롱스커트', '#6E4B32', null]] },
   { id: 5, user: 'hyun.wear', img: cpic('p5'), pos: '50% 30%', min: 2880, ago: '2일 전', ch: true, likes: 77, cmts: 5,
     t: '블랙 니트에 플리츠 스커트', body: '1년 넘게 안 입은 플리츠 스커트를 꺼냈어요. 위아래 블랙이라 부담 없어요.',
     wear: [['블랙 니트', '#1E2235', 3, 'same'], ['블랙 플리츠 스커트', '#1E2235', 7, 'same'], ['블랙 롱부츠', '#1E1E22', null]] },
