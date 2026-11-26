@@ -8,11 +8,12 @@ import { closeAll, openModal, toast } from '../ui'
 export function lightbox(it: Item) {
   openModal(() => (
     <>
-      <button className="ph big" style={{ cursor: 'default' }}>
+      {/* 누르는 곳이 아니라 보여 주기만 하는 사진이라 버튼이 아닌 div (코드 리뷰 34번). .ph의 확대 커서는 끈다 */}
+      <div className="ph big" style={{ cursor: 'default' }}>
         {it.img && <img src={it.img} alt="" />}
         <span className="chip" style={{ background: hexOf(it) }} />
         <p className="lbl">{it.img ? '' : '사진 자리'}</p>
-      </button>
+      </div>
       <h3>{displayName(it)}</h3>
       {/* 별명이 있으면 제목은 별명, 그 아래에 원래 이름을 작게 보여 줌 (어떤 옷인지 헷갈리지 않게) */}
       {it.alias && <p className="sub">{it.name}</p>}
