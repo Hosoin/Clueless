@@ -1,6 +1,7 @@
 // 설정 (담당: C)
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { logout } from '../api/auth'
 import { Back } from '../components/Icons'
 import { STYLES } from '../data/seed'
 import { toLogin } from '../nav'
@@ -59,7 +60,11 @@ export default function Settings() {
         <div className="sec"><h3>계정</h3>
           {S.loggedIn ? (
             <><div className="setrow"><p>로그인 계정</p><p style={{ fontSize: 13, color: 'var(--soft)' }}>Google</p></div>
-              <button className="link" style={{ padding: 0 }} onClick={() => { S.loggedIn = false; toast('로그아웃했어요'); emit() }}>로그아웃</button></>
+              <button className="link" style={{ padding: 0 }} onClick={async () => {
+                // 서버 로그인이면 서버 세션도 끝낸다. 서버가 실패하면 로그인 상태를 그대로 두고 알린다
+                try { await logout() } catch { return toast('로그아웃하지 못했어요. 잠시 후 다시 해 주세요') }
+                S.loggedIn = false; toast('로그아웃했어요'); emit()
+              }}>로그아웃</button></>
           ) : <div className="login"><button className="btn solid" onClick={() => toLogin('/settings')}>로그인하기</button></div>}
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
-import { S, useApp } from '../store'
+import { fetchMe, takeGoogleLoginReturn } from '../api/auth'
+import { S, emit, useApp } from '../store'
 import { closeAll, Overlays } from '../ui'
 import { setNav } from '../nav'
 import { TabIcon } from './Icons'
@@ -37,10 +38,28 @@ export function Layout() {
   const navRef = useRef<HTMLElement>(null)
   const [navHide, setNavHide] = useState(false)
   const lastY = useRef(0)
-  useEffect(() => { // 처음 열면 로그인 화면부터
+  const [ready, setReady] = useState(false) // 로그인 확인이 끝났는지 (끝나기 전에는 로딩 화면)
+  useEffect(() => { // 앱을 처음 열면 서버에 로그인했는지 물어보고(GET /api/auth/me) 그 결과로 어디로 갈지 정한다
     if (started.current) return
     started.current = true
-    if (!S.loggedIn && pathname !== '/login') { S.loginBack = '/'; nav('/login', { replace: true }) }
+    const goLogin = () => { if (pathname !== '/login') { S.loginBack = '/'; nav('/login', { replace: true }) } }
+    // 방금 Google 로그인 버튼을 누르고 돌아온 것인지 (표시는 읽자마자 지워지므로 /me 결과와 상관없이 먼저 읽는다)
+    const justLoggedIn = takeGoogleLoginReturn()
+    fetchMe().then((me) => {
+      if (!me) return goLogin() // 401: 로그인 안 됨 → 로그인 화면
+      S.loggedIn = true
+      S.me.nick = me.nickName || S.me.nick // 서버의 닉네임을 쓰고, 비어 있으면 기존 값 유지
+      if (justLoggedIn) {
+        // Google 로그인에 막 성공함 → 첫 설정. 새로 열린 앱에는 첫 설정 진행 정보가 없어서 여기서 만든다
+        if (!S.ob) S.ob = { step: 'mode', mode: S.pref.mode, styles: [...S.pref.styles], nick: S.me.nick }
+        if (pathname !== '/onboard') nav('/onboard', { replace: true })
+      } else if (pathname === '/login' || pathname === '/onboard') {
+        // 이미 로그인된 상태로 앱을 열었음 → 홈. (백엔드가 #/onboard로 보낸 주소를 새로고침한 경우도 여기)
+        nav('/', { replace: true })
+      }
+      // 그 밖의 화면(옷장 등)에서 새로고침한 경우는 그 화면을 그대로 둔다
+    }).catch(goLogin) // 서버에 닿지 못해도 앱은 열리도록 로그인 화면으로 (가짜 데이터로 둘러볼 수 있다)
+      .finally(() => { setReady(true); emit() })
   }, [nav, pathname])
   useEffect(() => { closeAll(); setNavHide(false); lastY.current = 0; if (phone.current) phone.current.scrollTop = 0 }, [pathname])
   useEffect(() => { // 아래로 내리면 탭을 숨기고, 위로 올리거나 맨 위에 오면 다시 보여 줌 (scroll은 버블링이 안 돼서 캡처로 받음)
@@ -64,6 +83,15 @@ export function Layout() {
     document.addEventListener('keydown', esc)
     return () => document.removeEventListener('keydown', esc)
   }, [])
+  if (!ready) { // 서버 응답을 기다리는 동안 로그인 화면이나 홈이 잠깐 보였다 사라지지 않게 로고만 보여 준다
+    return (
+      <div className="phone login-on" id="app" ref={phone}>
+        <section className="screen on" style={{ display: 'flex' }}>
+          <div className="lg-main"><p className="lg-logo">Clueless</p></div>
+        </section>
+      </div>
+    )
+  }
   return (
     <div className={`phone ${loginOn ? 'login-on' : ''}`} id="app" ref={phone}
       onScroll={(e) => { if (e.currentTarget.scrollTop) e.currentTarget.scrollTop = 0 }}
