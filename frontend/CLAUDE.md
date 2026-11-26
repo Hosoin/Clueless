@@ -20,6 +20,7 @@
 
 - `frontend-dev`, `frontend`, `main`에는 직접 커밋하지 않고 항상 PR로 반영합니다.
 - 브랜치 이름, 커밋, PR, 머지 방식은 @GIT_CONVENTION.md 를 따릅니다.
+- PR 제목은 맨 앞에 `[FE]`를 붙입니다. (예: `[FE] feat(upload): 후보 아래에 직접 선택 추가`)
 - 푸시, PR 생성, 머지는 사용자가 요청했을 때만 합니다.
 
 ## 작업 원칙

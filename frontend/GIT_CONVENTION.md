@@ -133,12 +133,13 @@ refactor(closet): 필터 로직을 훅으로 분리
 
 - 하나의 커밋에는 하나의 논리적 변경만 담습니다.
 - 빌드나 린트가 깨진 상태로 커밋하지 않습니다. (`npm run lint`, `npm run build`)
-- 작업 중간 저장용 커밋(`wip`, `temp`)을 남겨도 되지만, `frontend-dev`로 머지할 때 squash로 합쳐지므로 PR 제목을 위 형식으로 씁니다.
+- 작업 중간 저장용 커밋(`wip`, `temp`)을 남겨도 되지만, `frontend-dev`로 머지할 때 squash로 합쳐지므로 PR 제목을 `[FE] ` 뒤에 위 형식으로 씁니다.
 
 ## 4. PR 규칙
 
 - PR 하나에는 하나의 목적만 담고, 하루 안에 리뷰할 수 있는 크기로 올립니다.
-- PR 제목은 커밋 규칙과 같은 형식으로 씁니다. (예: `feat(upload): 후보 아래에 직접 선택 추가`)
+- PR 제목은 맨 앞에 `[FE]`를 붙이고 커밋 규칙과 같은 형식으로 씁니다. 브랜치 이름 앞의 `FE/`와 같은 목적으로, PR 목록에서 프론트엔드 PR임을 바로 알아보게 합니다. (예: `[FE] feat(upload): 후보 아래에 직접 선택 추가`)
+- `[FE]`는 대괄호와 대문자로 씁니다. 장수 브랜치 사이의 PR(`frontend-dev → frontend`, `frontend → main`)에도 똑같이 붙입니다.
 - 본문에는 변경 사항, 테스트 방법을 적고, 화면이 바뀌면 스크린샷이나 영상을 붙입니다.
 - 리뷰어 1명 이상의 승인을 받아야 머지할 수 있습니다. 본인의 PR은 본인이 승인하지 않습니다.
 - `frontend-dev`로 올리는 작업 브랜치 PR은 팀장이 승인합니다.
@@ -153,7 +154,7 @@ refactor(closet): 필터 로직을 훅으로 분리
 | `frontend-dev` → `frontend` | **Create a merge commit** | 장수 브랜치끼리는 해시를 유지해야 다음 PR에 같은 커밋이 중복으로 잡히지 않습니다 |
 | `frontend` → `main` | **Create a merge commit** | 위와 같은 이유입니다 |
 
-- Squash로 머지하면 PR 제목이 최종 커밋 메시지가 되므로 제목 형식을 지킵니다.
+- Squash로 머지하면 PR 제목이 최종 커밋 메시지가 되므로 제목 형식을 지킵니다. 다만 커밋 메시지는 `<type>(<scope>): <subject>` 형식을 유지해야 하므로, 머지 화면에서 제목 앞의 `[FE] `는 지우고 머지합니다.
 - 장수 브랜치(`frontend-dev`, `frontend`, `main`) 사이에서는 squash나 rebase를 쓰지 않습니다.
 
 ## 6. 배포와 테스트
