@@ -9,8 +9,8 @@ import { COLORS, STYLES, TRENDS } from '../data/seed'
 import type { Item, Look } from '../data/types'
 import {
   EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, current, emit, firstFresh, fit, hexOf,
-  isPast, isRecent, keepSel, layersFor, lists, matchText, rowKey, saveLook, showsOutfit, stepFit, useApp,
-  wearList, wearToday, worn, wornKey, wornNote, iga, eun, euro, type Combo, type ExtraKey, type RowKey,
+  isExtra, isPast, isRecent, keepSel, layersFor, lists, matchText, present, rowKey, saveLook, showsOutfit, stepFit, useApp,
+  wearList, wearToday, worn, wornKey, wornNote, iga, eun, euro, type Combo, type RowKey,
 } from '../store'
 import { closeAll, openSheet, showIn, toast } from '../ui'
 
@@ -88,7 +88,7 @@ export default function Home() {
   const rest = order.filter((k) => k !== bigK)
   const piece = (k: RowKey, big = false) => (
     <Piece key={k} k={k} item={c[k]} big={big} canStep={L[k].length > 1} rolling={S.spinKeys.has(k)}
-      off={(EXTRA as RowKey[]).includes(k) ? () => keepSel(() => { S.on[k as ExtraKey] = false }) : undefined} />
+      off={isExtra(k) ? () => keepSel(() => { S.on[k] = false }) : undefined} />
   )
 
   return (
@@ -129,7 +129,7 @@ export default function Home() {
             <div className="arows">
               {rows.map(([k, label]) => (
                 <div className="arow" key={k}>
-                  <p className="k">{label}{(EXTRA as RowKey[]).includes(k) && <button className="link xs" onClick={() => keepSel(() => { S.on[k as ExtraKey] = false })}>빼기</button>}</p>
+                  <p className="k">{label}{isExtra(k) && <button className="link xs" onClick={() => keepSel(() => { S.on[k] = false })}>빼기</button>}</p>
                   <button className="n pickname" onClick={() => openPicker(k)}>{c[k] ? c[k]!.name : '없음'} <span>고르기</span></button>
                   <button className="arrow" aria-label={`이전 ${label}`} disabled={L[k].length <= 1} onClick={() => stepFit(k, -1)}><Arrow dir={-1} /></button>
                   <button className="arrow" aria-label={`다음 ${label}`} disabled={L[k].length <= 1} onClick={() => stepFit(k, 1)}><Arrow dir={1} /></button>
@@ -233,7 +233,7 @@ function Avatar({ c }: { c: Combo }) {
     if (typeof window.renderAvatar === 'function') {
       // 오류 메시지는 HTML로 넣지 않고 글자(textContent)로만 넣는다. 메시지에 데이터가 섞여 있어도 태그로 해석되지 않게 (코드 리뷰 20번)
       try { window.renderAvatar(el, data) } catch (e) {
-        const p = document.createElement('p'); p.className = 'avph'; p.textContent = `avatar.js 오류: ${(e as Error).message}`; el.replaceChildren(p)
+        const p = document.createElement('p'); p.className = 'avph'; p.textContent = `avatar.js 오류: ${e instanceof Error ? e.message : String(e)}`; el.replaceChildren(p)
       }
     } else el.innerHTML = '<p class="avph">아바타 자리 (avatar.js의 renderAvatar가 아직 없어요)</p>'
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -309,12 +309,12 @@ function Picker({ k }: { k: RowKey }) {
         <button className={pkSort === 'fit' ? 'on' : ''} onClick={() => { pkSort = 'fit'; re() }}>잘 어울리는 순</button><span />
         <button className={pkSort === 'old' ? 'on' : ''} onClick={() => { pkSort = 'old'; re() }}>오래 안 입은 순</button>
       </div>
-      {(EXTRA as RowKey[]).includes(k) && <button className="btn full" style={{ margin: '10px 0 0' }} onClick={() => { closeAll(); keepSel(() => { S.on[k as ExtraKey] = false }) }}>{label} 빼기</button>}
+      {isExtra(k) && <button className="btn full" style={{ margin: '10px 0 0' }} onClick={() => { closeAll(); keepSel(() => { S.on[k] = false }) }}>{label} 빼기</button>}
       <div className="grid3 pkg">
         {list.length ? list.map(({ it, f }) => (
           <button key={it.id} className={`pki ${c[k]?.id === it.id ? 'on' : ''}`} onClick={() => {
             S.pos[k] = lists()[k].findIndex((x) => x.id === it.id)
-            if ((EXTRA as RowKey[]).includes(k)) S.on[k as ExtraKey] = true
+            if (isExtra(k)) S.on[k] = true
             closeAll()
           }}>
             <Ph item={it} as="span" />
@@ -357,7 +357,7 @@ function Trend() {
     : it.cat === '하의' ? { top: pairFor(1, '상의'), bottom: it.id, outer: pairFor(10, '아우터') }
     : it.cat === '아우터' ? { top: pairFor(3, '상의'), bottom: pairFor(7, '하의'), outer: it.id }
     : { top: it.id, bottom: null, outer: pairFor(10, '아우터') } // 원피스·덧입기는 그 옷을 상의 칸에 두고 하의는 비움
-  const ps = look ? ([byId(look.top), byId(look.outer), byId(look.bottom)].filter(Boolean) as Item[]) : []
+  const ps = look ? ([byId(look.top), byId(look.outer), byId(look.bottom)].filter(present)) : []
   const mm = matchText(ps)
   const pick = (i: number) => { tSel = i; tResult = false; emit() }
   const shown = useRef(false)

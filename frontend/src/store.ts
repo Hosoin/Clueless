@@ -74,6 +74,8 @@ export const useApp = () => { useSyncExternalStore(subscribe, () => version); re
 /* ---------- 공통 ---------- */
 /** id로 옷 찾기. 없거나(지운 옷) id가 비어 있으면 undefined */
 export const byId = (id?: number | null) => (id ? S.items.find((i) => i.id === id) : undefined)
+/** 빈 값(null·undefined)을 걸러 내면서 타입도 좁힌다. `.filter(present)`로 쓰면 `as Item[]` 단언 없이 Item[]이 된다 (코드 리뷰 32번) */
+export const present = <T>(x: T | null | undefined): x is T => x != null
 /**
  * 옷장에서 보여 줄 옷 이름: 별명이 있으면 별명, 없으면 원래 이름.
  * 별명은 내 옷장에서 알아보기 쉽게 붙이는 이름이라 옷장 화면(카드·크게 보기)에서만 쓰고,
@@ -121,7 +123,7 @@ export const wornKey = (it: Item) => (it.lastWorn === null ? 99999 : it.lastWorn
 
 /** 코디가 어울리는지 한 줄 판단. 유행하는 옷이 하나라도 있으면 hit. 결과: { hit, t(문구) } */
 export function matchText(list: (Item | null | undefined)[]) {
-  const l = list.filter(Boolean) as Item[]
+  const l = list.filter(present)
   const hit = l.some(trendOf)
   return { hit, t: hit ? '요즘 유행과 잘 어울려요' : '무난하게 입기 좋은 조합이에요' }
 }
@@ -133,6 +135,8 @@ export type RowKey = 't' | 'm' | 'j' | 'o' | 'b'
 export type ExtraKey = 'm' | 'j' | 'o'
 export const K: RowKey[] = ['t', 'm', 'j', 'o', 'b'] // 모든 줄 (위에서 아래 순서)
 export const EXTRA: ExtraKey[] = ['m', 'j', 'o'] // 겹옷 줄
+/** 겹옷 줄인지. true면 k를 ExtraKey로 좁혀 S.on[k]에 바로 쓸 수 있다 (`(EXTRA as RowKey[]).includes(k)`와 `k as ExtraKey` 대신, 코드 리뷰 32번) */
+export const isExtra = (k: RowKey): k is ExtraKey => EXTRA.some((x) => x === k)
 export const NAME: Record<RowKey, string> = { t: '상의', m: '덧입기', j: '아우터', o: '아우터', b: '하의' } // 재킷·코트는 화면에서 모두 '아우터'
 /** 옷이 들어갈 줄. 아우터는 이름에 코트·패딩이 있으면 코트 줄(o), 아니면 재킷 줄(j). 원피스는 상의 줄(t) */
 export const rowKey = (it: Item): RowKey => (it.cat === '하의' ? 'b' : it.cat === '덧입기' ? 'm' : it.cat === '아우터' ? (/코트|패딩/.test(it.name) ? 'o' : 'j') : 't')
@@ -171,7 +175,7 @@ export const comboKey = (c: Combo) => K.map((k) => (c[k] ? c[k]!.id : 0)).join('
 /** 저장한 코디를 비교하려고 만드는 글자 (comboKey와 같은 모양) */
 const outfitKey = (o: Look) => lookIds(o).map((x) => x || 0).join('-')
 /** 코디에서 실제로 입는 옷만 (빈 칸 뺌) */
-export const wearList = (c: Combo) => K.map((k) => c[k]).filter(Boolean) as Item[]
+export const wearList = (c: Combo) => K.map((k) => c[k]).filter(present)
 /** 줄마다 고른 위치가 줄 길이를 넘지 않게 맞춘다 (빈 줄은 0) */
 export function clampPos() { const L = lists(); for (const k of K) S.pos[k] = Math.max(0, Math.min(S.pos[k], L[k].length - 1)) }
 
@@ -221,7 +225,7 @@ export function setCombo(ids: number[]) {
     const it = byId(id); if (!it) return
     const k = rowKey(it), i = L[k].findIndex((x) => x.id === id)
     if (i >= 0) S.pos[k] = i
-    if ((EXTRA as RowKey[]).includes(k)) S.on[k as ExtraKey] = true
+    if (isExtra(k)) S.on[k] = true
   })
 }
 /** 줄 구성(겹 수, 최근 입은 옷 빼기 등)을 바꿔도 지금 고른 옷은 그대로 둠 */
@@ -237,7 +241,7 @@ export function keepSel(fn: () => void) {
 const NEUTRAL = ['화이트', '아이보리', '베이지', '블랙', '차콜', '그레이', '네이비', '데님', '카멜', '브라운']
 /** 줄 k에 옷 it을 놓았을 때 나머지 옷(c)과의 점수와 이유. 결과: { sc(클수록 잘 어울림), why(옷 목록에 보일 짧은 이유) } */
 export function fit(it: Item, k: RowKey, c: Combo) {
-  const others = K.filter((x) => x !== k).map((x) => c[x]).filter(Boolean) as Item[]
+  const others = K.filter((x) => x !== k).map((x) => c[x]).filter(present)
   let sc = 0, why = ''
   const bright = (x: Item) => !NEUTRAL.includes(x.color)
   if (bright(it) && others.some(bright)) sc -= 2; else if (!bright(it)) sc += 1
@@ -263,7 +267,7 @@ export function stepFit(k: RowKey, d: number) {
 /* ---------- 입기·기록 ---------- */
 /** 오늘 입은 기록을 이 옷들로 남긴다. 오늘 기록이 이미 있으면 바꾼다 (하루에 하나) */
 function logWear(ps: (Item | null | undefined)[]) {
-  const ids = (ps.filter(Boolean) as Item[]).map((x) => x.id)
+  const ids = ps.filter(present).map((x) => x.id)
   const today = S.history.find((h) => h.ago === 0)
   if (today) today.ids = ids; else S.history.unshift({ ago: 0, ids })
 }

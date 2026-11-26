@@ -7,9 +7,9 @@ import { useNavigate } from 'react-router'
 import { Arrow } from '../components/Icons'
 import { PhPair, Thumbs } from '../components/Ph'
 import { CATS } from '../data/seed'
-import type { Hist, Item, Look } from '../data/types'
+import type { Hist, Look } from '../data/types'
 import {
-  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, recalcWorn, rowKey, saveLook, useApp, wearToday, wornNote, wornOn,
+  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, present, recalcWorn, rowKey, saveLook, useApp, wearToday, wornNote, wornOn,
 } from '../store'
 import { closeAll, closeModal, openModal, openSheet, toast } from '../ui'
 
@@ -92,7 +92,7 @@ function Day() {
   const d = calSel, ago = agoOf(d), w = wornOn(d), pl = ago <= 0 ? planOn(d) : null
   const pair = (ids: number[]) => (
     // 지운 옷 등으로 id에 맞는 옷이 없으면 그 칸은 건너뛴다 (없는 옷을 그리려다 화면 전체가 멈추지 않게)
-    <PhPair items={ids.map(byId).filter(Boolean) as Item[]} caption={(it) => it.name} />
+    <PhPair items={ids.map(byId).filter(present)} caption={(it) => it.name} />
   )
   return (
     <div className="calday">
@@ -146,7 +146,7 @@ function SavedList() {
   return (
     <div className="saved">
       {S.saved.map((o, i) => {
-        const ps = lookIds(o).map((x) => byId(x)).filter(Boolean) as Item[], m = matchText(ps), rec = ps.filter(isRecent)
+        const ps = lookIds(o).map((x) => byId(x)).filter(present), m = matchText(ps), rec = ps.filter(isRecent)
         const done = wornIds.includes(o.id)
         return (
           <div className="so" key={o.id}>
