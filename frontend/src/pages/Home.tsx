@@ -237,7 +237,10 @@ function Avatar({ c }: { c: Combo }) {
     const f = (it: Item | null) => it ? { id: it.id, name: it.name, category: it.cat, color: it.color, colorHex: hexOf(it), image: it.img || null } : null
     const data = { top: f(c.t), layer: f(c.m), jacket: f(c.j), coat: f(c.o), bottom: f(c.b), isDress: c.dress }
     if (typeof window.renderAvatar === 'function') {
-      try { window.renderAvatar(el, data) } catch (e) { el.innerHTML = `<p class="avph">avatar.js 오류: ${(e as Error).message}</p>` }
+      // 오류 메시지는 HTML로 넣지 않고 글자(textContent)로만 넣는다. 메시지에 데이터가 섞여 있어도 태그로 해석되지 않게 (코드 리뷰 20번)
+      try { window.renderAvatar(el, data) } catch (e) {
+        const p = document.createElement('p'); p.className = 'avph'; p.textContent = `avatar.js 오류: ${(e as Error).message}`; el.replaceChildren(p)
+      }
     } else el.innerHTML = '<p class="avph">아바타 자리 (avatar.js의 renderAvatar가 아직 없어요)</p>'
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
   return <div className="astage" ref={ref} />
