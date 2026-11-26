@@ -90,19 +90,6 @@
   function renderDefs() {
     return `
   <defs>
-    <!-- 스트라이프 패턴 (네이비 스트라이프 셔츠 등) -->
-    <pattern id="cl-pat-stripe" width="12" height="12" patternUnits="userSpaceOnUse">
-      <line x1="0" y1="0" x2="0" y2="12" stroke="#FFFFFF" stroke-width="2.5" stroke-opacity="0.45" />
-    </pattern>
-
-    <!-- 깅엄 체크 패턴 (그린 체크 셔츠 등) -->
-    <pattern id="cl-pat-check" width="14" height="14" patternUnits="userSpaceOnUse">
-      <rect width="7" height="7" fill="#FFFFFF" fill-opacity="0.22" />
-      <rect x="7" y="7" width="7" height="7" fill="#FFFFFF" fill-opacity="0.22" />
-      <rect x="7" y="0" width="7" height="7" fill="#000000" fill-opacity="0.18" />
-      <rect x="0" y="7" width="7" height="7" fill="#000000" fill-opacity="0.18" />
-    </pattern>
-
     <!-- 크로셰 레이스 패턴 -->
     <pattern id="cl-pat-crochet" width="16" height="16" patternUnits="userSpaceOnUse">
       <circle cx="8" cy="8" r="4.5" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-opacity="0.35" />
@@ -263,7 +250,6 @@
   function renderTop(top, bottom) {
     const color = top.colorHex || '#8C2D38';
     const name = top.name || '';
-    const pattern = top.pattern || '';
 
     // A. 가디건 (브라운 니트 가디건 등)
     if (name.includes('가디건') || name.includes('cardigan')) {
@@ -282,7 +268,7 @@
 
     // D. 셔츠
     if (name.includes('셔츠')) {
-      return renderShirt(color, pattern);
+      return renderShirt(color);
     }
 
     // E. 기본 탑 / 화이트 티셔츠
@@ -431,10 +417,7 @@
   }
 
   // 클래식 셔츠
-  function renderShirt(color, pattern) {
-    const isStripe = pattern === '스트라이프' || pattern.includes('스트라이프');
-    const isCheck = pattern === '체크' || pattern.includes('체크');
-    const patUrl = isStripe ? 'url(#cl-pat-stripe)' : (isCheck ? 'url(#cl-pat-check)' : 'none');
+  function renderShirt(color) {
 
     return `
     <g id="top-shirt">
@@ -454,10 +437,6 @@
                L 163.5,422 
                Z"
             fill="${color}" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round" />
-
-      ${patUrl !== 'none' ? `
-      <path d="M 122,368 C 85,372 40,395 20,432 C 30,458 40,482 50,505 C 48,580 52,650 46,735 Q 163.5,745 281,735 C 275,650 279,580 277,505 C 287,482 297,458 307,432 C 287,395 242,372 205,368 L 163.5,422 Z"
-            fill="${patUrl}" />` : ''}
 
       <!-- 좌측 칼라 날개 -->
       <path d="M 122,368 L 110,422 L 152,402 L 140,368 Z"

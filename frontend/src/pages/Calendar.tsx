@@ -1,14 +1,18 @@
-// 캘린더: 지난날은 입은 기록, 오늘·앞날은 입을 코디 계획 + 저장한 코디 + 입은 기록 (담당: B)
+// 캘린더: 달력 + 저장한 코디 (담당: B)
+// - 달력에서 지난날을 누르면 그날 입은 코디를 보고 수정하기·삭제하기, 이 코디 저장하기를 할 수 있다
+// - 오늘·앞날을 누르면 입을 코디를 계획하고, 다른 코디로 바꾸기·삭제하기를 할 수 있다
+// - 예전 '입은 기록' 탭은 없앴다. 입은 기록은 날짜를 눌러 달력에서 바로 고치고 지운다 (11/25 Figma 수정안)
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Arrow } from '../components/Icons'
 import { Ph } from '../components/Ph'
-import { writeSheet } from '../components/WriteSheet'
 import { CATS } from '../data/seed'
-import type { Hist, Item } from '../data/types'
+import type { Hist, Item, Look } from '../data/types'
 import {
-  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, recalcWorn, swatchBg, useApp, wearToday, wornNote, wornOn,
+  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, recalcWorn, useApp, wearToday, wornNote, wornOn,
 } from '../store'
+// 입은 날의 코디를 저장할 때 쓰는 함수 (달력의 "이 코디 저장하기" 버튼)
+import { rowKey, saveLook } from '../store'
 import { closeAll, closeModal, openModal, openSheet, toast } from '../ui'
 
 const WD = ['일', '월', '화', '수', '목', '금', '토']
@@ -23,14 +27,16 @@ export default function Calendar() {
       <div className="head"><h1>My <i>Calendar</i></h1></div>
       <div className="pad">
         <div className="seg" id="k-seg">
-          {([['cal', '달력'], ['saved', '저장한 코디'], ['hist', '입은 기록']] as const).map(([v, l]) => (
+          {([['cal', '달력'], ['saved', '저장한 코디']] as const).map(([v, l]) => (
             <button key={v} className={S.kView === v ? 'on' : ''} onClick={() => set(() => (S.kView = v))}>{l}</button>
           ))}
         </div>
-        {S.kView !== 'cal' && <p className="ccount">{S.kView === 'hist' ? `입은 코디 ${S.history.length}개` : `저장한 코디 ${S.saved.length}개`}</p>}
-        {S.kView === 'cal' && <Month />}
-        {S.kView === 'saved' && <SavedList />}
-        {S.kView === 'hist' && <HistList />}
+        {S.kView === 'saved' && <>
+          <p className="ccount">저장한 코디 {S.saved.length}개</p>
+          <p className="note">달력에서 입은 날을 누르면 그 코디를 저장할 수 있어요</p>
+        </>}
+        {/* 'hist'는 없앤 입은 기록 탭 값이라(store의 보기 상태에 남아 있음) 달력으로 보여 준다 */}
+        {S.kView === 'saved' ? <SavedList /> : <Month />}
       </div>
     </section>
   )
@@ -76,10 +82,14 @@ function Day() {
   )
   return (
     <div className="calday">
-      {w ? <><p className="k">입은 코디</p>{pair(w.ids)}</>
+      {w ? <><p className="k">입은 코디</p>{pair(w.ids)}
+            {/* 수정하기: 빠진 옷 더하기·안 입은 옷 빼기 창, 삭제하기: 그날 기록을 통째로 지움 */}
+            <div className="row2"><button className="btn" onClick={() => editHist(w)}>수정하기</button>
+              <button className="btn" onClick={() => askDeleteHist(w, () => applyHist(w, [], '입은 기록을 지웠어요'))}>삭제하기</button></div>
+            <button className="btn solid full" style={{ marginTop: 8 }} onClick={() => saveWorn(w)}>이 코디 저장하기</button></>
         : pl ? <><p className="k pink">입을 코디</p>{pair(pl.ids)}
             <div className="row2"><button className="btn" onClick={() => planSheet(d)}>다른 코디로 바꾸기</button>
-              <button className="btn" onClick={() => { S.plans.splice(S.plans.indexOf(pl), 1); toast('계획을 지웠어요'); emit() }}>계획 지우기</button></div></>
+              <button className="btn" onClick={() => { S.plans.splice(S.plans.indexOf(pl), 1); toast('계획을 지웠어요'); emit() }}>삭제하기</button></div></>
         : ago > 0 ? <p className="k">이날 입은 기록이 없어요</p>
         : <><p className="k">아직 입을 코디를 정하지 않았어요</p><button className="btn solid full" onClick={() => planSheet(d)}>저장한 코디로 계획하기</button></>}
     </div>
@@ -140,31 +150,45 @@ function SavedList() {
   )
 }
 
-function HistList() {
-  if (!S.history.length) return <div className="hist" style={{ marginTop: 8 }}><div className="empty">아직 입은 코디가 없어요</div></div>
-  return (
-    <div className="hist" style={{ marginTop: 8 }}>
-      {S.history.map((h, i) => (
-        <div className="hrow2" key={i}>
-          <div className="thumbs">{h.ids.map((id) => <Ph key={id} item={byId(id)} />)}</div>
-          <div style={{ flex: 1, minWidth: 0 }}><p className="d">{dayLabel(h.ago)}</p><p className="n">{h.ids.map((id) => byId(id)!.name).join(' + ')}</p></div>
-          <div className="hacts"><button className="link" onClick={() => editHist(h)}>고치기</button><button className="link" onClick={() => writeSheet(h)}>올리기</button></div>
-        </div>
-      ))}
-    </div>
-  )
+/**
+ * 입은 기록 h의 옷을 ids로 바꾼다. ids가 비면 그날 기록을 지운다.
+ * 바뀐 옷마다 '마지막으로 입은 날'을 다시 계산하고(recalcWorn), 오늘 기록이면 홈의 '오늘 코디로 정함' 표시도 푼다.
+ * 끝나면 열린 창을 닫고 msg를 알림으로 띄운다.
+ */
+function applyHist(h: Hist, ids: number[], msg: string) {
+  const before = [...h.ids]
+  if (ids.length) h.ids = ids; else S.history.splice(S.history.indexOf(h), 1)
+  ;[...new Set([...before, ...ids])].forEach(recalcWorn)
+  if (h.ago === 0) S.chosenKey = null
+  closeAll(); toast(msg)
+}
+/** 입은 기록을 지울지 묻는 창. 지우기를 누르면 onYes. 달력의 삭제하기와 수정하기 창의 '이날 안 입었어요'가 같이 쓴다 */
+function askDeleteHist(h: Hist, onYes: () => void) {
+  openModal(() => (
+    <>
+      <h3>{dayLabel(h.ago)} 기록을 지울까요?</h3><p className="sub">옷마다 마지막으로 입은 날도 이 기록 전으로 돌아가요</p>
+      <div className="col" style={{ marginTop: 18 }}><button className="btn solid" onClick={onYes}>지우기</button><button className="btn" onClick={closeModal}>취소</button></div>
+    </>
+  ))
+}
+// 옷 id 목록을 코디(Look) 칸에 나눠 넣을 때 쓰는 줄 키 → 칸 이름
+const SLOT_OF = { t: 'top', m: 'mid', j: 'jacket', o: 'outer', b: 'bottom' } as const
+/**
+ * 입은 코디를 저장한 코디에 넣는다 (홈의 '저장' 버튼이 하던 일을 캘린더에서).
+ * 입은 기록은 옷 id 목록이라, 옷마다 종류로 칸(상의·덧입기·재킷·코트·하의)을 정해 코디 모양으로 바꾼 뒤 saveLook에 넘긴다.
+ * 같은 칸에 옷이 둘이면 먼저 나온 옷을 쓴다. 이미 저장한 코디면 다시 넣지 않는다.
+ */
+function saveWorn(h: Hist) {
+  const look: Look = {}
+  h.ids.forEach((id) => { const it = byId(id); if (it && !look[SLOT_OF[rowKey(it)]]) look[SLOT_OF[rowKey(it)]] = id })
+  const dup = saveLook(look)
+  toast(dup ? '이미 저장한 코디예요' : '코디를 저장했어요. 저장한 코디에서 볼 수 있어요'); emit()
 }
 
-/* 입은 기록 고치기: 안 입은 옷은 빼고, 그날 통째로 안 입었으면 기록을 지움 */
+/* 입은 기록 고치기(달력의 수정하기): 안 입은 옷은 빼고, 빠뜨린 옷은 더하고, 그날 통째로 안 입었으면 기록을 지움 */
 function editHist(h: Hist) {
   let ids = [...h.ids]
-  const finish = (msg: string) => {
-    const before = [...h.ids]
-    if (ids.length) h.ids = ids; else S.history.splice(S.history.indexOf(h), 1)
-    ;[...new Set([...before, ...ids])].forEach(recalcWorn)
-    if (h.ago === 0) S.chosenKey = null
-    closeAll(); toast(msg)
-  }
+  const finish = (msg: string) => applyHist(h, ids, msg)
   openSheet(() => {
     const rest = S.items.filter((i) => !ids.includes(i.id))
     return (
@@ -179,15 +203,10 @@ function editHist(h: Hist) {
         <h4>빠뜨린 옷 더하기</h4>
         {CATS.filter((c) => rest.some((i) => i.cat === c)).map((c) => (
           <div key={c}><p className="optcat">{c}</p>
-            <div className="opts">{rest.filter((i) => i.cat === c).map((i) => <button key={i.id} className="opt" onClick={() => { ids.push(i.id); emit() }}><i style={{ background: swatchBg(hexOf(i), i.pattern) }} />{i.name}</button>)}</div></div>
+            <div className="opts">{rest.filter((i) => i.cat === c).map((i) => <button key={i.id} className="opt" onClick={() => { ids.push(i.id); emit() }}><i style={{ background: hexOf(i) }} />{i.name}</button>)}</div></div>
         ))}
         <div className="row2">
-          <button className="btn" onClick={() => openModal(() => (
-            <>
-              <h3>{dayLabel(h.ago)} 기록을 지울까요?</h3><p className="sub">옷마다 마지막으로 입은 날도 이 기록 전으로 돌아가요</p>
-              <div className="col" style={{ marginTop: 18 }}><button className="btn solid" onClick={() => { ids = []; finish('입은 기록을 지웠어요') }}>지우기</button><button className="btn" onClick={closeModal}>취소</button></div>
-            </>
-          ))}>이날 안 입었어요</button>
+          <button className="btn" onClick={() => askDeleteHist(h, () => { ids = []; finish('입은 기록을 지웠어요') })}>이날 안 입었어요</button>
           <button className="btn solid" onClick={() => finish(ids.length ? '입은 기록을 고쳤어요' : '입은 기록을 지웠어요')}>저장</button>
         </div>
       </>
