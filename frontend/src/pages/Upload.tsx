@@ -12,7 +12,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Back } from '../components/Icons'
-import { CATS, COLORS, MATERIALS, SUBS, photo } from '../data/seed'
+// MATERIALS(재질 목록)는 재질 칸을 숨기는 동안 쓰지 않아 빼 두었다. 재질 칸을 다시 보이게 할 때 아래 주석과 함께 되살린다
+import { CATS, COLORS, /* MATERIALS, */ SUBS, photo } from '../data/seed'
 import type { Category } from '../data/types'
 import { resizeImage } from '../image'
 import { go } from '../nav'
@@ -50,6 +51,11 @@ const DEMO_PREDS: Pred[] = [
 ]
 // 예시 사진으로 쓸 옷장 옷 id (DEMO_PREDS와 순서가 같음)
 const DEMO_IDS = [4, 7, 10, 12, 5, 6]
+/**
+ * 화면에서 잠시 숨긴 종류. 덧입기는 당분간 옷 등록에서 고르지 않는다 (2026-11-26).
+ * 다시 보이게 하려면 이 목록에서 빼면 된다. 데이터(CATS)와 다른 화면은 그대로 둔다
+ */
+const HIDDEN_CATS: readonly string[] = ['덧입기']
 /** 지금 올려 둔 사진들. 화면을 나갔다 와도 이어서 정리할 수 있게 모듈 변수로 둔다 */
 let batch: Tile[] = []
 /** 확인 창에서 보고 있는 사진의 순서 (0부터). 창을 닫았다가 '이어서 확인하기'를 누르면 여기서 다시 연다 */
@@ -326,7 +332,7 @@ function Confirm() {
         <>
           <h4>종류</h4>
           {/* 종류를 바꾸면 세부 종류는 그 종류에 맞지 않으므로 비운다 (예: 상의 → 하의면 '셔츠'가 남으면 안 됨) */}
-          <div className="opts">{CATS.map((c) => <button key={c} className={`opt ${b.cat === c ? 'on' : ''}`} onClick={() => { if (b.cat !== c) { b.sub = null; b.name = null } b.cat = c; emit() }}>{c}</button>)}</div>
+          <div className="opts">{CATS.filter((c) => !HIDDEN_CATS.includes(c)).map((c) => <button key={c} className={`opt ${b.cat === c ? 'on' : ''}`} onClick={() => { if (b.cat !== c) { b.sub = null; b.name = null } b.cat = c; emit() }}>{c}</button>)}</div>
           {/* 세부 종류: 고른 종류에 맞는 것만 보여 줌 (SUBS). 같은 상의라도 셔츠·니트·티셔츠는 코디가 달라서 따로 고른다 */}
           {b.cat && (
             <>
@@ -339,9 +345,11 @@ function Confirm() {
             <p>{b.hex ? <>사진에서 뽑은 색이에요. 가장 가까운 이름은 <b>{b.color}</b></> : '같은 아이보리도 옷마다 달라요. 사진에서 색을 그대로 뽑을 수 있어요'}</p>
             <button className="btn" disabled={scanning} onClick={() => { scanning = true; emit(); scanColor(b, () => { scanning = false; b.name = null; emit() }) }}>{scanning ? '뽑는 중' : '사진에서 색 뽑기'}</button></div>
           <div className="opts">{Object.keys(COLORS).map((c) => <button key={c} className={`opt ${b.color === c && !b.hex ? 'on' : ''}`} onClick={() => { if (b.color !== c || b.hex) b.name = null; b.color = c; b.hex = null; emit() }}><i style={{ background: COLORS[c] }} />{c}</button>)}</div>
-          {/* 재질: 노션 테이블 명세서 closet_items.material(선택 칸). 이름에 들어가지 않아서 바꿔도 이름은 그대로 둔다 */}
+          {/* 재질 칸: 화면에서 잠시 숨김 (2026-11-26). 다시 보이게 하려면 아래 주석을 풀고, 위 import의 MATERIALS도 되살린다.
+              AI가 고른 재질 값(b.material)은 그대로 옷에 저장된다
           <h4>재질</h4>
           <div className="opts">{MATERIALS.map((m) => <button key={m} className={`opt ${b.material === m ? 'on' : ''}`} onClick={() => { b.material = m; emit() }}>{m}</button>)}</div>
+          */}
         </>
       )}
       <div className="row2 one-btns">
