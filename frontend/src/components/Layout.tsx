@@ -73,11 +73,16 @@ export function Layout() {
     }
     p.addEventListener('scroll', on, true); return () => p.removeEventListener('scroll', on, true)
   }, [])
-  useEffect(() => { // 화면 아래 여백과 홈 높이 계산에 쓰도록 탭 높이를 알려 줌
+  // 화면 아래 여백과 홈 높이 계산에 쓰도록 탭 높이를 CSS 변수 --navh로 알려 주고, 바뀌면 'navh' 이벤트를 보낸다 (홈이 높이를 다시 맞춤).
+  // 실행 조건에 ready가 있어야 한다: 이미 로그인된 상태로 앱을 열면 첫 화면은 로딩 화면이라 탭(<nav>)이 없고,
+  // 로딩이 끝나 탭이 생겨도 loginOn은 그대로(false)라 다시 재지 않아서 --navh가 css 기본값 66px에 머물렀다.
+  // 아이폰 홈바 여백처럼 탭이 66px보다 크면 홈 아래가 탭에 가렸다
+  useEffect(() => {
     const n = navRef.current; if (!n) return
-    const set = () => document.documentElement.style.setProperty('--navh', n.offsetHeight + 'px')
-    set(); const ro = new ResizeObserver(set); ro.observe(n); return () => ro.disconnect()
-  }, [loginOn])
+    const set = () => { document.documentElement.style.setProperty('--navh', n.offsetHeight + 'px'); window.dispatchEvent(new Event('navh')) }
+    // border-box로 관찰해야 아래 여백(padding)만 바뀌어도 다시 잰다. 홈바 여백(safe-area)은 padding이라 기본값(content-box)으로는 못 잡는다
+    set(); const ro = new ResizeObserver(set); ro.observe(n, { box: 'border-box' }); return () => ro.disconnect()
+  }, [loginOn, ready])
   useEffect(() => {
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') closeAll() }
     document.addEventListener('keydown', esc)
