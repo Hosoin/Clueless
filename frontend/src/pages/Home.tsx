@@ -361,7 +361,10 @@ function Trend() {
   const ps = look ? ([byId(look.top), byId(look.outer), byId(look.bottom)].filter(Boolean) as Item[]) : []
   const mm = matchText(ps)
   const pick = (i: number) => { tSel = i; tResult = false; emit() }
-  const shown = useRef(false)
+  // 트렌드 코디를 이미 보여 준 상태인지. 코디 받기를 막 눌렀을 때(false → true)만 그 위치로 스크롤하려고 둔다.
+  // tResult는 탭을 옮겨도 남는 모듈 변수라, 처음 값을 false로 두면 홈에 돌아올 때마다 '막 열린 것'으로 보고
+  // 트렌드 코디 위치로 스크롤해 버렸다. 그래서 돌아왔을 때 이미 열려 있던 결과는 '보여 준 것'으로 시작한다
+  const shown = useRef(tResult)
   useEffect(() => { if (tResult && !shown.current) showIn(resultRef.current); shown.current = tResult })
   return (
     <>
