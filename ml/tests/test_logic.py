@@ -134,5 +134,14 @@ assert mask_fill(solid) == 1.0
 assert mask_fill(scattered) < 0.05
 assert mask_fill(np.zeros((10, 10), bool)) == 0.0
 
+# 데이터셋 선별: 깨끗한 크롭 / 조각난 크롭 / 가장자리에 걸린 근접 사진 / 사람이 입은 사진
+from ml.select_clean import judge, metrics  # noqa: E402
+
+assert judge({**metrics(solid), "worn": -0.03}) == []
+assert "조각남" in judge({**metrics(scattered), "worn": -0.03})
+full = np.ones((100, 100), bool)
+assert {"가장자리에 걸림", "화면을 꽉 채움"} <= set(judge({**metrics(full), "worn": -0.03}))
+assert judge({**metrics(solid), "worn": 0.02}) == ["사람이 입음"]
+
 print("ok")
 
