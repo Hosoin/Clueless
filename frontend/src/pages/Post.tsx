@@ -4,13 +4,11 @@ import { Navigate, useNavigate, useParams } from 'react-router'
 import { Back, Cmt, Heart, SaveIc } from '../components/Icons'
 import { Face } from '../components/Face'
 import { writeSheet } from '../components/WriteSheet'
-import { CMTS, MY_CMTS } from '../data/seed'
 import type { Comment, Post as PostT } from '../data/types'
 import { go, toLogin } from '../nav'
 import { S, byId, emit, owned, setCombo, useApp } from '../store'
 import { closeAll, openModal, showIn, toast } from '../ui'
 
-const toCmt = (x: (typeof CMTS)[number]): Comment => ({ u: x[0], t: x[1], ago: x[2], likes: x[3] || 0, liked: false, replies: (x[4] || []).map((r) => ({ u: r[0], t: r[1], ago: r[2], likes: r[3] || 0, liked: false, replies: [] })) })
 
 export default function Post() {
   useApp()
@@ -23,8 +21,8 @@ export default function Post() {
   useEffect(() => { if (focusIn) { showIn(input.current); input.current?.focus({ preventScroll: true }) } }, [focusIn])
   if (!p) return <Navigate to={S.postFrom} replace />
   const mine = !!p.mine, follow = S.followingSet.has(p.user), isSaved = S.savedPosts.has(p.id)
-  if (!p.cmList) p.cmList = (mine ? MY_CMTS : CMTS).map(toCmt)
-  const cm = p.cmList, reTo = p.replyTo != null ? cm[p.replyTo] : undefined
+  // 댓글 목록은 글을 만들 때 채워 둔다 (store.ts의 withComments). 그리는 중에는 읽기만 한다 (코드 리뷰 23번)
+  const cm = p.cmList ?? [], reTo = p.replyTo != null ? cm[p.replyTo] : undefined
   const back = () => { p.replyTo = null; nav(S.postFrom) }
   /** 로그인이 필요한 일(댓글·답글·좋아요·팔로우·저장)을 로그인 없이 하려 하면 알림을 띄우고 로그인 화면으로 보낸다.
    *  로그인이 끝나면 이 글로 돌아온다. 결과: 막았으면 true (코드 리뷰 21번: 팔로우·글 좋아요·저장에도 적용) */

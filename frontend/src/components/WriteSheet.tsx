@@ -1,7 +1,7 @@
 // 코디 올리기 / 글 수정 (입은 기록과 커뮤니티에서 같이 씀)
 import { useState } from 'react'
 import type { Hist, Post } from '../data/types'
-import { S, byId, dayLabel, emit, hexOf } from '../store'
+import { S, byId, dayLabel, emit, hexOf, withComments } from '../store'
 import { go, toLogin } from '../nav'
 import { closeAll, openSheet, toast } from '../ui'
 
@@ -26,9 +26,9 @@ function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
     // 지워져서 찾을 수 없는 옷도 사진이 없는 것으로 본다.
     if (!pick!.ids.every((id) => byId(id)?.img)) return toast('사진이 없는 옷이 있는 코디는 올릴 수 없어요')
     const first = byId(pick!.ids[0])!
-    S.posts.unshift({ id: ++S.pid, mine: true, user: S.me.handle, img: first.img || '', pos: '50% 50%', min: 0, ago: '방금', ch, scope, likes: 0, cmts: 0,
+    S.posts.unshift(withComments({ id: ++S.pid, mine: true, user: S.me.handle, img: first.img || '', pos: '50% 50%', min: 0, ago: '방금', ch, scope, likes: 0, cmts: 0,
       t: (text || names(pick!)).slice(0, 26), body: text || names(pick!),
-      wear: pick!.ids.map((id) => { const it = byId(id)!; return [it.name, hexOf(it), id, 'same'] }) })
+      wear: pick!.ids.map((id) => { const it = byId(id)!; return [it.name, hexOf(it), id, 'same'] }) }))
     closeAll(); S.myTab = 'posts'; go('/my'); toast('올렸어요. MY에서 고치거나 지울 수 있어요')
   }
   return (

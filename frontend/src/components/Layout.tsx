@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { fetchMe, takeGoogleLoginReturn } from '../api/auth'
 import { S, emit, useApp } from '../store'
@@ -32,7 +32,9 @@ export function Layout() {
   useApp()
   const { pathname } = useLocation()
   const nav = useNavigate()
-  setNav(nav)
+  // 창 안의 버튼처럼 컴포넌트 밖에서 쓰는 go()에 화면 이동 함수를 넘긴다. 그리는 중이 아니라 그린 뒤에 넘긴다 (코드 리뷰 23번).
+  // useLayoutEffect라서 화면들의 useEffect보다 먼저 실행돼, 화면이 처음 뜰 때 부르는 go()도 이미 동작한다
+  useLayoutEffect(() => { setNav(nav) }, [nav])
   const loginOn = pathname === '/login' || pathname === '/onboard'
   const tab = tabOf(pathname)
   const started = useRef(false)

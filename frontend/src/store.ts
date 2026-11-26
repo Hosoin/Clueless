@@ -1,8 +1,18 @@
 // 앱 상태와 규칙을 한곳에 모음 (프로토타입의 전역 변수·함수를 그대로 옮김).
 // 화면은 useApp()으로 상태를 읽고, 바꾼 뒤에는 emit()을 불러 다시 그린다.
 import { useSyncExternalStore } from 'react'
-import { COLORS, ME, TRENDS, seedHistory, seedItems, seedOutfits, seedPosts, seedSaved } from './data/seed'
-import type { Hist, Item, Look, Outfit, Plan, Post, Saved } from './data/types'
+import { CMTS, COLORS, ME, MY_CMTS, TRENDS, seedHistory, seedItems, seedOutfits, seedPosts, seedSaved } from './data/seed'
+import type { Comment, Hist, Item, Look, Outfit, Plan, Post, Saved } from './data/types'
+
+/** 예시 댓글 한 줄([작성자, 내용, 언제, 좋아요, 답글])을 Comment로 바꾼다 */
+const toCmt = (x: (typeof CMTS)[number]): Comment => ({ u: x[0], t: x[1], ago: x[2], likes: x[3] || 0, liked: false, replies: (x[4] || []).map((r) => ({ u: r[0], t: r[1], ago: r[2], likes: r[3] || 0, liked: false, replies: [] })) })
+/** 글을 만들 때 댓글 목록을 채운다 (내 글은 MY_CMTS, 남의 글은 CMTS 예시 댓글).
+ *  전에는 글 화면을 그리는 도중에 채웠는데, 그리는 중에 상태를 바꾸지 않으려고 글을 만드는 곳으로 옮겼다 (코드 리뷰 23번).
+ *  새로 올린 내 글도 예전처럼 예시 댓글로 시작한다. 결과: 같은 글 객체 */
+export function withComments<T extends Post>(p: T): T {
+  if (!p.cmList) p.cmList = (p.mine ? MY_CMTS : CMTS).map(toCmt)
+  return p
+}
 
 /* ---------- 상태 ---------- */
 export const S = {
@@ -11,7 +21,7 @@ export const S = {
   saved: seedSaved(),
   history: seedHistory(),
   plans: [] as Plan[],
-  posts: seedPosts(),
+  posts: seedPosts().map(withComments),
   me: { ...ME, photo: null as string | null }, // photo: 프로필 사진 (없으면 닉네임 첫 글자)
   pref: { mode: 'trend' as 'trend' | 'taste', styles: [] as string[] },
   loggedIn: false,
@@ -51,7 +61,10 @@ export const S = {
 
 let version = 0
 const subs = new Set<() => void>()
-export const emit = () => { version++; subs.forEach((f) => f()) }
+/** 상태를 바꾼 뒤 부른다. 다시 그리기 전에 홈 줄의 위치(S.pos)를 줄 길이에 맞춘다.
+ *  옷을 지우거나 추천에서 빼거나 최근 입은 옷 거르기가 바뀌면 줄이 짧아질 수 있어서다.
+ *  전에는 홈을 그리는 도중에 맞췄다 (코드 리뷰 23번) */
+export const emit = () => { clampPos(); version++; subs.forEach((f) => f()) }
 const subscribe = (f: () => void) => { subs.add(f); return () => { subs.delete(f) } }
 /** 상태가 바뀌면 다시 그려지게 함 */
 export const useApp = () => { useSyncExternalStore(subscribe, () => version); return S }

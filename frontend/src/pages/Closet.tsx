@@ -1,4 +1,5 @@
 // 옷장: 내 옷 / 추천 제외 (담당: B)
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { Plus } from '../components/Icons'
 import { Ph } from '../components/Ph'
@@ -25,9 +26,12 @@ export default function Closet() {
     : S.cSort === 2 ? `최근 ${LONG}일 안에 입은 옷 ${items.filter((i) => wornKey(i) <= LONG).length}벌`
     : `총 ${items.length}벌`
   const cats = CATS.filter((c) => c !== '덧입기' && items.some((i) => inTab(i, c))) // 옷이 한 벌도 없는 종류는 탭을 숨김
-  if (S.cTab !== '전체' && !(cats as string[]).includes(S.cTab)) S.cTab = '전체'
+  // 고른 종류의 옷이 다 없어져 탭이 사라졌으면 '전체'를 보여 준다. 그리는 중에는 S를 바꾸지 않고 보여 줄 탭만 따로 계산하고,
+  // S.cTab은 그린 뒤 effect에서 맞춘다 (코드 리뷰 23번)
+  const tab = S.cTab !== '전체' && !(cats as string[]).includes(S.cTab) ? '전체' : S.cTab
+  useEffect(() => { if (S.cTab !== tab) { S.cTab = tab; emit() } }, [tab])
   const have = [...new Set(items.map((i) => i.color))]
-  let list = items.filter((i) => inTab(i, S.cTab) && (!S.cColor || i.color === S.cColor))
+  let list = items.filter((i) => inTab(i, tab) && (!S.cColor || i.color === S.cColor))
   if (S.cSort === 0) list = [...list].sort((a, b) => b.added - a.added)
   if (S.cSort === 1) list = list.filter((i) => wornKey(i) > LONG).sort((a, b) => wornKey(b) - wornKey(a) || a.name.localeCompare(b.name, 'ko'))
   if (S.cSort === 2) list = list.filter((i) => wornKey(i) <= LONG).sort((a, b) => wornKey(a) - wornKey(b) || a.name.localeCompare(b.name, 'ko'))
@@ -45,7 +49,7 @@ export default function Closet() {
         </div>
         {S.cView === 'items' ? (
           <div>
-            <div className="tabs">{['전체', ...cats].map((t) => <button key={t} className={t === S.cTab ? 'on' : ''} onClick={() => set(() => (S.cTab = t))}>{t}</button>)}</div>
+            <div className="tabs">{['전체', ...cats].map((t) => <button key={t} className={t === tab ? 'on' : ''} onClick={() => set(() => (S.cTab = t))}>{t}</button>)}</div>
             <div className="sorts" aria-label="정렬">
               {SORTS.map((s, i) => <span key={s} style={{ display: 'contents' }}>{i > 0 && <span />}<button className={i === S.cSort ? 'on' : ''} aria-pressed={i === S.cSort} onClick={() => set(() => (S.cSort = i))}>{s}</button></span>)}
             </div>
