@@ -77,7 +77,7 @@
 | --- | --- | --- |
 | `src/store.ts` | `useApp`, `emit`, `S` | 상태 읽기, 바꾼 뒤 다시 그리기 |
 | | `byId`, `hexOf` | 옷 찾기, 옷 색 |
-| | `worn`, `wornNote`, `dayLabel`, `wornDate` | "어제 입음" 같은 날짜 문구 |
+| | `worn`, `wornNote`, `dayLabel` | "어제 입음" 같은 날짜 문구 |
 | | `eun`, `iga` | 받침에 맞는 조사(은/는, 이/가). `을(를)` 같은 표기를 쓰지 않습니다 |
 | | `matchText`, `fit` | 코디가 어울리는지 판단 |
 | | `wearToday`, `saveLook`, `deleteItem` | 입기, 코디 저장, 옷 삭제 (연결된 기록까지 정리) |

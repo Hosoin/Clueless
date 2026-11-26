@@ -42,7 +42,7 @@ export const S = {
   spinning: false,
   spinKeys: new Set<RowKey>(),
   // 화면별 보기 상태 (탭을 옮겨 다녀도 유지)
-  kView: 'cal' as 'cal' | 'saved' | 'hist',
+  kView: 'cal' as 'cal' | 'saved',
   cView: 'items' as 'items' | 'ex',
   cTab: '전체',
   cColor: null as string | null,
@@ -51,7 +51,6 @@ export const S = {
   chOnly: false,
   myTab: 'posts' as 'posts' | 'saved',
   postFrom: 'community' as string, // 글 보기에서 돌아갈 화면
-  curPost: 0,
   loginBack: '/' as string, // 로그인 뒤 돌아갈 화면
   ob: null as null | { step: 'mode' | 'taste' | 'nick'; mode: 'trend' | 'taste'; styles: string[]; nick: string },
   uid: 100,
@@ -79,7 +78,7 @@ export const byId = (id?: number | null) => (id ? S.items.find((i) => i.id === i
 export const displayName = (it: Item) => it.alias || it.name
 export const hexOf = (it: Item) => it.hex || COLORS[it.color] || '#CCCCCC'
 export const isRecent = (it?: Item | null) => !!it && it.lastWorn !== null && it.lastWorn <= S.RECENT
-export const wornDate = (n: number) => {
+const wornDate = (n: number) => {
   const t = new Date(); t.setDate(t.getDate() - n)
   return (t.getFullYear() !== new Date().getFullYear() ? `${t.getFullYear()}년 ` : '') + `${t.getMonth() + 1}월 ${t.getDate()}일`
 }
@@ -99,8 +98,8 @@ const when = (it: Item) => (it.lastWorn === 0 ? '오늘' : it.lastWorn === 1 ? '
 export const wornNote = (it: Item) => `${it.name}${eun(it.name)} ${when(it)} 입었어요`
 export const worn = (it: Item) => (it.lastWorn === null ? '아직 안 입음' : it.lastWorn === 0 ? '오늘 입음' : it.lastWorn === 1 ? '어제 입음' : `${wornDate(it.lastWorn)} 입음`)
 export const dayLabel = (n: number) => (n === 0 ? '오늘' : n === 1 ? '어제' : wornDate(n))
-export const trendOf = (it?: Item | null) => !!it && it.tags.some((t) => TRENDS.find((x) => x.k === t && x.up))
-export const forgotten = (it?: Item | null) => !!it && (it.lastWorn === null || it.lastWorn >= 90)
+const trendOf = (it?: Item | null) => !!it && it.tags.some((t) => TRENDS.find((x) => x.k === t && x.up))
+const forgotten = (it?: Item | null) => !!it && (it.lastWorn === null || it.lastWorn >= 90)
 export const wornKey = (it: Item) => (it.lastWorn === null ? 99999 : it.lastWorn)
 
 export function matchText(list: (Item | null | undefined)[]) {
@@ -120,7 +119,7 @@ export const TEMP = 9
 export const layersFor = (t: number) => (t >= 15 ? 1 : t >= 5 ? 2 : 3) // 기온별로 상의 위에 겹쳐 입기 좋은 겹 수
 
 export const lookIds = (o: Look) => [o.top, o.mid, o.jacket, o.outer, o.bottom]
-export const parts = (o: Look) => lookIds(o).map((id) => byId(id) || null)
+const parts = (o: Look) => lookIds(o).map((id) => byId(id) || null)
 // 오늘 고른 옷(0일)은 빼지 않고, 어제부터 RECENT일 안에 입은 옷만 뺌
 export const isPast = (it?: Item | null) => !!it && it.lastWorn !== null && it.lastWorn >= 1 && it.lastWorn <= S.RECENT
 const recentIn = (o: Look) => parts(o).filter(isPast)
@@ -139,9 +138,8 @@ export function current(): Combo {
   return c
 }
 export const comboKey = (c: Combo) => K.map((k) => (c[k] ? c[k]!.id : 0)).join('-')
-export const outfitKey = (o: Look) => lookIds(o).map((x) => x || 0).join('-')
+const outfitKey = (o: Look) => lookIds(o).map((x) => x || 0).join('-')
 export const wearList = (c: Combo) => K.map((k) => c[k]).filter(Boolean) as Item[]
-export const comboToLook = (c: Combo): Look => ({ top: c.t?.id ?? null, mid: c.m?.id ?? null, jacket: c.j?.id ?? null, outer: c.o?.id ?? null, bottom: c.b?.id ?? null })
 export function clampPos() { const L = lists(); for (const k of K) S.pos[k] = Math.max(0, Math.min(S.pos[k], L[k].length - 1)) }
 
 /**
@@ -227,7 +225,7 @@ export function stepFit(k: RowKey, d: number) {
 }
 
 /* ---------- 입기·기록 ---------- */
-export function logWear(ps: (Item | null | undefined)[]) {
+function logWear(ps: (Item | null | undefined)[]) {
   const ids = (ps.filter(Boolean) as Item[]).map((x) => x.id)
   const today = S.history.find((h) => h.ago === 0)
   if (today) today.ids = ids; else S.history.unshift({ ago: 0, ids })

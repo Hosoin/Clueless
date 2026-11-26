@@ -4,8 +4,8 @@ import { byId, hexOf } from '../store'
 import { lightbox } from './lightbox'
 
 /** 옷 사진 칸: 사진 + 오른쪽 위 색 동그라미. 누르면 크게 보기 (onClick을 주면 그걸 대신 함) */
-export function Ph({ item, label = '', onClick, style, className = '', as = 'button', id }: {
-  item?: Item | null; label?: string; onClick?: (() => void) | null; style?: CSSProperties; className?: string; as?: 'button' | 'span'; id?: string
+export function Ph({ item, label = '', onClick, style, className = '', as = 'button' }: {
+  item?: Item | null; label?: string; onClick?: (() => void) | null; style?: CSSProperties; className?: string; as?: 'button' | 'span'
 }) {
   const inner = (
     <>
@@ -17,7 +17,7 @@ export function Ph({ item, label = '', onClick, style, className = '', as = 'but
   if (as === 'span') return <span className={`ph ${className}`} style={style}>{inner}</span>
   const click = onClick === null ? undefined : onClick || (item ? () => lightbox(item) : undefined)
   return (
-    <button id={id} className={`ph ${className}`} style={style} onClick={click} aria-label={item ? `${item.name} 크게 보기` : label}>
+    <button className={`ph ${className}`} style={style} onClick={click} aria-label={item ? `${item.name} 크게 보기` : label}>
       {inner}
     </button>
   )

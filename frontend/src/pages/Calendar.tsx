@@ -44,7 +44,6 @@ export default function Calendar() {
           <p className="ccount">저장한 코디 {S.saved.length}개</p>
           <p className="note">달력에서 입은 날을 누르면 그 코디를 저장할 수 있어요</p>
         </>}
-        {/* 'hist'는 없앤 입은 기록 탭 값이라(store의 보기 상태에 남아 있음) 달력으로 보여 준다 */}
         {S.kView === 'saved' ? <SavedList /> : <Month />}
       </div>
     </section>
