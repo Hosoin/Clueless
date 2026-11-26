@@ -1,7 +1,7 @@
 // 로그인: Google은 백엔드 로그인 주소로 이동, 카카오·Apple은 아직 가짜(바로 로그인됨) (담당: C)
 import { useNavigate } from 'react-router'
 import { GOOGLE_LOGIN_URL, markGoogleLoginStart } from '../api/auth'
-import { S } from '../store'
+import { S, emit } from '../store'
 import { toast } from '../ui'
 
 export default function Login() {
@@ -16,8 +16,9 @@ export default function Login() {
 
   const login = (via: string) => {
     S.loggedIn = true
-    if (!S.onboarded) { S.ob = { step: 'mode', mode: S.pref.mode, styles: [...S.pref.styles], nick: S.me.nick }; return nav('/onboard') } // 처음이면 추천 방식부터
-    toast(`${via}로 로그인했어요`); nav(S.loginBack)
+    // 로그인 화면은 replace로 떠나 방문 기록에서 지운다. 쌓아 두면 로그인한 뒤 뒤로가기로 로그인 화면이 다시 나왔다
+    if (!S.onboarded) { S.ob = { step: 'mode', mode: S.pref.mode, styles: [...S.pref.styles], nick: S.me.nick }; emit(); return nav('/onboard', { replace: true }) } // 처음이면 추천 방식부터
+    toast(`${via}로 로그인했어요`); nav(S.loginBack, { replace: true })
   }
   return (
     <section className="screen on" id="s-login" style={{ display: 'flex' }}>
