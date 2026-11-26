@@ -1,24 +1,34 @@
 // 화면 위에 뜨는 것들: 알림(toast), 아래에서 올라오는 창(sheet), 가운데 창(modal)
 // 프로토타입처럼 어디서든 toast('...'), openSheet(() => <내용/>), openModal(() => <내용/>)로 부른다.
+// 이 파일에는 함수만 둔다. 화면에 그리는 컴포넌트(Overlays)는 components/Overlays.tsx에 있다 (컴포넌트와 함수를 한 파일에서 같이 내보내면
+// 개발 중 화면 자동 갱신이 잘 안 돼서 나눴다, 코드 리뷰 29번)
 import type { ReactNode } from 'react'
-import { emit, useApp } from './store'
+import { emit } from './store'
 
+/** 창 안에 그릴 내용을 돌려주는 함수. 창이 다시 그려질 때마다 불려서 최신 상태(S)를 보여 준다 */
 type Render = () => ReactNode
-const O = {
+/** 지금 떠 있는 알림·창 상태. 그리는 일은 components/Overlays.tsx가 이 값을 읽어서 한다 */
+export const O = {
   toast: '', toastOn: false, toastH: 0 as ReturnType<typeof setTimeout> | 0,
   sheet: null as Render | null, sheetTall: false,
   modal: null as Render | null, modalCls: '',
 }
 
+/** 아래쪽에 알림 글을 2.4초 동안 띄운다. 띄우는 중에 또 부르면 새 글로 바꾸고 시간을 처음부터 다시 잰다 */
 export function toast(msg: string) {
   O.toast = msg; O.toastOn = true; emit()
   if (O.toastH) clearTimeout(O.toastH)
   O.toastH = setTimeout(() => { O.toastOn = false; emit() }, 2400)
 }
+/** 아래에서 올라오는 창을 연다. tall이면 더 높게. 뒤로가기로 닫을 수 있게 방문 기록에 한 칸을 쌓는다 */
 export function openSheet(r: Render, tall = false) { O.sheet = r; O.sheetTall = tall; pushOverlay(); emit() }
+/** 가운데 창을 연다. cls는 창에 더할 클래스 (예: 옷 크게 보기는 'lb'). 이미 열린 가운데 창이 있으면 내용을 바꾼다 */
 export function openModal(r: Render, cls = '') { O.modal = r; O.modalCls = cls; pushOverlay(); emit() }
+/** 가운데 창만 닫는다. 아래 창이 남아 있으면 쌓아 둔 방문 기록 칸은 그대로 둔다 */
 export function closeModal() { O.modal = null; if (!anyOpen()) popOverlay(); emit() }
+/** 아래 창과 가운데 창을 모두 닫는다 */
 export function closeAll() { O.sheet = null; O.modal = null; popOverlay(); emit() }
+/** 아래 창이나 가운데 창이 하나라도 열려 있는지 */
 export const anyOpen = () => !!(O.sheet || O.modal)
 
 /* ---------- 뒤로가기로 창 닫기 ----------
@@ -59,19 +69,6 @@ window.addEventListener('popstate', () => {
   O.sheet = null; O.modal = null; emit()
 })
 
-export function Overlays() {
-  useApp()
-  const open = !!(O.sheet || O.modal)
-  return (
-    <>
-      <div className={`toast ${O.toastOn ? 'on' : ''}`} role="status">{O.toast}</div>
-      <div className={`scrim ${open ? 'on' : ''}`} onClick={closeAll} />
-      <div className={`sheet ${O.sheet ? 'on' : ''} ${O.sheetTall ? 'tall' : ''}`}>{O.sheet?.()}</div>
-      <div className={`modal ${O.modal ? 'on' : ''} ${O.modalCls}`} role="dialog" aria-modal="true">{O.modal?.()}</div>
-    </>
-  )
-}
-
 /** 화면 안에서만 스크롤해서 el을 가운데로 (폰 틀 자체는 움직이지 않게) */
 export function showIn(el: HTMLElement | null) {
   const scr = el?.closest('.screen'); if (!el || !scr) return
@@ -82,11 +79,13 @@ export function showIn(el: HTMLElement | null) {
 /* 권한 요청: 웹은 앨범·파일을 열 때 브라우저가 권한을 묻지 않으므로 앱이 먼저 묻고, 허용하면 연다.
    한 번 허용하면 다시 묻지 않음. (카메라는 https에서 브라우저가 직접 묻는다)
    Capacitor 앱으로 만들 때는 @capacitor/camera의 requestPermissions()로 바꾸면 폰 자체 권한 창이 뜬다 */
-const granted = new Set<string>()
+const granted = new Set<string>() // 이번에 앱을 켠 동안 허용한 권한 (새로고침하면 다시 묻는다)
+/** 권한마다 창 제목과 기본 설명 */
 const PERM = {
   photos: { title: '사진과 파일에 접근하려고 해요', why: '옷 사진을 올리려면 사진 보관함과 파일에 접근해야 해요. 고른 사진만 올라가요.' },
   camera: { title: '카메라에 접근하려고 해요', why: '옷을 바로 찍어 올리려면 카메라에 접근해야 해요.' },
 } as const
+/** 권한을 묻는 창을 띄우고, 허용하면 go를 부른다. 이미 허용했으면 묻지 않고 바로 go. why를 주면 기본 설명 대신 보여 준다 */
 export function askPermission(kind: keyof typeof PERM, go: () => void, why?: string) {
   if (granted.has(kind)) return go()
   const p = PERM[kind]
@@ -94,7 +93,7 @@ export function askPermission(kind: keyof typeof PERM, go: () => void, why?: str
     <>
       <h3>‘Clueless’에서 {p.title}</h3>
       <p className="sub">{why || p.why}</p>
-      <div className="row2" style={{ marginTop: 18 }}>
+      <div className="row2 mt18">
         <button className="btn" onClick={() => { closeModal(); toast('접근을 허용해야 사진을 올릴 수 있어요') }}>허용 안 함</button>
         <button className="btn solid" onClick={() => { granted.add(kind); closeModal(); go() }}>허용</button>
       </div>

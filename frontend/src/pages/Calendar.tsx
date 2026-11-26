@@ -5,22 +5,35 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Arrow } from '../components/Icons'
-import { Ph } from '../components/Ph'
+import { PhPair, Thumbs } from '../components/Ph'
 import { CATS } from '../data/seed'
-import type { Hist, Item, Look } from '../data/types'
+import type { Hist, Look } from '../data/types'
 import {
-  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, recalcWorn, useApp, wearToday, wornNote, wornOn,
+  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, present, recalcWorn, rowKey, saveLook, useApp, wearToday, wornNote, wornOn,
 } from '../store'
-// 입은 날의 코디를 저장할 때 쓰는 함수 (달력의 "이 코디 저장하기" 버튼)
-import { rowKey, saveLook } from '../store'
 import { closeAll, closeModal, openModal, openSheet, toast } from '../ui'
 
+/** 요일 머리글 (일요일부터) */
 const WD = ['일', '월', '화', '수', '목', '금', '토']
+/** 달력에 보이는 달(1일)과 고른 날. 화면 밖에 두어 탭을 옮겨 다녀도 유지된다 */
 let calMonth = new Date(TODAY0.getFullYear(), TODAY0.getMonth(), 1), calSel = new Date(TODAY0)
+/** calSel·calMonth를 정할 때의 오늘. 자정이 지나 TODAY0가 바뀌었는지 알아보려고 둔다 */
+let calDay = dkey(TODAY0)
+/** 앱을 켜 둔 채 날짜가 바뀌었으면(store.ts의 rollDay) 오늘을 고르고 있던 경우에만 새 오늘과 그 달로 옮긴다.
+ *  다른 날을 골라 두었으면 그대로 둔다. 같은 날에 다시 불러도 아무것도 바꾸지 않는다 (코드 리뷰 19번) */
+function followToday() {
+  const now = dkey(TODAY0)
+  if (now === calDay) return
+  if (dkey(calSel) === calDay) { calSel = new Date(TODAY0); calMonth = new Date(TODAY0.getFullYear(), TODAY0.getMonth(), 1) }
+  calDay = now
+}
+/** 달력 칸의 작은 사진: 코디에서 사진이 있는 첫 옷. 없으면 비움 */
 const thumbOf = (ids: number[]) => { const it = ids.map(byId).find((x) => x?.img) || byId(ids[0]); return it?.img ? <img src={it.img} alt="" /> : null }
 
+/** 캘린더 화면: 달력 / 저장한 코디 */
 export default function Calendar() {
   useApp()
+  followToday()
   const set = (f: () => void) => { f(); emit() }
   return (
     <section className="screen on" id="s-cal">
@@ -35,13 +48,13 @@ export default function Calendar() {
           <p className="ccount">저장한 코디 {S.saved.length}개</p>
           <p className="note">달력에서 입은 날을 누르면 그 코디를 저장할 수 있어요</p>
         </>}
-        {/* 'hist'는 없앤 입은 기록 탭 값이라(store의 보기 상태에 남아 있음) 달력으로 보여 준다 */}
         {S.kView === 'saved' ? <SavedList /> : <Month />}
       </div>
     </section>
   )
 }
 
+/** 한 달 달력. 입은 날은 그날 코디 사진, 앞날의 계획은 점선 사진. 날을 누르면 아래(Day)에 그날을 보여 준다 */
 function Month() {
   const y = calMonth.getFullYear(), m = calMonth.getMonth()
   const first = new Date(y, m, 1), days = new Date(y, m + 1, 0).getDate()
@@ -74,11 +87,12 @@ function Month() {
   )
 }
 
+/** 고른 날: 입은 날이면 입은 코디(수정·삭제·저장), 오늘·앞날이면 입을 코디(계획·바꾸기·삭제) */
 function Day() {
   const d = calSel, ago = agoOf(d), w = wornOn(d), pl = ago <= 0 ? planOn(d) : null
   const pair = (ids: number[]) => (
     // 지운 옷 등으로 id에 맞는 옷이 없으면 그 칸은 건너뛴다 (없는 옷을 그리려다 화면 전체가 멈추지 않게)
-    <div className="pair">{ids.map((id) => { const it = byId(id); return it && <div className="slot" key={id}><Ph item={it} label={it.cat} /><p className="cap">{it.name}</p></div> })}</div>
+    <PhPair items={ids.map(byId).filter(present)} caption={(it) => it.name} />
   )
   return (
     <div className="calday">
@@ -86,7 +100,7 @@ function Day() {
             {/* 수정하기: 빠진 옷 더하기·안 입은 옷 빼기 창, 삭제하기: 그날 기록을 통째로 지움 */}
             <div className="row2"><button className="btn" onClick={() => editHist(w)}>수정하기</button>
               <button className="btn" onClick={() => askDeleteHist(w, () => applyHist(w, [], '입은 기록을 지웠어요'))}>삭제하기</button></div>
-            <button className="btn solid full" style={{ marginTop: 8 }} onClick={() => saveWorn(w)}>이 코디 저장하기</button></>
+            <button className="btn solid full mt8" onClick={() => saveWorn(w)}>이 코디 저장하기</button></>
         : pl ? <><p className="k pink">입을 코디</p>{pair(pl.ids)}
             <div className="row2"><button className="btn" onClick={() => planSheet(d)}>다른 코디로 바꾸기</button>
               <button className="btn" onClick={() => { S.plans.splice(S.plans.indexOf(pl), 1); toast('계획을 지웠어요'); emit() }}>삭제하기</button></div></>
@@ -113,7 +127,7 @@ function planSheet(d: Date) {
                 if (old) old.ids = x.ids; else S.plans.push({ date: k, ids: x.ids })
                 closeAll(); toast(`${d.getMonth() + 1}월 ${d.getDate()}일에 입을 코디로 정했어요`)
               }}>
-                <span className="thumbs">{x.ids.map((id) => <span className="ph" key={id}>{byId(id)!.img && <img src={byId(id)!.img} alt="" />}</span>)}</span>
+                <Thumbs ids={x.ids} />
                 <p>{x.ids.map((id) => byId(id)!.name).join(' + ')}</p>
               </button>
             ))}
@@ -124,19 +138,20 @@ function planSheet(d: Date) {
   }, true)
 }
 
+/** 저장한 코디 목록: 코디마다 썸네일, 어울림, 최근 입은 옷 안내 */
 function SavedList() {
   const nav = useNavigate()
   const [wornIds, setWorn] = useState<number[]>([])
-  if (!S.saved.length) return <div className="saved"><div className="empty">아직 저장한 코디가 없어요<br /><button className="btn" style={{ marginTop: 16, padding: '0 18px' }} onClick={() => nav('/')}>코디 맞춰 보기</button></div></div>
+  if (!S.saved.length) return <div className="saved"><div className="empty">아직 저장한 코디가 없어요<br /><button className="btn cta" onClick={() => nav('/')}>코디 맞춰 보기</button></div></div>
   return (
     <div className="saved">
       {S.saved.map((o, i) => {
-        const ps = lookIds(o).map((x) => byId(x)).filter(Boolean) as Item[], m = matchText(ps), rec = ps.filter(isRecent)
+        const ps = lookIds(o).map((x) => byId(x)).filter(present), m = matchText(ps), rec = ps.filter(isRecent)
         const done = wornIds.includes(o.id)
         return (
           <div className="so" key={o.id}>
             <div className="meta"><p className="nm">{ps.map((p) => p.name).join(' + ')}</p><p className="dt">{o.at}</p></div>
-            <div className="pair">{ps.map((p) => <div className="slot" key={p.id}><Ph item={p} label={p.cat} /><p className="cap">{p.cat}</p></div>)}</div>
+            <PhPair items={ps} caption={(p) => p.cat} />
             <div className="match" style={{ margin: 0 }}><span className={`dot ${m.hit ? '' : 'grey'}`} /><p>{m.t}</p></div>
             {rec.length > 0 && <p className="note">{wornNote(rec[0])}</p>}
             <div className="acts">
@@ -167,7 +182,7 @@ function askDeleteHist(h: Hist, onYes: () => void) {
   openModal(() => (
     <>
       <h3>{dayLabel(h.ago)} 기록을 지울까요?</h3><p className="sub">옷마다 마지막으로 입은 날도 이 기록 전으로 돌아가요</p>
-      <div className="col" style={{ marginTop: 18 }}><button className="btn solid" onClick={onYes}>지우기</button><button className="btn" onClick={closeModal}>취소</button></div>
+      <div className="col mt18"><button className="btn solid" onClick={onYes}>지우기</button><button className="btn" onClick={closeModal}>취소</button></div>
     </>
   ))
 }

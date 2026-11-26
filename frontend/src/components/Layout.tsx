@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+// 모든 화면을 감싸는 틀: 폰 틀, 위쪽 날짜·로고·날씨, 하단 탭, 알림·창 자리(Overlays).
+// 앱이 켜질 때 서버에 로그인 상태를 물어보고(/api/auth/me), 답이 올 때까지는 로고만 보여 준다.
+// 화면을 아래로 스크롤하면 하단 탭을 숨기고, 위로 올리면 다시 보여 준다.
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { fetchMe, takeGoogleLoginReturn } from '../api/auth'
-import { S, emit, useApp } from '../store'
-import { closeAll, Overlays } from '../ui'
+import { S, WEATHER, emit, useApp } from '../store'
+import { closeAll } from '../ui'
+import { Overlays } from './Overlays'
 import { setNav } from '../nav'
 import { TabIcon } from './Icons'
 
@@ -23,14 +27,18 @@ function tabOf(path: string) {
   return path
 }
 
-const today = (() => { const d = new Date(); return `${d.getMonth() + 1}. ${d.getDate()} ${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getDay()]}` })()
+/** 위쪽 날짜 (예: 11. 26 THU). 앱을 켜 둔 채 자정이 지나도 바뀌게, 앱이 켜질 때 한 번이 아니라 그릴 때마다 계산한다.
+ *  날짜가 바뀌면 store.ts의 rollDay()가 emit()을 불러 다시 그려진다 */
+const todayLabel = () => { const d = new Date(); return `${d.getMonth() + 1}. ${d.getDate()} ${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getDay()]}` }
 
 /** 폰 틀 + 위쪽 워드마크 + 화면 + 하단 탭 */
 export function Layout() {
   useApp()
   const { pathname } = useLocation()
   const nav = useNavigate()
-  setNav(nav)
+  // 창 안의 버튼처럼 컴포넌트 밖에서 쓰는 go()에 화면 이동 함수를 넘긴다. 그리는 중이 아니라 그린 뒤에 넘긴다 (코드 리뷰 23번).
+  // useLayoutEffect라서 화면들의 useEffect보다 먼저 실행돼, 화면이 처음 뜰 때 부르는 go()도 이미 동작한다
+  useLayoutEffect(() => { setNav(nav) }, [nav])
   const loginOn = pathname === '/login' || pathname === '/onboard'
   const tab = tabOf(pathname)
   const started = useRef(false)
@@ -86,7 +94,7 @@ export function Layout() {
   if (!ready) { // 서버 응답을 기다리는 동안 로그인 화면이나 홈이 잠깐 보였다 사라지지 않게 로고만 보여 준다
     return (
       <div className="phone login-on" id="app" ref={phone}>
-        <section className="screen on" style={{ display: 'flex' }}>
+        <section className="screen on boot">
           <div className="lg-main"><p className="lg-logo">Clueless</p></div>
         </section>
       </div>
@@ -96,7 +104,7 @@ export function Layout() {
     <div className={`phone ${loginOn ? 'login-on' : ''}`} id="app" ref={phone}
       onScroll={(e) => { if (e.currentTarget.scrollTop) e.currentTarget.scrollTop = 0 }}
       >{/* 폰 틀(#app)은 절대 움직이지 않게 */}
-      {!loginOn && <div className="top"><span className="d">{today}</span><p className="logo">Clueless</p><span className="w">4°/12°, 맑음</span></div>}
+      {!loginOn && <div className="top"><span className="d">{todayLabel()}</span><p className="logo">Clueless</p><span className="w">{WEATHER.low}°/{WEATHER.high}°, {WEATHER.sky}</span></div>}
       <Outlet />
       {!loginOn && (
         <nav id="nav" ref={navRef} className={navHide ? 'hide' : ''}>

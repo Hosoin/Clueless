@@ -11,13 +11,13 @@
 
 ## 0. 현재 상태: 가짜 데이터로 동작 중
 
-지금 화면의 데이터는 모두 `src/data/seed.ts`의 가짜 데이터입니다. 서버를 부르는 코드는 없습니다.
+로그인을 뺀 화면의 데이터는 모두 `src/data/seed.ts`의 가짜 데이터입니다. 서버를 부르는 코드는 로그인(`src/api/auth.ts`)뿐입니다.
 
 | 항목 | 상태 |
 | --- | --- |
 | 화면 데이터 | `seed.ts` → `store.ts`의 `S` (메모리). 새로고침하면 처음 상태로 돌아감 |
 | BE | 두 서비스(`closet-service`, `recommendation-service`)가 `GET /test`를 응답. `closet-service`에는 Google 로그인과 세션 인증(`/api/auth/me`, `/api/auth/logout`)이 구현되어 있음. 옷·추천 등 업무 API는 아직 없음 |
-| 프론트 `src/api/` | 아직 없음 |
+| 프론트 `src/api/` | 로그인 부분만 있음: `client.ts`(공통 요청), `auth.ts`(로그인 확인·로그아웃·Google 로그인 주소), `error.ts`. 옷·추천 등은 아직 없음 |
 
 그래서 이 문서의 방식은 두 가지를 동시에 만족해야 합니다.
 

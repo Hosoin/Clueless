@@ -3,32 +3,32 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { logout } from '../api/auth'
 import { Back } from '../components/Icons'
-import { STYLES } from '../data/seed'
+import { StyleGrid } from '../components/StyleGrid'
 import { toLogin } from '../nav'
-import { S, emit, useApp } from '../store'
+import { S, emit, euro, useApp } from '../store'
 import { closeAll, openSheet, toast } from '../ui'
 
-/** 좋아하는 스타일 고르기 (설정에서 추천 방식을 '취향대로'로 바꿀 때) */
-export function styleSheet(after: () => void) { openSheet(() => <StylePick after={after} />) }
+/** 좋아하는 스타일 창을 연다 (추천 방식을 '취향대로'로 바꿀 때, '좋아하는 스타일'을 누를 때). after: 저장한 뒤 할 일.
+ *  이 화면 안에서만 써서 내보내지 않는다 (코드 리뷰 29번) */
+function styleSheet(after: () => void) { openSheet(() => <StylePick after={after} />) }
+/** 좋아하는 스타일 창의 내용. 고르는 동안은 창 안의 상태(pick)에만 두고, 저장을 눌러야 S.pref.styles에 넣는다 */
 function StylePick({ after }: { after: () => void }) {
   const [pick, setPick] = useState([...S.pref.styles])
   return (
     <>
       <h3>좋아하는 스타일</h3><p>3개까지 고를 수 있어요</p>
-      <div className="ob-styles" style={{ marginTop: 0 }}>
-        {STYLES.map(([k, d]) => { const on = pick.includes(k); return (
-          <button key={k} className={`ob-sty ${on ? 'on' : ''}`} aria-pressed={on} disabled={!on && pick.length >= 3} onClick={() => setPick(on ? pick.filter((x) => x !== k) : [...pick, k])}><b>{k}</b><span>{d}</span></button>
-        ) })}
-      </div>
-      <button className="btn solid full" style={{ marginTop: 16 }} disabled={!pick.length} onClick={() => { S.pref.styles = pick; closeAll(); after() }}>저장</button>
+      <StyleGrid picked={pick} onChange={setPick} className="mt0" />
+      <button className="btn solid full mt16" disabled={!pick.length} onClick={() => { S.pref.styles = pick; closeAll(); after() }}>저장</button>
     </>
   )
 }
 
+/** 켜고 끄는 스위치. 누르면 set(!on)을 부르고 '○○ 켰어요/껐어요' 알림을 띄운다 */
 function Switch({ label, on, set }: { label: string; on: boolean; set: (v: boolean) => void }) {
   return <button className="sw2" role="switch" aria-checked={on} aria-label={label} onClick={() => { set(!on); toast(`${label} ${!on ? '켰어요' : '껐어요'}`) }} />
 }
 
+/** 설정 화면 */
 export default function Settings() {
   useApp()
   const nav = useNavigate()
@@ -37,7 +37,7 @@ export default function Settings() {
   return (
     <section className="screen on" id="s-settings">
       <button className="backrow" onClick={() => nav('/my')}><Back />MY</button>
-      <div className="head" style={{ paddingTop: 4 }}><h1>Set<i>tings</i></h1></div>
+      <div className="head pt4"><h1>Set<i>tings</i></h1></div>
       <div className="pad">
         <div className="sec"><h3>알림</h3>
           <div className="setrow"><div><p>아침 코디 알림</p><p className="sub2">매일 오전 8시에 오늘의 코디를 알려드려요</p></div><Switch label="아침 코디 알림" on={noti} set={setNoti} /></div>
@@ -54,7 +54,7 @@ export default function Settings() {
         </div>
         <div className="sec"><h3>커뮤니티</h3>
           <div className="setrow"><div><p>내 글 공개 범위</p><p className="sub2">새로 올리는 글에 적용돼요</p></div>
-            <div className="chips2">{['전체 공개', '팔로워만'].map((x) => <button key={x} className={x === S.defScope ? 'on' : ''} onClick={() => { S.defScope = x; toast(`새 글은 ${x}로 올라가요`); emit() }}>{x}</button>)}</div></div>
+            <div className="chips2">{['전체 공개', '팔로워만'].map((x) => <button key={x} className={x === S.defScope ? 'on' : ''} onClick={() => { S.defScope = x; toast(`새 글은 ${x}${euro(x)} 올라가요`); emit() }}>{x}</button>)}</div></div>
           <div className="setrow"><div><p>내 옷장과 비교해 보기</p><p className="sub2">다른 사람 글에 내 옷장의 비슷한 옷을 표시해요</p></div><Switch label="내 옷장과 비교해 보기" on={S.cmpOn} set={(v) => { S.cmpOn = v; emit() }} /></div>
         </div>
         <div className="sec"><h3>계정</h3>

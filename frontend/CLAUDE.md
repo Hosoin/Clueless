@@ -77,7 +77,7 @@
 | --- | --- | --- |
 | `src/store.ts` | `useApp`, `emit`, `S` | 상태 읽기, 바꾼 뒤 다시 그리기 |
 | | `byId`, `hexOf` | 옷 찾기, 옷 색 |
-| | `worn`, `wornNote`, `dayLabel`, `wornDate` | "어제 입음" 같은 날짜 문구 |
+| | `worn`, `wornNote`, `dayLabel` | "어제 입음" 같은 날짜 문구 |
 | | `eun`, `iga` | 받침에 맞는 조사(은/는, 이/가). `을(를)` 같은 표기를 쓰지 않습니다 |
 | | `matchText`, `fit` | 코디가 어울리는지 판단 |
 | | `wearToday`, `saveLook`, `deleteItem` | 입기, 코디 저장, 옷 삭제 (연결된 기록까지 정리) |
@@ -86,10 +86,12 @@
 | | `askPermission` | 사진·카메라 접근 권한 묻기 |
 | | `showIn` | 화면 안에서만 스크롤해 요소를 가운데로 |
 | `src/nav.ts` | `go`, `toLogin`, `openPost` | 창 안의 버튼 등 컴포넌트 밖에서 화면 이동 |
-| `src/components/` | `Ph`, `lightbox` | 옷 사진 칸, 사진 크게 보기 |
-| | `Face` | 프로필 동그라미 |
+| `src/components/` | `Ph`, `lightbox` (`lightbox.tsx`) | 옷 사진 칸, 사진 크게 보기 |
+| | `PhPair`, `Thumbs` (`Ph.tsx`) | 코디 썸네일 줄(`.pair`), 작은 썸네일 묶음(`.thumbs`) |
+| | `Face` | 프로필 동그라미. `photo`를 주면 저장 전 사진을 미리 보여 줌 |
+| | `StyleGrid` | 좋아하는 스타일 고르기 격자 (3개까지) |
 | | `Icons.tsx` | 선 아이콘 (`Arrow`, `Heart`, `Back`, `Plus` 등) |
-| | `writeSheet` | 코디 올리기·글 수정 창 |
+| `src/sheets.tsx` | `writeSheet` | 코디 올리기·글 수정 창 열기 (창 내용은 `components/WriteSheet.tsx`의 `Write`) |
 | `src/data/seed.ts` | `COLORS`, `MATERIALS`, `CATS`, `SUBS`, `TRENDS`, `STYLES` | 색·재질·종류·스타일 목록 |
 
 ## 스타일링
@@ -108,7 +110,7 @@
 - `HashRouter`(`src/main.tsx`)와 `base: './'`(`vite.config.ts`)는 Capacitor 앱과 배포에서 화면 이동·파일 경로를 맞추려고 쓴 것이라 바꾸지 않습니다.
 - 이미지는 `/`로 시작하는 절대 경로 대신 `import`(또는 `seed.ts`의 `photo`, `cpic`)로 불러옵니다.
 - 카메라는 https(또는 localhost)에서만 동작합니다. 폰에서 확인할 때는 `npm run dev:phone`을 씁니다.
-- API 연동 방식은 백엔드 팀과 정하는 중입니다. 정해지기 전에는 `fetch` 코드나 API 주소를 추가하지 않습니다.
+- API 연동 방식은 백엔드 팀과 정하는 중입니다. 지금은 로그인(`src/api/`)만 연결되어 있고, 정해지기 전에는 로그인 외의 `fetch` 코드나 API 주소를 추가하지 않습니다. (`docs/API_CONVENTION.md`)
 
 ## 확인 방법
 
@@ -126,7 +128,8 @@
 | 화면(페이지) 파일 | `PascalCase.tsx`, 화면 하나 = 파일 하나, `export default` | `pages/Closet.tsx`, `pages/Onboard.tsx` |
 | 공통 컴포넌트 파일 | `PascalCase.tsx`, 이름 있는 export | `components/Layout.tsx`, `components/WriteSheet.tsx` |
 | 컴포넌트 이름 | 파일명과 같은 `PascalCase` | `Layout`, `TabIcon` |
-| 컴포넌트가 아닌 모듈 | 소문자 `camelCase.ts(x)` | `store.ts`, `nav.ts`, `ui.tsx`, `data/seed.ts` |
+| 컴포넌트가 아닌 모듈 | 소문자 `camelCase.ts(x)` | `store.ts`, `nav.ts`, `ui.tsx`, `sheets.tsx`, `components/lightbox.tsx`, `data/seed.ts` |
+| 컴포넌트와 함수를 한 파일에서 같이 내보내지 않기 | 창 내용(컴포넌트)과 창 여는 함수는 다른 파일에 둔다 | `components/WriteSheet.tsx`(`Write`) + `sheets.tsx`(`writeSheet`) |
 | 타입 | `PascalCase`, `type` 사용 | `Item`, `Outfit`, `Category` |
 | 함수·변수 | `camelCase`, 함수는 동사로 시작 | `openPost`, `toLogin`, `setNav` |
 | 불리언 | `is`·`has`·`on` 등으로 시작하는 이름 | `isNew`, `loggedIn`, `toastOn` |

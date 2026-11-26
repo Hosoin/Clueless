@@ -28,9 +28,28 @@
    * @param {Object} outfit - 코디 데이터 { top, layer, jacket, coat, bottom, isDress }
    * @param {Object} [options] - 성별 확장 { gender: 'female' | 'male' }
    */
+  // 색 코드 형식 (#abc, #aabbcc). SVG를 문자열로 만들어 innerHTML에 넣으므로, 이 형식이 아닌 값은 쓰지 않는다
+  const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+  /**
+   * 옷 한 벌의 colorHex를 검사한다. 형식이 맞지 않으면 colorHex를 빼서, 그리는 함수가 옷마다 정한 기본 색을 쓰게 한다.
+   * colorHex는 SVG 문자열의 fill="..."에 그대로 들어가서, 서버에서 받은 값에 따옴표나 태그가 섞이면
+   * 화면이 깨지거나 스크립트가 들어갈 수 있다 (코드 리뷰 20번). 원본 객체는 바꾸지 않는다.
+   */
+  function withSafeColor(piece) {
+    if (!piece || HEX.test(piece.colorHex)) return piece;
+    const copy = Object.assign({}, piece);
+    delete copy.colorHex;
+    return copy;
+  }
+
   window.renderAvatar = function (el, outfit, options) {
     if (!el) return;
-    const safeOutfit = outfit || {};
+    const o = outfit || {};
+    const safeOutfit = Object.assign({}, o, {
+      top: withSafeColor(o.top), layer: withSafeColor(o.layer), jacket: withSafeColor(o.jacket),
+      coat: withSafeColor(o.coat), bottom: withSafeColor(o.bottom),
+    });
     const gender = (options && options.gender) === 'male' ? 'male' : 'female';
     el.innerHTML = generateAvatarSvg(safeOutfit, gender);
   };

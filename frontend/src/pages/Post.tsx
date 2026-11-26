@@ -1,17 +1,16 @@
 // 커뮤니티 글 보기: 이 코디의 옷 · 내 옷장과 비교, 댓글·답글·댓글 좋아요, 내 옷으로 따라 입기 (담당: C)
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import { Back, Cmt, Heart, SaveIc } from '../components/Icons'
 import { Face } from '../components/Face'
-import { writeSheet } from '../components/WriteSheet'
-import { CMTS, MY_CMTS } from '../data/seed'
+import { writeSheet } from '../sheets'
 import type { Comment, Post as PostT } from '../data/types'
-import { toLogin } from '../nav'
-import { S, byId, emit, owned, setCombo, useApp } from '../store'
+import { go, toLogin } from '../nav'
+import { S, byId, emit, eulreul, owned, setCombo, useApp } from '../store'
 import { closeAll, openModal, showIn, toast } from '../ui'
 
-const toCmt = (x: (typeof CMTS)[number]): Comment => ({ u: x[0], t: x[1], ago: x[2], likes: x[3] || 0, liked: false, replies: (x[4] || []).map((r) => ({ u: r[0], t: r[1], ago: r[2], likes: r[3] || 0, liked: false, replies: [] })) })
 
+/** 글 보기 화면 (주소의 :id로 글을 찾고, 없으면 들어온 탭으로 돌아감) */
 export default function Post() {
   useApp()
   const nav = useNavigate()
@@ -23,9 +22,11 @@ export default function Post() {
   useEffect(() => { if (focusIn) { showIn(input.current); input.current?.focus({ preventScroll: true }) } }, [focusIn])
   if (!p) return <Navigate to={S.postFrom} replace />
   const mine = !!p.mine, follow = S.followingSet.has(p.user), isSaved = S.savedPosts.has(p.id)
-  if (!p.cmList) p.cmList = (mine ? MY_CMTS : CMTS).map(toCmt)
-  const cm = p.cmList, reTo = p.replyTo != null ? cm[p.replyTo] : undefined
+  // 댓글 목록은 글을 만들 때 채워 둔다 (store.ts의 withComments). 그리는 중에는 읽기만 한다 (코드 리뷰 23번)
+  const cm = p.cmList ?? [], reTo = p.replyTo != null ? cm[p.replyTo] : undefined
   const back = () => { p.replyTo = null; nav(S.postFrom) }
+  /** 로그인이 필요한 일(댓글·답글·좋아요·팔로우·저장)을 로그인 없이 하려 하면 알림을 띄우고 로그인 화면으로 보낸다.
+   *  로그인이 끝나면 이 글로 돌아온다. 결과: 막았으면 true (코드 리뷰 21번: 팔로우·글 좋아요·저장에도 적용) */
   const needLogin = (msg: string) => { if (S.loggedIn) return false; toast(msg); toLogin(`/post/${p.id}`); return true }
   const send = () => {
     if (needLogin('로그인하면 댓글을 쓸 수 있어요')) return
@@ -71,18 +72,18 @@ export default function Post() {
         <div className="urow"><Face mine={mine} name={who} className={`uav ${mine ? 'me' : ''}`} />
           <div><p className="nm">{who}</p><p className="sub">{p.ago}{p.ch ? ' · 1년 안 입은 옷 꺼내 입기' : ''}</p></div>
           {mine ? <button className="btn" onClick={() => writeSheet(null, p)}>수정</button>
-            : <button className={`btn ${follow ? 'on' : ''}`} onClick={() => { if (follow) S.followingSet.delete(p.user); else S.followingSet.add(p.user); toast(follow ? `${p.user} 팔로우를 끊었어요` : `${p.user}를 팔로우해요`); emit() }}>{follow ? '팔로잉' : '팔로우'}</button>}
+            : <button className={`btn ${follow ? 'on' : ''}`} onClick={() => { if (needLogin('로그인하면 팔로우할 수 있어요')) return; if (follow) S.followingSet.delete(p.user); else S.followingSet.add(p.user); toast(follow ? `${p.user} 팔로우를 끊었어요` : `${p.user}${eulreul(p.user)} 팔로우해요`); emit() }}>{follow ? '팔로잉' : '팔로우'}</button>}
         </div>
         <p className="dcap">{p.body}</p>
         <div className="dacts">
-          <button aria-pressed={S.liked.has(p.id)} onClick={() => { if (S.liked.has(p.id)) { S.liked.delete(p.id); p.likes-- } else { S.liked.add(p.id); p.likes++ } emit() }}><Heart on={S.liked.has(p.id)} />{p.likes}</button>
+          <button aria-pressed={S.liked.has(p.id)} onClick={() => { if (needLogin('로그인하면 좋아요를 누를 수 있어요')) return; if (S.liked.has(p.id)) { S.liked.delete(p.id); p.likes-- } else { S.liked.add(p.id); p.likes++ } emit() }}><Heart on={S.liked.has(p.id)} />{p.likes}</button>
           <button aria-label="댓글 쓰기" onClick={() => setFocusIn(Date.now())}><Cmt />{p.cmts}</button>
-          {!mine && <button aria-pressed={isSaved} onClick={() => { if (isSaved) S.savedPosts.delete(p.id); else S.savedPosts.add(p.id); toast(isSaved ? '저장을 취소했어요' : '저장했어요. MY의 저장한 글에서 볼 수 있어요'); emit() }}><SaveIc on={isSaved} />{isSaved ? '저장됨' : '저장'}</button>}
+          {!mine && <button aria-pressed={isSaved} onClick={() => { if (needLogin('로그인하면 글을 저장할 수 있어요')) return; if (isSaved) S.savedPosts.delete(p.id); else S.savedPosts.add(p.id); toast(isSaved ? '저장을 취소했어요' : '저장했어요. MY의 저장한 글에서 볼 수 있어요'); emit() }}><SaveIc on={isSaved} />{isSaved ? '저장됨' : '저장'}</button>}
         </div>
         <p className="secttl">{mine || !S.cmpOn ? '이 코디의 옷' : '이 코디의 옷 · 내 옷장과 비교'}</p>
         <div className="list">{p.wear.map((w, i) => <div className="mrow" key={i}><span className="sw" style={{ background: w[1] }} /><p className="n">{w[0]}</p>{status(w)}</div>)}</div>
         <p className="secttl">댓글 {p.cmts}</p>
-        {cm.map((c, i) => <div key={i} style={{ display: 'contents' }}>{row(c, i)}{c.replies.map((r, j) => row(r, i, j))}</div>)}
+        {cm.map((c, i) => <Fragment key={i}>{row(c, i)}{c.replies.map((r, j) => row(r, i, j))}</Fragment>)}
         {reTo && <p className="cmto">{reTo.u}님에게 답글 다는 중<button className="link xs" onClick={() => { p.replyTo = null; emit() }}>취소</button></p>}
         <div className="cmform">
           <input ref={input} maxLength={100} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) send() }}
@@ -93,8 +94,9 @@ export default function Post() {
           <button className="link danger" style={{ marginTop: 10 }} onClick={() => openModal(() => (
             <>
               <h3>이 글을 삭제할까요?</h3><p className="sub">삭제하면 되돌릴 수 없어요</p>
-              <div className="col" style={{ marginTop: 18 }}>
-                <button className="btn solid" onClick={() => { S.posts.splice(S.posts.indexOf(p), 1); S.savedPosts.delete(p.id); S.postFrom = '/my'; closeAll(); nav('/my'); toast('글을 삭제했어요') }}>삭제</button>
+              <div className="col mt18">
+                {/* 창 안의 버튼이라 nav()가 아니라 go(): 창을 열 때 쌓은 방문 기록 칸을 MY로 바꿔 끼워, MY에서 뒤로가기가 꼬이지 않게 (코드 리뷰 17번) */}
+                <button className="btn solid" onClick={() => { S.posts.splice(S.posts.indexOf(p), 1); S.savedPosts.delete(p.id); S.postFrom = '/my'; closeAll(); go('/my'); toast('글을 삭제했어요') }}>삭제</button>
                 <button className="btn" onClick={closeAll}>취소</button>
               </div>
             </>
