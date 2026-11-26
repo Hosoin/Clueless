@@ -14,8 +14,13 @@ from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
 from ml.analyze import CLIP_REVISION, pick_device
+from ml.background import (
+    MIN_MASK_FILL,
+    BackgroundRemover,
+    crop_with_fallback,
+    mask_fill,
+)
 from ml.background import MODEL as BG_MODEL
-from ml.background import BackgroundRemover
 from ml.colors import suggest_colors
 from ml.settings import WEIGHTS_DIR
 
@@ -130,12 +135,16 @@ class GarmentClassifier:
     def analyze(self, image: Image.Image) -> tuple[dict, Image.Image, np.ndarray]:
         """반환: (확인 카드용 결과, 흰 배경 정사각 크롭, 512차원 임베딩). CLI와 API가 같이 쓴다."""
         image = image.convert("RGB")
-        mask, crop = self.remover(image)
+        rgb = np.array(image)
+        mask = self.remover.mask(image)
+        used, crop = crop_with_fallback(rgb, mask)  # 배경 제거 실패면 원본 전체 (조각 대신)
         emb = self.embed(crop)
         mask_ratio = float(mask.mean())
-        colors = [{**c, "ratio": round(c["ratio"], 2)} for c in suggest_colors(np.array(image), mask)]
+        colors = [{**c, "ratio": round(c["ratio"], 2)} for c in suggest_colors(rgb, used)]
         result = self._card(emb, colors)
-        result.update(mask_ratio=round(mask_ratio, 3), retake=mask_ratio < MIN_MASK_RATIO)  # 옷이 너무 작게 찍힘(또는 배경 제거 실패)
+        fill = mask_fill(mask)
+        # 옷이 너무 작게 찍힘, 또는 배경 제거 실패(옷은 지워지고 프린트 조각만 남음)
+        result.update(mask_ratio=round(mask_ratio, 3), mask_fill=round(fill, 3), retake=mask_ratio < MIN_MASK_RATIO or fill < MIN_MASK_FILL)
         return result, crop, emb
 
     def _card(self, emb: np.ndarray, colors: list[dict]) -> dict:

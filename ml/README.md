@@ -4,7 +4,7 @@
 전체 흐름은 [파이프라인 정리 페이지](https://claude.ai/artifact/SbG46qG5RoNZA5RjT9xx1X)를 참고하세요.
 
 ```
-옷 사진 → 배경 제거(u2netp) → FashionCLIP(옷 1벌 = 512 벡터) → 작은 분류기들(4분류는 MLP, 소매·색은 Linear, 직접 학습)
+옷 사진 → 배경 제거(u2net) → FashionCLIP(옷 1벌 = 512 벡터) → 작은 분류기들(4분류는 MLP, 소매·색은 Linear, 직접 학습)
 옷장(벡터들) → 후보 조합 → 궁합 모델(직접 학습) + 취향·트렌드(예정) → 코디 상위 5개 + 근거
 ```
 
@@ -34,7 +34,7 @@ uv run uvicorn ml.api:app --port 8000   # 요청·응답 명세: http://localhos
 - **백엔드 연동:** [`docs/ml-api/`](../docs/ml-api/README.md) (흐름, 저장 구조 제안, `openapi.json`)
 - 장치는 자동 선택: NVIDIA GPU(cuda) → 맥 GPU(mps) → CPU. `CLUELESS_DEVICE=cpu`로 강제할 수 있습니다.
 - 윈도우 + NVIDIA: 기본 설치되는 torch는 CPU 버전입니다. GPU를 쓰려면 CUDA용 torch로 바꿔야 합니다.
-- 사전학습 모델은 처음 실행할 때 받아 캐시에 둡니다 (FashionCLIP은 Hugging Face, u2netp는 GitHub, 둘 다 버전·해시 고정).
+- 사전학습 모델은 처음 실행할 때 받아 캐시에 둡니다 (FashionCLIP은 Hugging Face, u2net은 GitHub, 둘 다 버전·해시 고정).
 
 ## 2. 가중치
 
@@ -124,7 +124,7 @@ uv run python -m ml.eval_fashionpedia               # Fashionpedia 검증 1,158�
 | 항목 | 라이선스 | 쓰임 |
 | --- | --- | --- |
 | [FashionCLIP](https://huggingface.co/patrickjohncyh/fashion-clip) | MIT | 옷 벡터 |
-| [u2netp](https://github.com/xuebinqin/U-2-Net) (rembg ONNX 배포본) | Apache-2.0 | 배경 제거 (파일 해시 고정). 예전 BiRefNet_lite(MIT)보다 CPU에서 약 40배 빠름 |
+| [u2net](https://github.com/xuebinqin/U-2-Net) (rembg ONNX 배포본, 176MB) | Apache-2.0 | 배경 제거 (파일 해시 고정). BiRefNet_lite(MIT)보다 CPU에서 약 18배 빠르고, u2netp보다 흰 옷·큰 프린트 실패가 적음 |
 | [YOLOS-Fashionpedia](https://huggingface.co/valentinafeve/yolos-fashionpedia) | MIT | 착장 탐지 |
 | [SAM vit-base](https://huggingface.co/facebook/sam-vit-base) | Apache-2.0 | 착장 분할 |
 | [clothing-dataset](https://github.com/alexeygrigorev/clothing-dataset) | CC0 | 4분류·소매 학습 |
