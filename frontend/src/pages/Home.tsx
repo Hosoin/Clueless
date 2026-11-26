@@ -1,16 +1,19 @@
 // 홈: 오늘의 코디를 돌려 맞추고, 아래로 내리면 트렌드 (담당: A)
+// - 제목 아래 스타일 칩(추천·미니멀·캐주얼…)으로 원하는 스타일을 고르면 추천 이유 문구가 그 스타일로 바뀐다
+// - 아래 버튼: [다음 추천 코디] / [이 코디로 입을래요][아바타로 보기]
+// - [아바타로 보기]를 누르면 같은 화면이 'My Avatar' 보기로 바뀐다 (S.view = 'avatar'). 닫기로 룩북으로 돌아옴
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
-import { Arrow, SpinIc } from '../components/Icons'
+import { Arrow, SpinIc, TabIcon } from '../components/Icons'
 import { Ph } from '../components/Ph'
-import { COLORS, TRENDS } from '../data/seed'
+import { COLORS, STYLES, TRENDS } from '../data/seed'
 import type { Item, Look } from '../data/types'
 import {
+
   EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, comboToLook, current, clampPos, emit, firstFresh, fit, hexOf,
   isPast, isRecent, keepSel, layersFor, lists, matchText, rowKey, saveLook, showsOutfit, stepFit, useApp,
   wearList, wearToday, worn, wornKey, wornNote, iga, eun, type Combo, type ExtraKey, type RowKey,
 } from '../store'
-import { closeAll, openModal, openSheet, showIn, toast } from '../ui'
+import { closeAll, openSheet, showIn, toast } from '../ui'
 
 declare global {
   interface Window { renderAvatar?: (el: HTMLElement, outfit: unknown) => void }
@@ -22,9 +25,32 @@ const rowsOf = (c: Combo): [RowKey, string][] => [
   ...(c.dress ? [] : [['b', '하의'] as [RowKey, string]]),
 ]
 
+/** 홈에서 고른 스타일 (null = '추천', 스타일 없이 기본 추천).
+ *  탭을 옮겨 다녀도 유지되도록 컴포넌트 밖에 둔다 (트렌드의 tSel과 같은 방식).
+ *  지금은 프로토타입이라 추천 이유 문구만 바뀌고, 스타일에 맞춘 실제 추천은 백엔드 연동 때 붙인다 */
+let pickedStyle: string | null = null
+
+/** 받침에 맞는 조사 '으로/로'. ㄹ 받침은 '로'(예: 데님·니트로, 깔끔한 선으로) */
+const euro = (w: string) => {
+  const code = w.charCodeAt(w.length - 1) - 0xac00
+  if (code < 0 || code > 11171) return '로' // 한글이 아니면 '로'
+  const jong = code % 28
+  return jong === 0 || jong === 8 ? '로' : '으로'
+}
+
+/** 스타일을 골랐을 때 추천 이유 문구. 예: '미니멀 · 무채색과 깔끔한 선으로 맞춰 봤어요' */
+const styleReason = (name: string) => {
+  const desc = STYLES.find(([n]) => n === name)?.[1] ?? name
+  return `${name} · ${desc}${euro(desc)} 맞춰 봤어요`
+}
+
+/** 지금 맞춘 코디를 오늘 입은 옷으로 남기고, 같은 코디면 버튼을 '정했어요'로 바꿔 둔다 */
+function chooseToday(c: Combo) {
+  wearToday(wearList(c)); S.chosenKey = comboKey(c); toast('오늘 코디로 정했어요. 캘린더에 남겨요'); emit()
+}
+
 export default function Home() {
   useApp()
-  const nav = useNavigate()
   const scrRef = useRef<HTMLElement>(null)
   const foldRef = useRef<HTMLDivElement>(null)
   // 돌리는 중에 다른 탭으로 가면 타이머를 멈추고 바로 추천 코디에 맞춰 둔다 (나간 뒤에도 emit()이 계속 불리지 않게)
@@ -41,6 +67,14 @@ export default function Home() {
   const note = [rec.length ? wornNote(rec[0]) : hidden ? `최근 ${S.RECENT}일 안에 입은 옷 ${hidden}벌은 빼고 보여드려요` : '', wx].filter(Boolean).join(' · ')
   const isChosen = S.chosenKey === comboKey(c)
   const next = EXTRA.find((k) => !S.on[k] && L[k].length)
+  const isAvatar = S.view === 'avatar'
+  // 추천 이유: 돌리는 중 → 안내, 추천 코디 그대로 → (스타일을 골랐으면 스타일 문구, 아니면 추천 이유), 직접 바꿨으면 → 어울림 판단
+  const why = S.spinning ? '옷장을 돌려 오늘의 코디를 찾는 중이에요' : same ? (pickedStyle ? styleReason(pickedStyle) : o.reason) : m.t
+  const setView = (v: typeof S.view) => { S.view = v; scrRef.current?.scrollTo(0, 0); emit() }
+  // 룩북과 아바타 보기에서 같이 쓰는 '이 코디로 입을래요' 버튼
+  const wearBtn = (
+    <button className="btn" disabled={isChosen} onClick={() => chooseToday(c)}>{isChosen ? '오늘 코디로 정했어요' : '이 코디로 입을래요'}</button>
+  )
 
   /* 첫 화면 한 장(아래 탭을 뺀 높이)에 코디 사진과 버튼이 모두 들어오게.
      높이는 창 크기에만 달려 있어서, 홈에 들어올 때 한 번 맞추고 그 뒤로는 창 크기가 바뀔 때만 다시 맞춘다.
@@ -69,18 +103,31 @@ export default function Home() {
   return (
     <section className="screen on" id="s-home" ref={scrRef}>
       <div id="h-fold" ref={foldRef} className="pad">
-        <div className="hhead">
-          <div className="h1row" style={{ alignItems: 'flex-end' }}>
-            <h1>Today’s <i>Look</i></h1>
-            <span className="hcount2">{S.spinning ? '맞추는 중' : same ? <><b>{String(S.oi + 1).padStart(2, '0')}</b> / {String(S.outfits.length).padStart(2, '0')}</> : null}</span>
+        {isAvatar ? (
+          <div className="hhead">
+            <div className="h1row avhead">
+              <h1>My <i>Avatar</i></h1>
+              <button className="link" onClick={() => setView('rows')}>닫기</button>
+            </div>
+            <p className="avsub">홈에서 고른 코디를 입혀 봤어요. 여기서 바꾸면 홈 코디도 같이 바뀌어요</p>
           </div>
-          <div className="seg" id="h-view">
-            {(['rows', 'avatar'] as const).map((v) => (
-              <button key={v} className={S.view === v ? 'on' : ''} onClick={() => { S.view = v; emit() }}>{v === 'rows' ? '룩북' : '아바타'}</button>
-            ))}
+        ) : (
+          <div className="hhead">
+            <div className="h1row" style={{ alignItems: 'flex-end' }}>
+              <h1>Today’s <i>Look</i></h1>
+              <span className="hcount2">{S.spinning ? '맞추는 중' : same ? <><b>{String(S.oi + 1).padStart(2, '0')}</b> / {String(S.outfits.length).padStart(2, '0')}</> : null}</span>
+            </div>
+            <p className="hstyle-k">STYLE · 원하는 스타일로 추천받기</p>
+            {/* 스타일 칩: 첫 칸 '추천'은 스타일을 고르지 않은 기본 추천 */}
+            <div className="scroller hstyle">
+              {[null, ...STYLES.map(([n]) => n)].map((st) => (
+                <button key={st ?? '추천'} className={`pill ${pickedStyle === st ? 'on' : ''}`} aria-pressed={pickedStyle === st}
+                  onClick={() => { pickedStyle = st; emit() }}>{st ?? '추천'}</button>
+              ))}
+            </div>
           </div>
-        </div>
-        {S.view === 'rows' ? (
+        )}
+        {!isAvatar ? (
           <div className={`look ${rest.length ? '' : 'one'} ${S.spinning ? 'spinning' : ''}`} style={{ gridTemplateRows: `repeat(${Math.max(1, rest.length)}, minmax(0, 1fr))` }}>
             {piece(bigK, true)}
             {rest.map((k) => piece(k))}
@@ -101,21 +148,26 @@ export default function Home() {
           </>
         )}
         <div className="why">
-          <p>{S.spinning ? '옷장을 돌려 오늘의 코디를 찾는 중이에요' : same ? o.reason : m.t}</p>
+          <p>{why}</p>
           {next && <button className="link" onClick={() => keepSel(() => { S.on[next] = true; S.pos[next] = 0 })}>+ 겹쳐 입기</button>}
         </div>
-        <div className="hdock2">
-          <button className="btn full spinbtn" id="h-spin" disabled={S.spinning} onClick={() => spinTo(same ? firstFresh(S.oi + 1) : S.oi)}>
-            <SpinIc /><span>{S.spinning ? '맞추는 중' : same ? '다음 추천 코디' : '추천 코디로 맞추기'}</span>
-          </button>
-          <div className="row2">
-            <button className="btn" disabled={isChosen} onClick={() => {
-              wearToday(ps); S.chosenKey = comboKey(c); toast('오늘 코디로 정했어요. 캘린더에 남겨요'); emit()
-            }}>{isChosen ? '오늘 코디로 정했어요' : '이 코디로 입을래요'}</button>
-            <button className="btn" onClick={() => saveModal(c, () => { S.kView = 'saved'; nav('/calendar') })}>저장</button>
+        {isAvatar ? (
+          // 아바타 보기에서는 입기 버튼 하나만 (디자인 2-3)
+          <div className="hdock2">{wearBtn}</div>
+        ) : (
+          <div className="hdock2">
+            <button className="btn full spinbtn" id="h-spin" disabled={S.spinning} onClick={() => spinTo(same ? firstFresh(S.oi + 1) : S.oi)}>
+              <SpinIc /><span>{S.spinning ? '맞추는 중' : same ? '다음 추천 코디' : '추천 코디로 맞추기'}</span>
+            </button>
+            <div className="row2">
+              {wearBtn}
+              <button className="btn avbtn" disabled={S.spinning} onClick={() => setView('avatar')}><TabIcon name="my" />아바타로 보기</button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
+      {/* 아바타 보기는 한 화면짜리라 아래 설명과 트렌드는 룩북에서만 보여 준다 */}
+      {!isAvatar && <>
       <div className="pad hmore">
         <div className="match hm" style={{ marginTop: 0 }}>
           <span className={`dot ${m.hit || S.spinning ? '' : 'grey'}`} />
@@ -130,6 +182,7 @@ export default function Home() {
         <div className="toggles"><button className="tg" aria-pressed={S.fresh} onClick={() => keepSel(() => { S.fresh = !S.fresh })}>최근 입은 옷 빼고 추천</button></div>
       </div>
       <Trend />
+      </>}
     </section>
   )
 }
@@ -272,22 +325,6 @@ function Picker({ k }: { k: RowKey }) {
       </div>
     </>
   )
-}
-
-/** 저장: 같은 코디가 이미 있으면 알려 줌 */
-function saveModal(c: Combo, goSaved: () => void) {
-  if (!c.t || (!c.b && !c.dress)) return toast('상의와 하의를 하나씩 골라 주세요')
-  const dup = saveLook(comboToLook(c))
-  const ps = wearList(c)
-  openModal(() => (
-    <>
-      <h3>{dup ? '이미 저장한 코디예요' : '코디를 저장했어요'}</h3>
-      <p className="sub">{ps.map((p) => p.name).join(' + ')}</p>
-      <div className="pair">{ps.map((p) => <div className="slot" key={p.id}><Ph item={p} label={p.cat} /><p className="cap">{p.cat}</p></div>)}</div>
-      <div className="col"><button className="btn solid" onClick={goSaved}>저장한 코디 보러가기</button><button className="btn" onClick={closeAll}>계속 맞춰보기</button></div>
-    </>
-  ))
-  emit()
 }
 
 /* ---------- 홈 아래 트렌드 ---------- */
