@@ -9,7 +9,7 @@ import { COLORS, STYLES, TRENDS } from '../data/seed'
 import type { Item, Look } from '../data/types'
 import {
 
-  EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, comboToLook, current, clampPos, emit, firstFresh, fit, hexOf,
+  EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, current, clampPos, emit, firstFresh, fit, hexOf,
   isPast, isRecent, keepSel, layersFor, lists, matchText, rowKey, saveLook, showsOutfit, stepFit, useApp,
   wearList, wearToday, worn, wornKey, wornNote, iga, eun, type Combo, type ExtraKey, type RowKey,
 } from '../store'
