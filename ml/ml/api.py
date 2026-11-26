@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Request,
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field
 
+from ml import blob
 from ml.garment import PROBE, STYLES, GarmentClassifier, style_scores
 from ml.vocab import to_front, to_internal
 from ml.recommend import Recommender, recommend
@@ -143,7 +144,8 @@ class GarmentAnalysis(BaseModel):
     mask_ratio: float  # 사진에서 옷이 차지하는 비율
     retake: bool  # true면 "다시 찍어 주세요" 안내 (옷이 너무 작거나 배경 제거 실패)
     needs_review: bool  # true면 카테고리를 사용자에게 고르게 한다
-    crop_png_base64: str  # 흰 배경 정사각 크롭 PNG. 백엔드가 Blob에 저장하고 옷장에 보여준다
+    crop_blob: str | None = None  # 흰 배경 정사각 크롭 WebP의 Blob 경로 "closet-drafts/<id>.webp" (1일 뒤 자동 삭제, 저장 확정 때 백엔드가 확정 컨테이너로 복사)
+    crop_png_base64: str | None = None  # Blob 설정이 없을 때만(로컬 개발·테스트) 크롭 PNG를 base64로
     embedding: list[float]  # 512차원 FashionCLIP 벡터. 옷장 DB에 저장해 추천에 쓴다
     model_version: str
     model_versions: dict[str, str | None]  # embedding 값이 바뀌면 DB의 벡터를 모두 다시 계산해야 한다 (옷과 함께 저장)
@@ -187,10 +189,21 @@ def analyze(image: UploadFile, clf: GarmentClassifier = Depends(get_classifier))
               category_prob=result["category"]["prob"], needs_review=result["needs_review"], retake=result["retake"],
               color_review=(result.get("color_name") or {}).get("needs_review"), sleeve_review=(result.get("sleeve") or {}).get("needs_review"))
     buf = io.BytesIO()
-    crop.save(buf, format="PNG")
+    crop_blob = crop_b64 = None
+    if blob.enabled():
+        crop.save(buf, format="WEBP", quality=90)  # PNG의 약 1/10 크기
+        try:
+            crop_blob = blob.upload_draft(buf.getvalue())
+        except Exception as e:  # 저장소 문제는 사용자 입력 오류가 아니라 일시 장애(503)로 알린다
+            log_event(event="blob_upload_failed", error=type(e).__name__)
+            raise HTTPException(503, "크롭 이미지를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요") from e
+    else:
+        crop.save(buf, format="PNG")
+        crop_b64 = base64.b64encode(buf.getvalue()).decode()
     return GarmentAnalysis(
         **to_front(result),  # 내부 이름 → 앱(프론트) 이름
-        crop_png_base64=base64.b64encode(buf.getvalue()).decode(),
+        crop_blob=crop_blob,
+        crop_png_base64=crop_b64,
         embedding=[round(float(v), 6) for v in emb],
         model_version=PROBE.stem,
         model_versions=getattr(clf, "versions", {}),
