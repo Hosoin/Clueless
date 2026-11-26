@@ -11,13 +11,14 @@
 
 | 브랜치 | 역할 |
 | --- | --- |
-| `FE/feat/*`, `FE/fix/*` 등 | 작업 브랜치. 이름 앞에 `FE/`를 붙입니다. `frontend`에서 따서 작업하고 PR로 합칩니다 |
+| `FE/feat/*`, `FE/fix/*` 등 | 작업 브랜치. 이름 앞에 `FE/`를 붙입니다. `frontend-dev`에서 따서 작업하고 `frontend-dev`로 PR을 올립니다 |
+| `frontend-dev` | 개발 통합 브랜치. 작업 브랜치 PR을 팀장이 승인해 머지합니다 |
 | `frontend` | 스테이징 브랜치. 개발 서버에 배포되며 여기서 테스트합니다 |
 | `main` | 스테이징에서 테스트가 통과한 변경만 PR로 반영합니다 |
 
-흐름: `frontend`에서 작업 브랜치 생성 → 작업 → `frontend`로 PR → 개발 서버에서 테스트 → `main`으로 PR
+흐름: `frontend-dev`에서 작업 브랜치 생성 → 작업 → `frontend-dev`로 PR(팀장 승인) → PR이 쌓이면 `frontend`로 PR → 개발 서버에서 테스트 → `main`으로 PR
 
-- `frontend`와 `main`에는 직접 커밋하지 않고 항상 PR로 반영합니다.
+- `frontend-dev`, `frontend`, `main`에는 직접 커밋하지 않고 항상 PR로 반영합니다.
 - 브랜치 이름, 커밋, PR, 머지 방식은 @GIT_CONVENTION.md 를 따릅니다.
 - 푸시, PR 생성, 머지는 사용자가 요청했을 때만 합니다.
 
