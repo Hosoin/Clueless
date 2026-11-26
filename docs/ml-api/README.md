@@ -19,8 +19,8 @@
 
 **옷 등록**
 1. 앱 → 백엔드: 사진 업로드 (앱에서 긴 변 1024px 정도로 줄여 올리면 업로드가 빨라짐. 결과는 같음)
-2. 백엔드 → ML `POST /v1/garments/analyze` (multipart `image`, CPU 약 0.3초)
-3. 백엔드: 응답의 `crop_png_base64`를 Blob에 저장, 나머지를 "임시 분석 결과"로 앱에 전달 (`embedding`은 앱에 보내지 않음)
+2. 백엔드 → ML `POST /v1/garments/analyze` (multipart `image`, VM에서 약 1초)
+3. ML이 크롭(WebP)을 Blob `closet-drafts`에 올리고 응답에 경로 `crop_blob`(예: `closet-drafts/3f2a….webp`)만 준다. 백엔드는 응답을 "임시 분석 결과"로 보관하고 앱에는 미리보기 SAS 링크를 준다 (`embedding`은 앱에 보내지 않음)
 4. 앱: 확인 카드에서 사용자가 수정 (`needs_review`, `color_name.needs_review`, `sleeve.needs_review`가 true면 선택을 요구)
 5. 앱 → 백엔드: 확정값 저장 (3절 표)
 - 여러 장(예: 처음 옷장 채우기 100장)은 한 장씩 차례로 부르면 됨 (100장 약 30초). ML 서버는 요청을 하나씩 처리하므로 동시에 많이 보내도 빨라지지 않음
@@ -49,8 +49,9 @@ API의 모든 이름은 **프론트 `frontend/src/data/seed.ts`와 같아요**: 
 | `style.tags` (1~2개, 강한 순) | `styles` 기본값 (사용자가 고치거나 비울 수 있음) |
 | `subcategory.name` (티셔츠·후드·데님·스커트·카디건 …) | `subcategory` 기본값. 사용자가 `category`를 바꾸면 비우고 다시 고르게 함 |
 | `print.name` (무지·스트라이프·체크·도트·플라워·프린트) | `meta_json`에 보관. 앱 `pattern` 기본값으로 쓸 수 있음 (closet_items에는 무늬 칸이 없음) |
-| `crop_png_base64` | Blob에 저장 → `image_blob`(파일 키). `meta_json`에는 넣지 않음 |
-| **나머지 응답 전체** (`crop_png_base64`만 뺀 것) | `meta_json` 그대로. 아래 칸이 들어 있어야 추천이 다 됨 |
+| `crop_blob` (`closet-drafts/<id>.webp`) | 저장 확정 때 백엔드가 `closet-images/items/{user}/{item}.webp`로 복사 → `image_blob`(파일 키). `closet-drafts`는 1일 뒤 자동 삭제라 그대로 두면 됨. `meta_json`에는 넣지 않음 |
+| `crop_png_base64` | Blob 설정이 없는 로컬 개발에서만 옴 (그때는 `crop_blob`이 null) |
+| **나머지 응답 전체** (`crop_blob`·`crop_png_base64` 뺀 것) | `meta_json` 그대로. 아래 칸이 들어 있어야 추천이 다 됨 |
 
 `meta_json`에 꼭 남아야 하는 칸 (추천 요청에 다시 씀):
 
@@ -114,6 +115,8 @@ config/       MlProperties (@ConfigurationProperties("ml"))
     build: ./ml
     environment:
       ML_API_KEY: ${ML_API_KEY}        # 백엔드 ml.api-key와 같은 값 (.env, Git에 올리지 않음)
+      BLOB_DRAFTS_URL: ${BLOB_DRAFTS_URL}  # https://st1jocluelesskrc.blob.core.windows.net/closet-drafts
+      BLOB_DRAFTS_SAS: ${BLOB_DRAFTS_SAS}  # closet-drafts 쓰기 전용 SAS (.env, Git에 올리지 않음)
     volumes:
       - ./ml/weights:/app/weights:ro   # Release 가중치 + 팀 내부 공유 가중치(소매·색·스타일)
     mem_limit: 3g                      # ML 서버 약 1GB. 넘치면 ML만 정리되고 백엔드·DB는 지킴
