@@ -9,6 +9,7 @@ import { openPost, toLogin } from '../nav'
 import { S, emit, useApp } from '../store'
 import { askPermission, closeAll, openSheet, toast } from '../ui'
 
+/** MY 화면: 프로필, 내 게시물 / 저장한 글. 로그인하지 않았으면 로그인 안내 */
 export default function My() {
   useApp()
   const nav = useNavigate()
@@ -48,6 +49,7 @@ export default function My() {
   )
 }
 
+/** 프로필 편집 창: 사진·닉네임·아이디·소개. 저장을 눌러야 S.me에 넣고, 내 글의 아이디도 함께 바꾼다 */
 function Profile() {
   const [photo, setPhoto] = useState(S.me.photo)
   const file = useRef<HTMLInputElement>(null)

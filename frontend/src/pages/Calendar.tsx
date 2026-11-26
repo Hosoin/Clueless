@@ -13,7 +13,9 @@ import {
 } from '../store'
 import { closeAll, closeModal, openModal, openSheet, toast } from '../ui'
 
+/** 요일 머리글 (일요일부터) */
 const WD = ['일', '월', '화', '수', '목', '금', '토']
+/** 달력에 보이는 달(1일)과 고른 날. 화면 밖에 두어 탭을 옮겨 다녀도 유지된다 */
 let calMonth = new Date(TODAY0.getFullYear(), TODAY0.getMonth(), 1), calSel = new Date(TODAY0)
 /** calSel·calMonth를 정할 때의 오늘. 자정이 지나 TODAY0가 바뀌었는지 알아보려고 둔다 */
 let calDay = dkey(TODAY0)
@@ -25,8 +27,10 @@ function followToday() {
   if (dkey(calSel) === calDay) { calSel = new Date(TODAY0); calMonth = new Date(TODAY0.getFullYear(), TODAY0.getMonth(), 1) }
   calDay = now
 }
+/** 달력 칸의 작은 사진: 코디에서 사진이 있는 첫 옷. 없으면 비움 */
 const thumbOf = (ids: number[]) => { const it = ids.map(byId).find((x) => x?.img) || byId(ids[0]); return it?.img ? <img src={it.img} alt="" /> : null }
 
+/** 캘린더 화면: 달력 / 저장한 코디 */
 export default function Calendar() {
   useApp()
   followToday()
@@ -50,6 +54,7 @@ export default function Calendar() {
   )
 }
 
+/** 한 달 달력. 입은 날은 그날 코디 사진, 앞날의 계획은 점선 사진. 날을 누르면 아래(Day)에 그날을 보여 준다 */
 function Month() {
   const y = calMonth.getFullYear(), m = calMonth.getMonth()
   const first = new Date(y, m, 1), days = new Date(y, m + 1, 0).getDate()
@@ -82,6 +87,7 @@ function Month() {
   )
 }
 
+/** 고른 날: 입은 날이면 입은 코디(수정·삭제·저장), 오늘·앞날이면 입을 코디(계획·바꾸기·삭제) */
 function Day() {
   const d = calSel, ago = agoOf(d), w = wornOn(d), pl = ago <= 0 ? planOn(d) : null
   const pair = (ids: number[]) => (
@@ -132,6 +138,7 @@ function planSheet(d: Date) {
   }, true)
 }
 
+/** 저장한 코디 목록: 코디마다 썸네일, 어울림, 최근 입은 옷 안내 */
 function SavedList() {
   const nav = useNavigate()
   const [wornIds, setWorn] = useState<number[]>([])

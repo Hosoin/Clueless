@@ -10,6 +10,7 @@ import { S, byId, emit, eulreul, owned, setCombo, useApp } from '../store'
 import { closeAll, openModal, showIn, toast } from '../ui'
 
 
+/** 글 보기 화면 (주소의 :id로 글을 찾고, 없으면 들어온 탭으로 돌아감) */
 export default function Post() {
   useApp()
   const nav = useNavigate()

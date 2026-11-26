@@ -6,6 +6,7 @@ import { StyleGrid } from '../components/StyleGrid'
 import { MODES } from '../data/seed'
 import { S, emit, useApp } from '../store'
 
+/** 첫 설정 화면. 진행 상태는 S.ob에 두고, 마지막 단계에서 S.me·S.pref에 넣은 뒤 홈으로 */
 export default function Onboard() {
   useApp()
   const nav = useNavigate()

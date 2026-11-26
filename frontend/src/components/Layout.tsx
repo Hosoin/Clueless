@@ -1,3 +1,6 @@
+// 모든 화면을 감싸는 틀: 폰 틀, 위쪽 날짜·로고·날씨, 하단 탭, 알림·창 자리(Overlays).
+// 앱이 켜질 때 서버에 로그인 상태를 물어보고(/api/auth/me), 답이 올 때까지는 로고만 보여 준다.
+// 화면을 아래로 스크롤하면 하단 탭을 숨기고, 위로 올리면 다시 보여 준다.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { fetchMe, takeGoogleLoginReturn } from '../api/auth'

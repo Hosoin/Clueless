@@ -1,3 +1,5 @@
+// 옷 사진 칸(Ph)과 코디 썸네일(PhPair, Thumbs). 사진이 없으면 사진 자리(배경색)와 글자를 보여 준다.
+// 누르면 옷 크게 보기(lightbox.tsx)가 열린다.
 import type { CSSProperties } from 'react'
 import type { Item } from '../data/types'
 import { byId, hexOf } from '../store'

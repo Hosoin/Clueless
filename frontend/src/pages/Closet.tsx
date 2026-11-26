@@ -8,15 +8,17 @@ import type { Item } from '../data/types'
 import { S, displayName, emit, useApp, worn, wornKey } from '../store'
 import { toast } from '../ui'
 
+/** 정렬 버튼 (S.cSort는 이 순서의 번호) */
 const SORTS = ['최근 넣은 순', '오래 안 입은 옷', '최근 입은 옷', 'AI 추천 많은 순']
 const LONG = 30 // 이 날수 넘게 안 입었으면 '오래 안 입은 옷'
-// 덧입기는 따로 탭 없이 상의에 포함
 /** 색 필터 칩의 동그라미 색. 색 목록(COLORS)에 없는 색 이름이면(서버나 사진 분석에서 새 이름이 올 때)
  *  그 색인 옷의 색 코드를, 그것도 없으면 회색을 쓴다. store.ts의 hexOf와 같은 기준 (코드 리뷰 22번) */
 const pillColor = (c: string) => COLORS[c] || S.items.find((i) => i.color === c && i.hex)?.hex || '#CCCCCC'
 
+/** 옷 i가 종류 탭 t에 들어가는지. 덧입기는 따로 탭 없이 상의에 포함 */
 const inTab = (i: Item, t: string) => t === '전체' || i.cat === t || (t === '상의' && i.cat === '덧입기')
 
+/** 옷장 화면: 내 옷(종류 탭·정렬·색 거르기) / 추천 제외 */
 export default function Closet() {
   useApp()
   const nav = useNavigate()

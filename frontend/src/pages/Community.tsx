@@ -5,6 +5,7 @@ import { writeSheet } from '../sheets'
 import { openPost } from '../nav'
 import { S, emit, owned, useApp } from '../store'
 
+/** 커뮤니티 화면: 인기·최신·팔로잉 탭, 챌린지 참여 글만 보기, 2열 피드 */
 export default function Community() {
   useApp()
   let list = S.posts.filter((p) => !S.chOnly || p.ch)

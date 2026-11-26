@@ -8,9 +8,10 @@ import { toLogin } from '../nav'
 import { S, emit, euro, useApp } from '../store'
 import { closeAll, openSheet, toast } from '../ui'
 
-/** 좋아하는 스타일 고르기 (설정에서 추천 방식을 '취향대로'로 바꿀 때) */
-/** 좋아하는 스타일 창을 연다. 이 화면 안에서만 써서 내보내지 않는다 (코드 리뷰 29번) */
+/** 좋아하는 스타일 창을 연다 (추천 방식을 '취향대로'로 바꿀 때, '좋아하는 스타일'을 누를 때). after: 저장한 뒤 할 일.
+ *  이 화면 안에서만 써서 내보내지 않는다 (코드 리뷰 29번) */
 function styleSheet(after: () => void) { openSheet(() => <StylePick after={after} />) }
+/** 좋아하는 스타일 창의 내용. 고르는 동안은 창 안의 상태(pick)에만 두고, 저장을 눌러야 S.pref.styles에 넣는다 */
 function StylePick({ after }: { after: () => void }) {
   const [pick, setPick] = useState([...S.pref.styles])
   return (
@@ -22,10 +23,12 @@ function StylePick({ after }: { after: () => void }) {
   )
 }
 
+/** 켜고 끄는 스위치. 누르면 set(!on)을 부르고 '○○ 켰어요/껐어요' 알림을 띄운다 */
 function Switch({ label, on, set }: { label: string; on: boolean; set: (v: boolean) => void }) {
   return <button className="sw2" role="switch" aria-checked={on} aria-label={label} onClick={() => { set(!on); toast(`${label} ${!on ? '켰어요' : '껐어요'}`) }} />
 }
 
+/** 설정 화면 */
 export default function Settings() {
   useApp()
   const nav = useNavigate()

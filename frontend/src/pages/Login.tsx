@@ -4,6 +4,7 @@ import { GOOGLE_LOGIN_URL, markGoogleLoginStart } from '../api/auth'
 import { S } from '../store'
 import { toast } from '../ui'
 
+/** 로그인 화면 */
 export default function Login() {
   const nav = useNavigate()
 

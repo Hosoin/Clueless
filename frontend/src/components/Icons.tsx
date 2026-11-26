@@ -1,21 +1,29 @@
-// 프로토타입과 같은 선 아이콘
+// 프로토타입과 같은 선 아이콘. 모두 장식이라 화면 읽기 프로그램에는 숨긴다(aria-hidden). 버튼의 이름은 버튼 쪽 글자나 aria-label이 맡는다
+/** 화살표. dir이 음수면 왼쪽(이전), 아니면 오른쪽(다음) */
 export const Arrow = ({ dir }: { dir: number }) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     <path d={dir < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
   </svg>
 )
+/** 좋아요 하트. on이면 채운 하트 */
 export const Heart = ({ on }: { on: boolean }) => (
   <svg className={`ic ${on ? 'fill' : ''}`} viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg>
 )
+/** 댓글 말풍선 */
 export const Cmt = () => <svg className="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>
+/** 글 저장 책갈피. on이면 채운 책갈피 */
 export const SaveIc = ({ on }: { on: boolean }) => (
   <svg className={`ic ${on ? 'fill' : ''}`} viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4z" /></svg>
 )
+/** 뒤로 가기 (왼쪽 꺾쇠) */
 export const Back = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+/** 홈 '추천 코디' 돌리기 버튼의 회전 화살표 */
 export const SpinIc = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3L20 9" /><path d="M20 4v5h-5" /><path d="M20 12a8 8 0 0 1-14 5.3L4 15" /><path d="M4 20v-5h5" /></svg>
 )
+/** 더하기 */
 export const Plus = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v15M4.5 12h15" /></svg>
+/** 설정 톱니바퀴 */
 export const Gear = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
 )
