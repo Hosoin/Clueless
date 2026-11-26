@@ -9,10 +9,8 @@ import { PhPair, Thumbs } from '../components/Ph'
 import { CATS } from '../data/seed'
 import type { Hist, Item, Look } from '../data/types'
 import {
-  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, recalcWorn, useApp, wearToday, wornNote, wornOn,
+  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, recalcWorn, rowKey, saveLook, useApp, wearToday, wornNote, wornOn,
 } from '../store'
-// 입은 날의 코디를 저장할 때 쓰는 함수 (달력의 "이 코디 저장하기" 버튼)
-import { rowKey, saveLook } from '../store'
 import { closeAll, closeModal, openModal, openSheet, toast } from '../ui'
 
 const WD = ['일', '월', '화', '수', '목', '금', '토']

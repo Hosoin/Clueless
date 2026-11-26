@@ -1,9 +1,7 @@
 import type { CSSProperties } from 'react'
 import type { Item } from '../data/types'
-import { byId, deleteItem, emit, hexOf, iga, tidyRows, worn } from '../store'
+import { byId, deleteItem, displayName, emit, hexOf, iga, tidyRows, worn } from '../store'
 import { closeAll, openModal, toast } from '../ui'
-// 별명이 있으면 별명, 없으면 원래 이름 (옷 크게 보기 제목)
-import { displayName } from '../store'
 
 /** 옷 사진 칸: 사진 + 오른쪽 위 색 동그라미. 누르면 크게 보기 (onClick을 주면 그걸 대신 함) */
 export function Ph({ item, label = '', onClick, style, className = '', as = 'button', id }: {
