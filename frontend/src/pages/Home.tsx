@@ -10,7 +10,7 @@ import type { Item, Look } from '../data/types'
 import {
 
   EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, current, clampPos, emit, firstFresh, fit, hexOf,
-  isPast, isRecent, isSavedLook, isWornToday, keepSel, layersFor, lists, matchText, rowKey, saveLook, showsOutfit, stepFit, useApp,
+  isPast, isSavedLook, isWornToday, keepSel, layersFor, lists, matchText, rowKey, saveLook, showsOutfit, stepFit, useApp,
   wearList, wearToday, worn, wornKey, wornNote, iga, eun, type Combo, type ExtraKey, type RowKey,
 } from '../store'
 import { closeAll, openSheet, showIn, toast } from '../ui'
@@ -339,13 +339,15 @@ let tSel = 0, tUp = true, tResult = false
  *  - 짝지어 둔 옷이 옷장에 그대로 있으면 그 옷을 쓴다. 기본 옷장에서는 화면이 전과 같게 보이도록
  *  - 그 옷이 지워졌거나 추천에서 뺀 옷(ex)이면, 지금 옷장에 남은 같은 종류의 옷으로 바꾼다.
  *    전에는 id를 고정으로 적어서, 지운 옷이 코디에 들어가 저장되고 캘린더에서 byId(id)!가 터질 수 있었다
- *  - 최근 입은 옷은 되도록 피하고, 그런 옷밖에 없으면 그거라도 쓴다 */
+ *  - 최근 입은 옷은 되도록 피하고, 그런 옷밖에 없으면 그거라도 쓴다.
+ *    오늘 입은 옷은 최근 입은 옷으로 치지 않는다(isPast). isRecent(오늘 포함)를 쓰면 트렌드 코디를 입자마자
+ *    방금 입은 옷이 '최근 입은 옷'이 되어 코디가 다른 옷으로 바뀌었다. 홈 추천 줄(pool)과 같은 기준이다 */
 function pairFor(prefer: number, cat: Item['cat']) {
   const usable = (i?: Item | null): i is Item => !!i && !i.ex && i.cat === cat
   const p = byId(prefer)
   if (usable(p)) return p.id
   const pool = S.items.filter(usable)
-  return (pool.find((i) => !isRecent(i)) || pool[0])?.id ?? null
+  return (pool.find((i) => !isPast(i)) || pool[0])?.id ?? null
 }
 function Trend() {
   useApp()
@@ -353,7 +355,7 @@ function Trend() {
   const t = TRENDS[tSel], mine = S.items.filter((i) => i.tags.includes(t.k))
   const short = t.k.split(' ').pop()
   const title = mine.length ? (mine.length > 1 ? `내 옷장에 ${t.k}${iga(t.k)} ${mine.length}벌이나 있어요` : `내 옷장에 ${t.k}${iga(t.k)} 1벌 있어요`) : `내 옷장에 아직 ${t.k}${eun(t.k)} 없어요`
-  const it = mine.find((x) => !isRecent(x)) || mine[0]
+  const it = mine.find((x) => !isPast(x)) || mine[0] // 오늘 입은 옷은 빼지 않음 (위 pairFor 설명과 같은 이유)
   // 고른 옷의 종류에 따라 나머지 칸을 채운다. 숫자는 원래 짝지어 둔 옷(6 인디고 와이드 데님, 10 카멜 롱 코트,
   // 1 아이보리 오버핏 니트, 3 블랙 오버핏 니트, 7 블랙 플리츠 스커트)이고, 없으면 pairFor가 남은 옷으로 바꾼다
   const look = !it ? null
