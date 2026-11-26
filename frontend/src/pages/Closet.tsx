@@ -10,6 +10,10 @@ import { toast } from '../ui'
 const SORTS = ['최근 넣은 순', '오래 안 입은 옷', '최근 입은 옷', 'AI 추천 많은 순']
 const LONG = 30 // 이 날수 넘게 안 입었으면 '오래 안 입은 옷'
 // 덧입기는 따로 탭 없이 상의에 포함
+/** 색 필터 칩의 동그라미 색. 색 목록(COLORS)에 없는 색 이름이면(서버나 사진 분석에서 새 이름이 올 때)
+ *  그 색인 옷의 색 코드를, 그것도 없으면 회색을 쓴다. store.ts의 hexOf와 같은 기준 (코드 리뷰 22번) */
+const pillColor = (c: string) => COLORS[c] || S.items.find((i) => i.color === c && i.hex)?.hex || '#CCCCCC'
+
 const inTab = (i: Item, t: string) => t === '전체' || i.cat === t || (t === '상의' && i.cat === '덧입기')
 
 export default function Closet() {
@@ -48,7 +52,7 @@ export default function Closet() {
             {S.cSort === 3 && <p className="note">AI가 오늘의 코디에 많이 넣어 준 옷부터 보여 줘요. 커뮤니티 좋아요와는 관계없어요</p>}
             <div className="scroller" aria-label="색으로 거르기">
               <button className={`pill ${S.cColor ? '' : 'on'}`} onClick={() => set(() => (S.cColor = null))}>모든 색</button>
-              {have.map((c) => <button key={c} className={`pill ${S.cColor === c ? 'on' : ''}`} onClick={() => set(() => (S.cColor = c))}><i style={{ background: COLORS[c] }} />{c}</button>)}
+              {have.map((c) => <button key={c} className={`pill ${S.cColor === c ? 'on' : ''}`} onClick={() => set(() => (S.cColor = c))}><i style={{ background: pillColor(c) }} />{c}</button>)}
             </div>
             {/* 개수 안내는 제목 밑이 아니라 지금 보는 목록 바로 위에 둠 */}
             <p className="ccount" id="c-count">{count}</p>

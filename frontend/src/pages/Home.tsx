@@ -203,6 +203,9 @@ function Piece({ k, item, big, canStep, rolling, off }: { k: RowKey; item: Item 
         swiped.current = true; setTimeout(() => (swiped.current = false), 50)
         stepFit(k, dx < 0 ? 1 : -1)
       }}
+      // 누른 채 세로로 스크롤하는 등 브라우저가 누르기를 취소하면 시작 위치를 지운다.
+      // 남겨 두면 다음에 살짝 탭할 때 예전 위치와의 차이로 계산돼 옆 옷으로 넘어간다 (코드 리뷰 22번)
+      onPointerCancel={() => { x0.current = null }}
       onClickCapture={(e) => { if (swiped.current) e.stopPropagation() }}>
       <button className="ph" aria-label={`${NAME[k]} 고르기`} onClick={() => openPicker(k)}>
         {item?.img && <SpinImg src={item.img} rolling={rolling} />}
@@ -278,7 +281,9 @@ function spinTo(i: number) {
       if (tick < stop[k] && n > 1) {
         done = false; S.spinKeys.add(k)
         S.pos[k] = (S.pos[k] + 1) % n
-        if (k === 't' && L.t[S.pos.t].cat === '원피스') S.pos.t = (S.pos.t + 1) % n // 도는 동안 줄 수가 바뀌지 않게
+        // 도는 동안 줄 수가 바뀌지 않게 원피스는 건너뛴다. 원피스가 연달아 있어도 모두 건너뛰고,
+        // 전부 원피스여도 끝없이 돌지 않게 한 바퀴(n칸)까지만 본다 (코드 리뷰 22번)
+        if (k === 't') for (let s = 0; s < n && L.t[S.pos.t].cat === '원피스'; s++) S.pos.t = (S.pos.t + 1) % n
       } else { S.pos[k] = target[k]; S.spinKeys.delete(k) }
     }
     if (done) { Object.assign(S.on, onTarget); S.spinning = false; S.spinKeys.clear(); spinTimer = 0; finishSpin = () => {}; emit(); return }
@@ -365,7 +370,8 @@ function Trend() {
   const mm = matchText(ps)
   const pick = (i: number) => { tSel = i; tResult = false; emit() }
   const shown = useRef(false)
-  useEffect(() => { if (tResult && !shown.current) showIn(resultRef.current); shown.current = tResult })
+  // 결과를 열고 닫을 때만 실행한다. 의존성이 없으면 홈이 다시 그려질 때마다(돌리는 중 약 45ms마다) 불렸다 (코드 리뷰 22번)
+  useEffect(() => { if (tResult && !shown.current) showIn(resultRef.current); shown.current = tResult }, [tResult]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       <div className="tdiv" id="h-trend"><p className="eyebrow">이번 달 유행</p><h2>Trend <i>Forecast</i></h2><p className="lead">한 달 동안 인기가 오를 옷과 내릴 옷이에요</p></div>
