@@ -265,14 +265,21 @@ function scanColor(b: Tile, done: () => void) {
   const fin = (hex: string) => { b.hex = hex; b.color = nearestName(hex); done() }
   if (!b.img) return setTimeout(() => fin(COLORS[b.color || '아이보리'] || '#E5DCC8'), 500)
   const im = new Image()
+  // 다른 서버(예: Blob Storage)의 사진도 픽셀을 읽을 수 있게 CORS로 불러온다. 서버가 허용하지 않으면 onerror로 간다
+  im.crossOrigin = 'anonymous'
   im.onload = () => {
-    const c = document.createElement('canvas'); c.width = c.height = 24
-    const s = Math.min(im.width, im.height) * 0.4
-    c.getContext('2d')!.drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, 24, 24)
-    const px = c.getContext('2d')!.getImageData(0, 0, 24, 24).data
-    let r = 0, g = 0, bl = 0; for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i + 1]; bl += px[i + 2] }
-    const n = px.length / 4, h = (v: number) => Math.round(v / n).toString(16).padStart(2, '0')
-    fin(('#' + h(r) + h(g) + h(bl)).toUpperCase())
+    // 픽셀 읽기가 실패해도(다른 서버 사진이라 막힘, 캔버스를 못 만듦 등) 기본 색으로 끝낸다.
+    // done()이 불리지 않으면 'scanning'이 true로 남아 모든 사진의 '사진에서 색 뽑기'가 '뽑는 중'에서 멈췄다
+    try {
+      const c = document.createElement('canvas'); c.width = c.height = 24
+      const ctx = c.getContext('2d'); if (!ctx) return fin('#E5DCC8')
+      const s = Math.min(im.width, im.height) * 0.4
+      ctx.drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, 24, 24)
+      const px = ctx.getImageData(0, 0, 24, 24).data
+      let r = 0, g = 0, bl = 0; for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i + 1]; bl += px[i + 2] }
+      const n = px.length / 4, h = (v: number) => Math.round(v / n).toString(16).padStart(2, '0')
+      fin(('#' + h(r) + h(g) + h(bl)).toUpperCase())
+    } catch { fin('#E5DCC8') }
   }
   im.onerror = () => fin('#E5DCC8')
   im.src = b.img
