@@ -3,13 +3,15 @@
 // 정확도(확률) 높은 순으로 보여 준다. 사용자가 하나를 고르면 이름·종류·색·무늬가 한꺼번에 정해진다.
 // 모델이 틀려도 사용자가 한 번 눌러서 바로잡게 하려고, 1순위를 자동으로 고르지 않는다.
 // 지금은 후보가 가짜(DEMO_CANDS)다. 분류 모델 API가 생기면 scheduleAnalysis 안의 setTimeout 부분을 API 호출로 바꾸고,
-// 응답에서 상세 후보 3개를 꺼내 cands에 넣으면 된다.
+// 응답에서 상세 후보 3개를 꺼내 cands에 넣으면 된다. 서버에는 원본이 아니라 Tile.file(1024×1024px로 줄인 JPEG)을 보낸다.
+// 올린 사진은 먼저 줄이고(resizeImage, src/image.ts) 다 줄인 뒤에 분석을 시작한다. 실제 API도 줄인 사진을 보내야 해서 순서를 맞췄다.
 // 분석 타이머는 이 화면이 열려 있을 때만 돈다: 화면을 나가면 멈추고(pauseAnalysis), 돌아오면 남은 사진만 이어서 분석한다.
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Back } from '../components/Icons'
 import { CATS, COLORS, PATTERNS, SUBS, photo } from '../data/seed'
 import type { Category } from '../data/types'
+import { resizeImage } from '../image'
 import { S, emit, swatchBg, useApp } from '../store'
 import { askPermission, closeAll, openSheet, toast } from '../ui'
 
@@ -27,9 +29,12 @@ type Cand = { name: string; cat: Category; sub: string; color: string; pattern: 
  *   옷장에 넣을 때 "색 무늬 종류"로 새로 만든다 (고른 이름과 실제 값이 어긋나지 않게)
  * - hex: "사진에서 색 뽑기"를 했을 때만 있는 실제 색
  * - done: 분석이 끝났는지 (끝나기 전엔 타일에 '확인 중' 표시)
+ * - file: 서버로 보낼 사진 (1024×1024px JPEG, 남는 곳은 흰 여백). 예시 사진은 앱 안 이미지라 보낼 파일이 없어서 null
+ * - resizing: 사진을 줄이는 중인지. 줄이는 동안은 분석을 시작하지 않는다 (보낼 사진이 아직 없어서)
  */
 type Tile = {
-  id: number; img: string | null; cands: Cand[]; picked: Cand | null; manual: boolean; done: boolean
+  id: number; img: string | null; file: Blob | null; resizing: boolean
+  cands: Cand[]; picked: Cand | null; manual: boolean; done: boolean
   name: string | null; cat: Category | null; sub: string | null; color: string | null; pattern: string; hex: string | null
 }
 
@@ -49,6 +54,10 @@ const DEMO_IDS = [4, 7, 10, 12, 5, 6]
 let batch: Tile[] = []
 /** 돌고 있는 분석 타이머 id. 화면을 나갈 때 한꺼번에 멈추려고 모아 둔다 */
 let timers: number[] = []
+/** 지금 이 화면이 열려 있는지. 사진 줄이기는 화면을 나간 뒤에 끝날 수 있어서, 그때 분석 타이머를 걸지 않으려고 둔다 */
+let onScreen = false
+/** 몇 번째 사진 묶음인지. 줄이는 중에 새 묶음을 받으면, 늦게 끝난 이전 묶음의 결과를 버리려고 비교한다 */
+let batchSeq = 0
 
 /** 분석 타이머를 모두 멈춘다. 화면을 나갈 때(Upload의 useEffect 정리)와 새 사진 묶음을 받을 때 부른다 */
 function pauseAnalysis() {
@@ -66,7 +75,7 @@ function scheduleAnalysis() {
   pauseAnalysis() // 같은 사진에 타이머가 두 번 걸리지 않게 먼저 비움
   let wait = 0 // 남은 사진 중 몇 번째인지 (이미 끝난 사진은 건너뛰고 간격을 셈)
   batch.forEach((b, i) => {
-    if (b.done) return
+    if (b.done || b.resizing) return // 아직 줄이는 중인 사진은 줄이기가 끝난 뒤 startBatch가 다시 부른다
     timers.push(window.setTimeout(() => {
       b.cands = DEMO_CANDS[i % DEMO_CANDS.length]; b.done = true; emit()
     }, 700 + wait++ * 650 + (i >= batch.length - 2 ? 1800 : 0)))
@@ -74,19 +83,32 @@ function scheduleAnalysis() {
 }
 
 /**
- * 사진 여러 장(최대 9장)을 받아 분석을 시작한다. files가 없으면 예시 사진 6장으로 해 본다.
- * 새 묶음이 이전 묶음을 바꾸므로, 이전 묶음에 남아 있던(옷장에 넣지 않은) 사진의 주소는 해제한다.
- * 옷장에 넣은 사진은 넣을 때 batch에서 빠지므로 여기서 해제되지 않는다 (옷장 사진으로 계속 쓰임).
+ * 사진 여러 장(최대 9장)을 받아 1024×1024px로 줄인 뒤 분석을 시작한다. files가 없으면 예시 사진 6장으로 해 본다.
+ * - 줄이는 동안 타일은 '확인 중'으로 보이고, 다 줄이면 줄인 사진으로 미리보기(img)와 보낼 파일(file)을 채운다.
+ *   미리보기도 줄인 사진을 쓰는 이유: 서버로 가는 사진과 화면에 보이는 사진이 같아야 하고, 큰 원본을 9장 들고 있으면 폰 메모리를 많이 쓴다
+ * - 새 묶음이 이전 묶음을 바꾸므로, 이전 묶음에 남아 있던(옷장에 넣지 않은) 사진의 주소는 해제한다.
+ *   옷장에 넣은 사진은 넣을 때 batch에서 빠지므로 여기서 해제되지 않는다 (옷장 사진으로 계속 쓰임).
  */
-function startBatch(files: FileList | Blob[] | null) {
+async function startBatch(files: FileList | Blob[] | null) {
+  pauseAnalysis()
   batch.forEach((b) => { if (b.img?.startsWith('blob:')) URL.revokeObjectURL(b.img) }) // 예시 사진(앱 안 이미지)은 blob이 아니라 해제하지 않음
   const list: (Blob | undefined)[] = files && files.length ? [...files].slice(0, 9) : Array.from({ length: 6 })
-  batch = list.map((f, i) => ({
-    id: ++S.uid, img: f ? URL.createObjectURL(f) : photo(DEMO_IDS[i % DEMO_IDS.length]) || null,
+  const seq = ++batchSeq
+  const tiles: Tile[] = list.map((f, i) => ({
+    id: ++S.uid, img: f ? null : photo(DEMO_IDS[i % DEMO_IDS.length]) || null, file: null, resizing: !!f,
     cands: [], picked: null, manual: false, done: false, name: null, cat: null, sub: null, color: null, pattern: '무지', hex: null,
   }))
+  batch = tiles
   emit()
-  scheduleAnalysis()
+  // 여러 장을 한꺼번에 줄인다. resizeImage는 실패해도 원본을 돌려주므로 여기서 멈추지 않는다
+  const resized = await Promise.all(list.map((f) => (f ? resizeImage(f) : Promise.resolve(null))))
+  if (seq !== batchSeq) return // 줄이는 사이에 새 묶음을 받았으면 이 결과는 버린다 (아직 주소를 만들지 않아 해제할 것도 없음)
+  tiles.forEach((b, i) => {
+    const f = resized[i]; if (!f) return
+    b.file = f; b.img = URL.createObjectURL(f); b.resizing = false
+  })
+  emit()
+  if (onScreen) scheduleAnalysis() // 화면을 나간 뒤에 끝났으면 돌아올 때 Upload의 useEffect가 분석을 이어서 한다
 }
 
 /**
@@ -113,7 +135,8 @@ export default function Upload() {
   const album = useRef<HTMLInputElement>(null), shot = useRef<HTMLInputElement>(null)
   const [cam, setCam] = useState(false)
   // 화면에 들어오면 남은 사진 분석을 이어서 하고, 나가면 멈춘다 (나간 뒤에도 타이머가 돌며 다시 그리지 않게)
-  useEffect(() => { scheduleAnalysis(); return pauseAnalysis }, [])
+  // onScreen: 사진 줄이기가 화면을 나간 뒤에 끝나면 분석을 걸지 않게 하려고 함께 켜고 끈다
+  useEffect(() => { onScreen = true; scheduleAnalysis(); return () => { onScreen = false; pauseAnalysis() } }, [])
   const done = batch.filter((b) => b.done).length, ready = batch.filter(isSet).length, needPick = batch.filter((b) => b.done && !isSet(b)).length, left = batch.length - done
   return (
     <section className="screen on" id="s-upload">
