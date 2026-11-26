@@ -102,7 +102,7 @@ data/seed.ts ──(앱이 켜질 때 한 번 복사)──▶ store.ts 의 S �
 5. 알림·창은 `ui.tsx`의 `toast`, `openSheet`, `openModal`을 어디서든 부릅니다. 내부에서 `emit()`을 불러 다시 그립니다.
 6. 화면 이동은 컴포넌트 안에서는 `useNavigate()`, 창 안의 버튼처럼 컴포넌트 밖에서는 `nav.ts`의 `go`를 씁니다.
 
-- 저장은 메모리뿐입니다. 새로고침하면 `seed.ts`의 처음 상태로 돌아갑니다. (`localStorage`도 쓰지 않습니다)
+- 저장은 메모리뿐입니다. 새로고침하면 `seed.ts`의 처음 상태로 돌아갑니다. (`localStorage`도 쓰지 않습니다. 예외로 Google 로그인 직후인지 표시하는 값 하나만 `sessionStorage`에 잠깐 남깁니다)
 - **로그인을 뺀 모든 데이터는 아직 `seed.ts`의 가짜 데이터입니다.** 백엔드는 `closet-service`(8081)와 `recommendation-service`(8082) 두 서비스이고, 옷·추천 같은 업무 API는 아직 없습니다. 로그인만 `closet-service`와 연결되어 있습니다. (아래 [로그인](#로그인-백엔드-연결))
 - API가 열리면 서비스별로 `seed.ts`가 하던 일을 `src/api/`의 요청 함수가 대신합니다. 그때까지는 같은 함수가 가짜 데이터를 돌려주는 방식으로 넘어갑니다. 자세한 방법은 [`docs/API_CONVENTION.md`](docs/API_CONVENTION.md)를 참고하세요.
 - 화면 구성에만 쓰는 보기 상태(`kView`, `cTab` 등)도 `S`에 있어서, 탭을 옮겨 다녀도 유지됩니다.
@@ -128,15 +128,18 @@ data/seed.ts ──(앱이 켜질 때 한 번 복사)──▶ store.ts 의 S �
 
 ```
 앱 시작 → [로딩 화면] GET /api/auth/me
-  ├─ 401: 로그인 화면 → [Google로 계속하기] → 백엔드 → Google 로그인 → 앱이 #/onboard로 다시 열림 → 맨 위부터 다시
-  └─ 200: 로그인 상태(S.loggedIn), 서버 닉네임 반영. #/onboard로 열렸으면 첫 설정, 로그인 화면이면 홈으로
+  ├─ 401: 로그인 화면 → [Google로 계속하기] → 백엔드 → Google 로그인 → 앱이 다시 열림 → 맨 위부터 다시
+  └─ 200: 로그인 상태(S.loggedIn), 서버 닉네임 반영
+       ├─ 방금 Google 로그인을 하고 돌아왔다 → 첫 설정(onboard)
+       └─ 이미 로그인된 상태로 앱을 열었다 → 홈 (로그인·첫 설정 화면이었으면 홈으로, 다른 화면은 그대로)
 ```
 
 - **실행 순서**: 백엔드 `closet-service`를 먼저 켜고(8081) `npm run dev`를 실행합니다. 백엔드가 꺼져 있으면 로그인 확인에 실패해 로그인 화면이 뜨고, 가짜 데이터로 둘러볼 수는 있습니다.
 - **프록시**: 개발 서버가 `/api` 요청을 백엔드로 대신 전달합니다(`vite.config.ts`). 그래서 백엔드에 CORS 설정이 없어도 로그인 쿠키가 같이 갑니다. 다른 PC의 백엔드를 쓰려면 `frontend/.env.local`에 `API_PROXY_TARGET=http://<IP>:8081`을 적습니다.
 - **Google 로그인 조건**: 백엔드를 켠 PC에 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` 환경 변수가 있어야 합니다. 없으면 Google 로그인이 꺼져 있어, 버튼을 누르면 Google 화면 대신 백엔드의 401 빈 화면이 뜹니다.
 - **로그아웃**: 설정 화면의 로그아웃이 서버 세션도 끝냅니다(`POST /api/auth/logout`).
-- **지금의 한계**: 백엔드가 로그인 후 항상 `#/onboard`로 보내서, 이미 가입한 사람도 첫 설정이 뜹니다. 카카오·Apple 버튼은 백엔드에 없어서 가짜 로그인입니다.
+- **방금 로그인했는지 구분하는 방법**: Google 버튼을 누를 때 `sessionStorage`에 표시를 남기고(`markGoogleLoginStart`), 앱이 다시 열리면 읽고 바로 지웁니다(`takeGoogleLoginReturn`). 표시가 있으면 첫 설정, 없으면 홈입니다.
+- **지금의 한계**: 가입 여부를 서버가 알려 주지 않아서, Google 로그인을 할 때마다(이미 가입한 사람도) 첫 설정이 뜹니다. 카카오·Apple 버튼은 백엔드에 없어서 가짜 로그인입니다.
 - 폰 앱(Capacitor)이나 배포에서는 프록시가 없으므로 `VITE_CLOSET_API_URL`에 백엔드 전체 주소를 적고, 백엔드가 CORS와 쿠키를 허용해야 합니다.
 
 ## 폰에서 보기

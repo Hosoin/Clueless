@@ -1,6 +1,6 @@
 // 로그인: Google은 백엔드 로그인 주소로 이동, 카카오·Apple은 아직 가짜(바로 로그인됨) (담당: C)
 import { useNavigate } from 'react-router'
-import { GOOGLE_LOGIN_URL } from '../api/auth'
+import { GOOGLE_LOGIN_URL, markGoogleLoginStart } from '../api/auth'
 import { S } from '../store'
 import { toast } from '../ui'
 
@@ -11,7 +11,8 @@ export default function Login() {
   // 백엔드가 Google 로그인 화면으로 보냈다가, 로그인이 끝나면 앱(#/onboard)으로 다시 돌려보낸다.
   // 돌아올 때 앱이 새로 열리므로 로그인 상태는 Layout.tsx가 시작할 때 /api/auth/me로 되찾는다.
   // (카카오·Apple은 아직 가짜 로그인이다)
-  const loginWithGoogle = () => { window.location.href = GOOGLE_LOGIN_URL }
+  // 이동하기 전에 "방금 로그인 버튼을 눌렀다"는 표시를 남겨, 돌아왔을 때 첫 설정으로 보낼지 정한다 (api/auth.ts)
+  const loginWithGoogle = () => { markGoogleLoginStart(); window.location.href = GOOGLE_LOGIN_URL }
 
   const login = (via: string) => {
     S.loggedIn = true

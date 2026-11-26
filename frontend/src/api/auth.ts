@@ -12,6 +12,27 @@ export type Me = { id: string; userName: string; nickName: string; email: string
  *  (fetch용 CLOSET_URL이 비어 있으면 개발용 기본값 localhost:8081을 쓴다) */
 export const GOOGLE_LOGIN_URL = `${CLOSET_URL || 'http://localhost:8081'}/oauth2/authorization/google`
 
+/* Google 로그인을 막 하고 돌아온 것인지 표시.
+   Google 로그인은 화면이 백엔드·Google로 넘어갔다 앱이 새로 열리는 방식이라 메모리(S)가 모두 사라진다.
+   그래서 "방금 로그인 버튼을 눌렀다"는 표시만 sessionStorage(이 탭이 닫히면 지워짐)에 잠깐 남겼다가, 앱이 다시 열리면 읽고 바로 지운다.
+   이 표시가 있으면 첫 설정(onboard)으로, 없으면(이미 로그인된 상태로 앱을 연 것) 홈으로 보낸다.
+   저장소를 못 쓰는 환경(사생활 보호 모드 등)에서는 표시 없이 동작해 홈으로 간다. */
+const GOOGLE_RETURN_KEY = 'clueless.googleLoginPending'
+
+/** Google 로그인 화면으로 보내기 직전에 부른다 */
+export function markGoogleLoginStart() {
+  try { sessionStorage.setItem(GOOGLE_RETURN_KEY, '1') } catch { /* 저장소를 못 쓰면 표시 없이 진행 */ }
+}
+
+/** 방금 Google 로그인을 하고 돌아왔는지 읽고, 읽은 즉시 표시를 지운다 (한 번만 true) */
+export function takeGoogleLoginReturn(): boolean {
+  try {
+    const pending = sessionStorage.getItem(GOOGLE_RETURN_KEY) === '1'
+    sessionStorage.removeItem(GOOGLE_RETURN_KEY)
+    return pending
+  } catch { return false }
+}
+
 /** 로그인했는지 서버에 물어본다. 로그인했으면 사용자 정보, 아니면(401) null.
  *  서버에 닿지 못하면 ApiError(status 0)를 던진다. 성공하면 응답 헤더의 CSRF 토큰을 보관한다. */
 export async function fetchMe(): Promise<Me | null> {

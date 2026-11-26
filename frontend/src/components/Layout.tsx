@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
-import { fetchMe } from '../api/auth'
+import { fetchMe, takeGoogleLoginReturn } from '../api/auth'
 import { S, emit, useApp } from '../store'
 import { closeAll, Overlays } from '../ui'
 import { setNav } from '../nav'
@@ -43,15 +43,21 @@ export function Layout() {
     if (started.current) return
     started.current = true
     const goLogin = () => { if (pathname !== '/login') { S.loginBack = '/'; nav('/login', { replace: true }) } }
+    // 방금 Google 로그인 버튼을 누르고 돌아온 것인지 (표시는 읽자마자 지워지므로 /me 결과와 상관없이 먼저 읽는다)
+    const justLoggedIn = takeGoogleLoginReturn()
     fetchMe().then((me) => {
       if (!me) return goLogin() // 401: 로그인 안 됨 → 로그인 화면
       S.loggedIn = true
       S.me.nick = me.nickName || S.me.nick // 서버의 닉네임을 쓰고, 비어 있으면 기존 값 유지
-      if (pathname === '/onboard') {
-        // Google 로그인이 끝나면 백엔드가 #/onboard로 돌려보낸다. 새로 열린 앱에는 첫 설정 진행 정보가 없어서 여기서 만든다.
-        // (지금은 백엔드가 항상 이 주소로 보내서 이미 가입한 사람도 첫 설정이 뜬다. 첫 설정 여부는 /me 응답에 없다)
+      if (justLoggedIn) {
+        // Google 로그인에 막 성공함 → 첫 설정. 새로 열린 앱에는 첫 설정 진행 정보가 없어서 여기서 만든다
         if (!S.ob) S.ob = { step: 'mode', mode: S.pref.mode, styles: [...S.pref.styles], nick: S.me.nick }
-      } else if (pathname === '/login') nav('/', { replace: true }) // 이미 로그인했으면 로그인 화면 대신 홈
+        if (pathname !== '/onboard') nav('/onboard', { replace: true })
+      } else if (pathname === '/login' || pathname === '/onboard') {
+        // 이미 로그인된 상태로 앱을 열었음 → 홈. (백엔드가 #/onboard로 보낸 주소를 새로고침한 경우도 여기)
+        nav('/', { replace: true })
+      }
+      // 그 밖의 화면(옷장 등)에서 새로고침한 경우는 그 화면을 그대로 둔다
     }).catch(goLogin) // 서버에 닿지 못해도 앱은 열리도록 로그인 화면으로 (가짜 데이터로 둘러볼 수 있다)
       .finally(() => { setReady(true); emit() })
   }, [nav, pathname])
