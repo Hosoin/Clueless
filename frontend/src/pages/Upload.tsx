@@ -136,9 +136,12 @@ function putInCloset() {
     rec: 0, tags: [], lastWorn: null, img: b.img || undefined, isNew: true, added: Date.now(),
   })))
   batch = batch.filter((b) => !isSet(b))
+  cur = 0 // 남은 사진이 있으면 처음부터 이어서 확인. 그대로 두면 남은 장수보다 큰 번호가 남아 '이어서 확인하기 (6 / 1)'처럼 보였다
   closeAll()
   toast(`${take.length}벌을 옷장에 넣었어요`)
-  S.cView = 'items'; S.cSort = 0 // 옷장에서 '내 옷'을 최근 넣은 순으로 보여 줘야 새 옷이 맨 앞에 보인다
+  // 옷장에서 '내 옷'을 최근 넣은 순으로, 종류 탭은 '전체', 색 필터는 '모든 색'으로 보여 줘야 새 옷이 맨 앞에 다 보인다.
+  // 탭·필터를 그대로 두면 '하의' 탭이나 '블랙' 필터가 켜진 채 열려 방금 넣은 옷이 안 보였다
+  S.cView = 'items'; S.cSort = 0; S.cTab = '전체'; S.cColor = null
   go('/closet')
 }
 
