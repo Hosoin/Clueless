@@ -110,7 +110,7 @@
 - `HashRouter`(`src/main.tsx`)와 `base: './'`(`vite.config.ts`)는 Capacitor 앱과 배포에서 화면 이동·파일 경로를 맞추려고 쓴 것이라 바꾸지 않습니다.
 - 이미지는 `/`로 시작하는 절대 경로 대신 `import`(또는 `seed.ts`의 `photo`, `cpic`)로 불러옵니다.
 - 카메라는 https(또는 localhost)에서만 동작합니다. 폰에서 확인할 때는 `npm run dev:phone`을 씁니다.
-- API 연동 방식은 백엔드 팀과 정하는 중입니다. 정해지기 전에는 `fetch` 코드나 API 주소를 추가하지 않습니다.
+- API 연동 방식은 백엔드 팀과 정하는 중입니다. 지금은 로그인(`src/api/`)만 연결되어 있고, 정해지기 전에는 로그인 외의 `fetch` 코드나 API 주소를 추가하지 않습니다. (`docs/API_CONVENTION.md`)
 
 ## 확인 방법
 

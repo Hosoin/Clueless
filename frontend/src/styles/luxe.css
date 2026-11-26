@@ -187,3 +187,5 @@ h1 i{font-style:italic}
 .span-all{grid-column:1/-1!important} /* 격자 한 줄을 다 차지 (빈 목록 안내 등) */
 .btn.cta{margin-top:16px!important;padding:0 18px!important} /* 빈 화면 안내 아래 버튼 (코디 올리기, 커뮤니티 보기 등) */
 .screen.boot{display:flex!important} /* 앱 시작 때 로그인 확인을 기다리는 로고 화면 */
+/* 로그인 화면 약관 글자: 누를 수 있는 버튼이지만 예전 밑줄 글자(<u>)와 똑같이 보이게 버튼 기본 모양을 지운다 (코드 리뷰 33번) */
+.lg-terms button{margin:0;padding:0;border:0;background:none;font:inherit;color:inherit;line-height:inherit;text-decoration:underline;text-underline-offset:2px;vertical-align:baseline}

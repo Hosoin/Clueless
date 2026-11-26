@@ -33,7 +33,8 @@ export default function Login() {
         <button className="btn lg-google" onClick={loginWithGoogle}>Google로 계속하기</button>
         <button className="btn lg-apple" onClick={() => login('Apple')}>Apple로 계속하기</button>
         <button className="link" onClick={() => nav('/')}>로그인 없이 둘러보기</button>
-        <p className="lg-terms">계속하면 <u>이용약관</u>과 <u>개인정보 처리방침</u>에 동의하게 돼요</p>
+        {/* 약관 페이지가 아직 없어서 누르면 '준비 중' 알림만 띄운다. 페이지가 생기면 여기서 연결한다 (코드 리뷰 33번) */}
+        <p className="lg-terms">계속하면 <button type="button" onClick={() => toast('이용약관은 준비 중이에요')}>이용약관</button>과 <button type="button" onClick={() => toast('개인정보 처리방침은 준비 중이에요')}>개인정보 처리방침</button>에 동의하게 돼요</p>
       </div>
     </section>
   )
