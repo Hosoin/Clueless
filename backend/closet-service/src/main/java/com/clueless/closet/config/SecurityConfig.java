@@ -58,7 +58,8 @@ class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, UserService userService,
             @Value("${closet.security.google.client-id:}") String clientId,
-            @Value("${closet.security.google.client-secret:}") String clientSecret) {
+            @Value("${closet.security.google.client-secret:}") String clientSecret,
+            @Value("${closet.security.google.success-url}") String successUrl) {
         http.cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/test").permitAll()
@@ -80,7 +81,7 @@ class SecurityConfig {
                     .loginPage("/oauth2/authorization/google")
                     .userInfoEndpoint(userInfo -> userInfo.oidcUserService(userService))
                     .failureHandler((request, response, failure) -> response.setStatus(HttpStatus.UNAUTHORIZED.value()))
-                    .defaultSuccessUrl("http://localhost:5173/home", true));
+                    .defaultSuccessUrl(successUrl, true));
         }
         return http.build();
     }

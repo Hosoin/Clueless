@@ -26,6 +26,7 @@ closet:
     google:
       client-id: '${GOOGLE_CLIENT_ID:}'
       client-secret: '${GOOGLE_CLIENT_SECRET:}'
+      success-url: '${FRONTEND_LOGIN_SUCCESS_URL:http://localhost:5173/home}'
 server:
   port: 8081
 logging:

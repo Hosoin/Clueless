@@ -103,7 +103,7 @@ curl -i http://localhost:8082/test
 
 검증된 Google ID 토큰의 `sub`로 사용자를 식별합니다. 별도의 UserInfo 요청 없이 토큰의 `name`을 `public.user_info.user_name`에, `email_verified`가 불리언 `true`인 경우에만 `email`을 저장합니다. 이름이나 검증된 이메일이 없어도 로그인할 수 있습니다. 신규 사용자에게만 개인정보를 사용하지 않은 표시용 랜덤 닉네임(한글 조합과 숫자, 최대 12자)을 부여합니다. 닉네임은 고유 식별자가 아니므로 중복될 수 있습니다. 재로그인 시에는 비어 있는 이름과 이메일만 채울 수 있으며, 닉네임이 `NULL`인 기존 행도 그대로 둡니다.
 
-로그인 성공 시 백엔드는 고정 FE 주소 `http://localhost:5173/home`로 `302` 리디렉션합니다. Google 콘솔의 콜백 주소는 `http://localhost:8081/login/oauth2/code/google`입니다. FE는 아래 API를 같은 오리진(또는 같은 오리진의 프록시)으로 세션 쿠키와 함께 호출하는 것을 권장합니다. 로컬 CORS 범위는 의류 최종 저장 및 부분 편집 절을 참고하세요.
+로그인 성공 시 백엔드는 `FRONTEND_LOGIN_SUCCESS_URL`에 지정한 FE 주소로 `302` 리디렉션합니다. 미설정 시 `http://localhost:5173/home`을 사용하고, 운영 설정 예시는 `FRONTEND_LOGIN_SUCCESS_URL=https://dev.example.com/`입니다. 이 값은 Google 콘솔에 등록하는 백엔드 콜백(로컬: `http://localhost:8081/login/oauth2/code/google`)이나 CORS 설정을 바꾸지 않습니다. FE는 아래 API를 같은 오리진(또는 같은 오리진의 프록시)으로 세션 쿠키와 함께 호출하는 것을 권장합니다. 로컬 CORS 범위는 의류 최종 저장 및 부분 편집 절을 참고하세요.
 
 | 요청 | 결과 |
 | --- | --- |
