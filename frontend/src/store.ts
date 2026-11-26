@@ -248,8 +248,32 @@ export function deleteItem(it: Item) {
 
 /* ---------- 캘린더 ---------- */
 export const dkey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-export const TODAY0 = (() => { const t = new Date(); t.setHours(0, 0, 0, 0); return t })()
+const startOfToday = () => { const t = new Date(); t.setHours(0, 0, 0, 0); return t }
+/** 오늘 0시. 앱을 켜 둔 채 자정이 지나면 rollDay()가 새 날로 바꾼다 (let이라 불러 쓰는 쪽도 바뀐 값을 본다) */
+export let TODAY0 = startOfToday()
 export const agoOf = (d: Date) => Math.round((TODAY0.getTime() - d.getTime()) / 86400000)
+
+/** 날짜가 바뀌었으면 오늘을 새 날로 옮기고, "며칠 전"으로 저장한 값을 지난 날 수만큼 늘린다.
+ *  입은 기록(Hist.ago)과 마지막으로 입은 날(lastWorn, prevWorn)은 오늘 기준 며칠 전이라서,
+ *  오늘만 바꾸면 어제 입은 옷이 계속 "오늘 입음"으로 남는다. 계획(Plan)은 날짜로 저장해서 그대로 둔다.
+ *  결과: 날짜가 바뀌었으면 true (화면을 다시 그림) (코드 리뷰 19번) */
+export function rollDay(): boolean {
+  const now = startOfToday()
+  const days = Math.round((now.getTime() - TODAY0.getTime()) / 86400000)
+  if (days <= 0) return false
+  TODAY0 = now
+  S.history.forEach((h) => { h.ago += days })
+  S.items.forEach((it) => {
+    if (it.lastWorn !== null) it.lastWorn += days
+    if (typeof it.prevWorn === 'number') it.prevWorn += days
+  })
+  S.chosenKey = null // "오늘 코디로 정했어요"는 어제 일이 됨
+  emit()
+  return true
+}
+// 1분마다, 그리고 앱으로 돌아왔을 때(폰에서 다른 앱을 쓰다 돌아오거나 탭을 다시 볼 때) 날짜가 바뀌었는지 확인한다
+setInterval(rollDay, 60_000)
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') rollDay() })
 export const wornOn = (d: Date) => S.history.find((h) => h.ago === agoOf(d))
 export const planOn = (d: Date) => S.plans.find((p) => p.date === dkey(d))
 ;(() => { const d = new Date(TODAY0); d.setDate(d.getDate() + 2); S.plans.push({ date: dkey(d), ids: [2, 7, 10] }) })() // 예시: 모레 입을 코디

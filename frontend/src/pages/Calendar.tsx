@@ -17,10 +17,21 @@ import { closeAll, closeModal, openModal, openSheet, toast } from '../ui'
 
 const WD = ['일', '월', '화', '수', '목', '금', '토']
 let calMonth = new Date(TODAY0.getFullYear(), TODAY0.getMonth(), 1), calSel = new Date(TODAY0)
+/** calSel·calMonth를 정할 때의 오늘. 자정이 지나 TODAY0가 바뀌었는지 알아보려고 둔다 */
+let calDay = dkey(TODAY0)
+/** 앱을 켜 둔 채 날짜가 바뀌었으면(store.ts의 rollDay) 오늘을 고르고 있던 경우에만 새 오늘과 그 달로 옮긴다.
+ *  다른 날을 골라 두었으면 그대로 둔다. 같은 날에 다시 불러도 아무것도 바꾸지 않는다 (코드 리뷰 19번) */
+function followToday() {
+  const now = dkey(TODAY0)
+  if (now === calDay) return
+  if (dkey(calSel) === calDay) { calSel = new Date(TODAY0); calMonth = new Date(TODAY0.getFullYear(), TODAY0.getMonth(), 1) }
+  calDay = now
+}
 const thumbOf = (ids: number[]) => { const it = ids.map(byId).find((x) => x?.img) || byId(ids[0]); return it?.img ? <img src={it.img} alt="" /> : null }
 
 export default function Calendar() {
   useApp()
+  followToday()
   const set = (f: () => void) => { f(); emit() }
   return (
     <section className="screen on" id="s-cal">

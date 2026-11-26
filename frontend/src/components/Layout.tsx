@@ -23,7 +23,9 @@ function tabOf(path: string) {
   return path
 }
 
-const today = (() => { const d = new Date(); return `${d.getMonth() + 1}. ${d.getDate()} ${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getDay()]}` })()
+/** 위쪽 날짜 (예: 11. 26 THU). 앱을 켜 둔 채 자정이 지나도 바뀌게, 앱이 켜질 때 한 번이 아니라 그릴 때마다 계산한다.
+ *  날짜가 바뀌면 store.ts의 rollDay()가 emit()을 불러 다시 그려진다 */
+const todayLabel = () => { const d = new Date(); return `${d.getMonth() + 1}. ${d.getDate()} ${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][d.getDay()]}` }
 
 /** 폰 틀 + 위쪽 워드마크 + 화면 + 하단 탭 */
 export function Layout() {
@@ -96,7 +98,7 @@ export function Layout() {
     <div className={`phone ${loginOn ? 'login-on' : ''}`} id="app" ref={phone}
       onScroll={(e) => { if (e.currentTarget.scrollTop) e.currentTarget.scrollTop = 0 }}
       >{/* 폰 틀(#app)은 절대 움직이지 않게 */}
-      {!loginOn && <div className="top"><span className="d">{today}</span><p className="logo">Clueless</p><span className="w">4°/12°, 맑음</span></div>}
+      {!loginOn && <div className="top"><span className="d">{todayLabel()}</span><p className="logo">Clueless</p><span className="w">4°/12°, 맑음</span></div>}
       <Outlet />
       {!loginOn && (
         <nav id="nav" ref={navRef} className={navHide ? 'hide' : ''}>
