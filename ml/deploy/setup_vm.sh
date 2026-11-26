@@ -45,7 +45,7 @@ sudo -u "$USER_NAME" -H bash -c "cd $APP/ml && $UV run --no-sync python -c \"
 from huggingface_hub import snapshot_download
 from ml.analyze import CLIP, CLIP_REVISION
 from ml.background import ensure_model
-snapshot_download(CLIP, revision=CLIP_REVISION)
+snapshot_download(CLIP, revision=CLIP_REVISION, allow_patterns=['*.json', '*.txt', '*.safetensors'])
 ensure_model()\""
 
 # 환경 파일: 키는 처음 한 번만 만들고, 이후 실행에서는 건드리지 않는다

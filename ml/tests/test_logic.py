@@ -114,4 +114,11 @@ with tempfile.TemporaryDirectory() as d:
         assert classes[2] == "아우터" and torch.allclose(loaded(x), head(x)), hidden
     assert load_probe(Path(d) / "없음.pt") is None
 
+# 서비스 이미지에는 dev 의존성(pyarrow·httpx)이 없다: 그래도 API 모듈을 불러올 수 있어야 한다 (도커 첫 실행에서 실제로 죽었던 버그)
+import subprocess  # noqa: E402
+import sys  # noqa: E402
+
+code = "import sys; sys.modules.update({m: None for m in ('pyarrow', 'pyarrow.parquet', 'httpx')}); import ml.api"
+r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+assert r.returncode == 0, r.stderr[-800:]
 print("ok")
