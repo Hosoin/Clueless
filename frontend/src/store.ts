@@ -266,8 +266,19 @@ export function recalcWorn(id: number) {
   it.lastWorn = hs.length ? Math.min(...hs.map((h) => h.ago)) : it.prevWorn !== undefined ? it.prevWorn : null
   if (!hs.some((h) => h.ago === 0)) delete it.prevWorn
 }
+/**
+ * 이 옷들(ps)이 오늘 입은 코디와 같은지. 오늘 입은 기록(S.history의 ago 0)과 옷이 똑같으면 true.
+ * '오늘 코디로 정했어요' 표시를 화면 안 상태(useState)에 두면 탭을 옮길 때 풀리고, 다른 코디로 바꿔도 남아서
+ * 기록을 보고 그때그때 판단한다 (캘린더 저장한 코디, 홈 트렌드 코디)
+ */
+export function isWornToday(ps: Item[]) {
+  const today = S.history.find((h) => h.ago === 0)
+  return !!today && ps.length > 0 && today.ids.length === ps.length && ps.every((it) => today.ids.includes(it.id))
+}
+/** 이미 저장한 코디인지. '저장했어요' 표시와 saveLook의 중복 확인이 같이 쓴다 */
+export const isSavedLook = (look: Look) => S.saved.some((q) => outfitKey(q) === outfitKey(look))
 export function saveLook(next: Look) {
-  const dup = S.saved.some((q) => outfitKey(q) === outfitKey(next))
+  const dup = isSavedLook(next)
   if (!dup) { const n = new Date(); S.saved.unshift({ id: ++S.sid, ...next, at: `${n.getMonth() + 1}월 ${n.getDate()}일` } as Saved) }
   return dup
 }

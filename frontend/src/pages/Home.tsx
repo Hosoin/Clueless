@@ -2,7 +2,7 @@
 // - 제목 아래 스타일 칩(추천·미니멀·캐주얼…)으로 원하는 스타일을 고르면 추천 이유 문구가 그 스타일로 바뀐다
 // - 아래 버튼: [다음 추천 코디] / [이 코디로 입을래요][아바타로 보기]
 // - [아바타로 보기]를 누르면 같은 화면이 'My Avatar' 보기로 바뀐다 (S.view = 'avatar'). 닫기로 룩북으로 돌아옴
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { Arrow, SpinIc, TabIcon } from '../components/Icons'
 import { Ph } from '../components/Ph'
 import { COLORS, STYLES, TRENDS } from '../data/seed'
@@ -10,7 +10,7 @@ import type { Item, Look } from '../data/types'
 import {
 
   EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, current, clampPos, emit, firstFresh, fit, hexOf,
-  isPast, isRecent, keepSel, layersFor, lists, matchText, rowKey, saveLook, showsOutfit, stepFit, useApp,
+  isPast, isRecent, isSavedLook, isWornToday, keepSel, layersFor, lists, matchText, rowKey, saveLook, showsOutfit, stepFit, useApp,
   wearList, wearToday, worn, wornKey, wornNote, iga, eun, type Combo, type ExtraKey, type RowKey,
 } from '../store'
 import { closeAll, openSheet, showIn, toast } from '../ui'
@@ -409,13 +409,14 @@ function Trend() {
 }
 /** 트렌드 코디 아래 버튼: 오늘 입기, 저장하기. look은 칸이 비어 있을 수 있어서(고를 옷이 없을 때) Look 타입으로 받는다 */
 function TrendActs({ ps, look }: { ps: Item[]; look: Look }) {
-  const [wornNow, setWorn] = useState(false), [savedNow, setSaved] = useState(false)
+  // 화면 안 상태로 두면 탭을 옮길 때 풀려서, 오늘 입은 기록·저장한 코디를 보고 그때그때 판단한다
+  const wornNow = isWornToday(ps), savedNow = isSavedLook(look)
   return (
     <div className="acts">
-      <button className="btn solid" disabled={wornNow} onClick={() => { wearToday(ps); setWorn(true); toast('오늘 코디로 정했어요'); emit() }}>{wornNow ? '오늘 코디로 정했어요' : '이 코디로 입을래요'}</button>
+      <button className="btn solid" disabled={wornNow} onClick={() => { wearToday(ps); toast('오늘 코디로 정했어요'); emit() }}>{wornNow ? '오늘 코디로 정했어요' : '이 코디로 입을래요'}</button>
       <button className="btn" disabled={savedNow} onClick={() => {
         if (saveLook(look)) return toast('이미 저장한 코디예요')
-        setSaved(true); toast('저장했어요. 캘린더의 저장한 코디에서 볼 수 있어요'); emit()
+        toast('저장했어요. 캘린더의 저장한 코디에서 볼 수 있어요'); emit()
       }}>{savedNow ? '저장했어요' : '저장하기'}</button>
     </div>
   )
