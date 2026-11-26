@@ -209,7 +209,7 @@ docker network create clueless
 
 # 2. 코드 받기 (처음 한 번)
 git clone https://github.com/Hosoin/Clueless.git
-cd Clueless && git switch frontend-dev
+cd Clueless && git switch frontend
 
 # 3. 최신 코드로 맞추고 이미지 빌드 (배포할 때마다)
 cd ~/Clueless && git pull
@@ -228,7 +228,7 @@ curl -i http://localhost/api/auth/me  # 401: 백엔드 연결 OK / 502: 백엔�
 
 - 업데이트할 때는 3~5번을 반복합니다. 4번에서 이전 컨테이너를 지우고 새 이미지로 띄웁니다.
 - 저장소가 공개라서 VM에서 `git clone`·`git pull`에 로그인이 필요 없습니다. VM의 저장소 폴더에서는 코드를 고치지 않습니다. (`git pull`이 충돌하지 않게)
-- 배포할 브랜치를 바꾸려면 2번의 `git switch` 대상을 바꿉니다. (스테이징은 `frontend`, 지금 최신 코드는 `frontend-dev`)
+- VM에는 **`frontend` 브랜치**(스테이징)를 배포합니다. `frontend-dev`에 머지된 변경은 `frontend-dev → frontend` PR이 머지된 뒤에 VM에 반영됩니다.
 - 빌드를 여러 번 하면 이전 이미지가 쌓입니다. 가끔 `docker image prune`으로 정리합니다.
 - Azure NSG 인바운드에서 **80 포트만** 허용합니다. 8081은 공용 네트워크 안에서만 쓰므로 외부에 열지 않습니다.
 - VM에서는 80 포트로 엽니다. 위의 "포트를 5173으로 여는 이유"는 내 PC에서 띄울 때의 이야기입니다.
