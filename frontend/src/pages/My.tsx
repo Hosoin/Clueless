@@ -39,8 +39,8 @@ export default function My() {
                   </button>
                 ))}</div>
             ) : S.myTab === 'posts'
-              ? <div className="empty">아직 올린 코디가 없어요<br /><button className="btn" style={{ marginTop: 16, padding: '0 18px' }} onClick={() => writeSheet()}>코디 올리기</button></div>
-              : <div className="empty">커뮤니티에서 마음에 드는 글을 저장해 보세요<br /><button className="btn" style={{ marginTop: 16, padding: '0 18px' }} onClick={() => nav('/community')}>커뮤니티 보기</button></div>}
+              ? <div className="empty">아직 올린 코디가 없어요<br /><button className="btn cta" onClick={() => writeSheet()}>코디 올리기</button></div>
+              : <div className="empty">커뮤니티에서 마음에 드는 글을 저장해 보세요<br /><button className="btn cta" onClick={() => nav('/community')}>커뮤니티 보기</button></div>}
           </>
         )}
       </div>

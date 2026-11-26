@@ -105,7 +105,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="hhead">
-            <div className="h1row" style={{ alignItems: 'flex-end' }}>
+            <div className="h1row">
               <h1>Today’s <i>Look</i></h1>
               <span className="hcount2">{S.spinning ? '맞추는 중' : same ? <><b>{String(S.oi + 1).padStart(2, '0')}</b> / {String(S.outfits.length).padStart(2, '0')}</> : null}</span>
             </div>
@@ -161,7 +161,7 @@ export default function Home() {
       {/* 아바타 보기는 한 화면짜리라 아래 설명과 트렌드는 룩북에서만 보여 준다 */}
       {!isAvatar && <>
       <div className="pad hmore">
-        <div className="match hm" style={{ marginTop: 0 }}>
+        <div className="match hm mt0">
           <span className={`dot ${m.hit || S.spinning ? '' : 'grey'}`} />
           <p>{same ? `${o.reason} · ${m.t}` : m.t}</p>
         </div>
@@ -373,7 +373,7 @@ function Trend() {
             <button key={String(up)} className={tUp === up ? 'on' : ''} onClick={() => { tUp = up; pick(TRENDS.findIndex((x) => x.up === up)) }}>{up ? '상승 랭킹' : '하락 랭킹'}</button>
           ))}
         </div>
-        <div className="list" style={{ marginTop: 16 }}>
+        <div className="list mt16">
           {TRENDS.map((x, i) => [x, i] as const).filter(([x]) => x.up === tUp).map(([x, i], rank) => (
             <button key={x.k} className={`li trow ${i === tSel ? 'sel' : ''}`} onClick={() => pick(i)}>
               <p className="num">0{rank + 1}</p><p className="name">{x.k}</p><p className={x.up ? 'up' : 'down'}>{x.up ? '상승' : '하락'}</p>
@@ -385,15 +385,15 @@ function Trend() {
           <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{title}</p>
           <div className="grid3" style={{ marginTop: 12 }}>
             {mine.length ? mine.slice(0, 3).map((x) => <div key={x.id}><Ph item={x} label={x.name} style={{ height: 104 }} /><p className="cap">{x.name}</p></div>)
-              : <div className="empty" style={{ gridColumn: '1/-1', padding: '20px 0' }}>{t.up ? '비슷한 옷으로 코디를 찾아볼게요' : '지금은 다른 옷에 집중해도 좋아요'}</div>}
+              : <div className="empty span-all" style={{ padding: '20px 0' }}>{t.up ? '비슷한 옷으로 코디를 찾아볼게요' : '지금은 다른 옷에 집중해도 좋아요'}</div>}
           </div>
-          {mine.length > 0 && t.up && !tResult && <button className="btn solid full" style={{ marginTop: 16 }} onClick={() => { tResult = true; emit() }}>이 {short}{euro(short)} 코디 받기</button>}
+          {mine.length > 0 && t.up && !tResult && <button className="btn solid full mt16" onClick={() => { tResult = true; emit() }}>이 {short}{euro(short)} 코디 받기</button>}
           {tResult && look && (
-            <div className="so" style={{ marginTop: 16 }} ref={resultRef}>
+            <div className="so mt16" ref={resultRef}>
               <div className="meta"><p className="nm">{t.k}{euro(t.k)} 맞춘 코디</p><button className="link" style={{ minHeight: 32 }} onClick={() => { tResult = false; emit() }}>닫기</button></div>
               <div className="pair">{ps.map((p) => <div className="slot" key={p.id}><Ph item={p} label={p.cat} /><p className="cap">{p.cat}</p></div>)}</div>
               <p style={{ margin: 0, fontSize: 13 }}>{ps.map((p) => p.name).join(' + ')}</p>
-              <div className="match" style={{ marginTop: 8 }}><span className={`dot ${mm.hit ? '' : 'grey'}`} /><p>{mm.t}</p></div>
+              <div className="match mt8"><span className={`dot ${mm.hit ? '' : 'grey'}`} /><p>{mm.t}</p></div>
               <TrendActs ps={ps} look={look} />
             </div>
           )}

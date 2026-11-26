@@ -90,7 +90,7 @@ export function Layout() {
   if (!ready) { // 서버 응답을 기다리는 동안 로그인 화면이나 홈이 잠깐 보였다 사라지지 않게 로고만 보여 준다
     return (
       <div className="phone login-on" id="app" ref={phone}>
-        <section className="screen on" style={{ display: 'flex' }}>
+        <section className="screen on boot">
           <div className="lg-main"><p className="lg-logo">Clueless</p></div>
         </section>
       </div>

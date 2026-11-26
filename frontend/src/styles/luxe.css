@@ -185,3 +185,14 @@ h1 i{font-style:italic}
 .lb h3 + .sub{margin:2px 0 10px}             /* 별명 아래 원래 이름 */
 .alias-edit{margin-left:10px;min-height:0;padding:0}
 .alias-field{margin-top:16px}
+
+/* 여러 화면에서 같이 쓰는 여백·배치 (두 곳 이상 반복되던 인라인 style을 옮김, 코드 리뷰 26번).
+   인라인 style은 다른 규칙보다 늘 우선했으므로, 옮긴 뒤에도 화면이 그대로이도록 !important로 같은 우선순위를 준다 */
+.mt0{margin-top:0!important}
+.mt8{margin-top:8px!important}
+.mt16{margin-top:16px!important}
+.mt18{margin-top:18px!important}
+.pt4{padding-top:4px!important}
+.span-all{grid-column:1/-1!important} /* 격자 한 줄을 다 차지 (빈 목록 안내 등) */
+.btn.cta{margin-top:16px!important;padding:0 18px!important} /* 빈 화면 안내 아래 버튼 (코디 올리기, 커뮤니티 보기 등) */
+.screen.boot{display:flex!important} /* 앱 시작 때 로그인 확인을 기다리는 로고 화면 */

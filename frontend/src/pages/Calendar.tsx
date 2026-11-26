@@ -97,7 +97,7 @@ function Day() {
             {/* 수정하기: 빠진 옷 더하기·안 입은 옷 빼기 창, 삭제하기: 그날 기록을 통째로 지움 */}
             <div className="row2"><button className="btn" onClick={() => editHist(w)}>수정하기</button>
               <button className="btn" onClick={() => askDeleteHist(w, () => applyHist(w, [], '입은 기록을 지웠어요'))}>삭제하기</button></div>
-            <button className="btn solid full" style={{ marginTop: 8 }} onClick={() => saveWorn(w)}>이 코디 저장하기</button></>
+            <button className="btn solid full mt8" onClick={() => saveWorn(w)}>이 코디 저장하기</button></>
         : pl ? <><p className="k pink">입을 코디</p>{pair(pl.ids)}
             <div className="row2"><button className="btn" onClick={() => planSheet(d)}>다른 코디로 바꾸기</button>
               <button className="btn" onClick={() => { S.plans.splice(S.plans.indexOf(pl), 1); toast('계획을 지웠어요'); emit() }}>삭제하기</button></div></>
@@ -138,7 +138,7 @@ function planSheet(d: Date) {
 function SavedList() {
   const nav = useNavigate()
   const [wornIds, setWorn] = useState<number[]>([])
-  if (!S.saved.length) return <div className="saved"><div className="empty">아직 저장한 코디가 없어요<br /><button className="btn" style={{ marginTop: 16, padding: '0 18px' }} onClick={() => nav('/')}>코디 맞춰 보기</button></div></div>
+  if (!S.saved.length) return <div className="saved"><div className="empty">아직 저장한 코디가 없어요<br /><button className="btn cta" onClick={() => nav('/')}>코디 맞춰 보기</button></div></div>
   return (
     <div className="saved">
       {S.saved.map((o, i) => {
@@ -178,7 +178,7 @@ function askDeleteHist(h: Hist, onYes: () => void) {
   openModal(() => (
     <>
       <h3>{dayLabel(h.ago)} 기록을 지울까요?</h3><p className="sub">옷마다 마지막으로 입은 날도 이 기록 전으로 돌아가요</p>
-      <div className="col" style={{ marginTop: 18 }}><button className="btn solid" onClick={onYes}>지우기</button><button className="btn" onClick={closeModal}>취소</button></div>
+      <div className="col mt18"><button className="btn solid" onClick={onYes}>지우기</button><button className="btn" onClick={closeModal}>취소</button></div>
     </>
   ))
 }

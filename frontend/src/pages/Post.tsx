@@ -1,5 +1,5 @@
 // 커뮤니티 글 보기: 이 코디의 옷 · 내 옷장과 비교, 댓글·답글·댓글 좋아요, 내 옷으로 따라 입기 (담당: C)
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import { Back, Cmt, Heart, SaveIc } from '../components/Icons'
 import { Face } from '../components/Face'
@@ -82,7 +82,7 @@ export default function Post() {
         <p className="secttl">{mine || !S.cmpOn ? '이 코디의 옷' : '이 코디의 옷 · 내 옷장과 비교'}</p>
         <div className="list">{p.wear.map((w, i) => <div className="mrow" key={i}><span className="sw" style={{ background: w[1] }} /><p className="n">{w[0]}</p>{status(w)}</div>)}</div>
         <p className="secttl">댓글 {p.cmts}</p>
-        {cm.map((c, i) => <div key={i} style={{ display: 'contents' }}>{row(c, i)}{c.replies.map((r, j) => row(r, i, j))}</div>)}
+        {cm.map((c, i) => <Fragment key={i}>{row(c, i)}{c.replies.map((r, j) => row(r, i, j))}</Fragment>)}
         {reTo && <p className="cmto">{reTo.u}님에게 답글 다는 중<button className="link xs" onClick={() => { p.replyTo = null; emit() }}>취소</button></p>}
         <div className="cmform">
           <input ref={input} maxLength={100} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) send() }}
@@ -93,7 +93,7 @@ export default function Post() {
           <button className="link danger" style={{ marginTop: 10 }} onClick={() => openModal(() => (
             <>
               <h3>이 글을 삭제할까요?</h3><p className="sub">삭제하면 되돌릴 수 없어요</p>
-              <div className="col" style={{ marginTop: 18 }}>
+              <div className="col mt18">
                 {/* 창 안의 버튼이라 nav()가 아니라 go(): 창을 열 때 쌓은 방문 기록 칸을 MY로 바꿔 끼워, MY에서 뒤로가기가 꼬이지 않게 (코드 리뷰 17번) */}
                 <button className="btn solid" onClick={() => { S.posts.splice(S.posts.indexOf(p), 1); S.savedPosts.delete(p.id); S.postFrom = '/my'; closeAll(); go('/my'); toast('글을 삭제했어요') }}>삭제</button>
                 <button className="btn" onClick={closeAll}>취소</button>

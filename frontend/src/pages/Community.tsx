@@ -35,7 +35,7 @@ export default function Community() {
                 <span className="acts"><span><Heart on={S.liked.has(p.id)} />{p.likes}</span><span><Cmt />{p.cmts}</span></span>
               </button>
             )
-          }) : <div className="empty" style={{ gridColumn: '1/-1' }}>{S.cmTab === '팔로잉' ? '팔로우한 사람의 글이 아직 없어요' : '아직 글이 없어요'}</div>}
+          }) : <div className="empty span-all">{S.cmTab === '팔로잉' ? '팔로우한 사람의 글이 아직 없어요' : '아직 글이 없어요'}</div>}
         </div>
       </div>
     </section>

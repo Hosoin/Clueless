@@ -20,7 +20,7 @@ export default function Login() {
     toast(`${via}로 로그인했어요`); nav(S.loginBack)
   }
   return (
-    <section className="screen on" id="s-login" style={{ display: 'flex' }}>
+    <section className="screen on" id="s-login">
       <div className="lg-main">
         <p className="eyebrow">내 옷장 속 오늘의 코디</p>
         <p className="lg-logo">Clueless</p>

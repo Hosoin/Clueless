@@ -1,5 +1,5 @@
 // 옷장: 내 옷 / 추천 제외 (담당: B)
-import { useEffect } from 'react'
+import { Fragment, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { Plus } from '../components/Icons'
 import { Ph } from '../components/Ph'
@@ -51,7 +51,7 @@ export default function Closet() {
           <div>
             <div className="tabs">{['전체', ...cats].map((t) => <button key={t} className={t === tab ? 'on' : ''} onClick={() => set(() => (S.cTab = t))}>{t}</button>)}</div>
             <div className="sorts" aria-label="정렬">
-              {SORTS.map((s, i) => <span key={s} style={{ display: 'contents' }}>{i > 0 && <span />}<button className={i === S.cSort ? 'on' : ''} aria-pressed={i === S.cSort} onClick={() => set(() => (S.cSort = i))}>{s}</button></span>)}
+              {SORTS.map((s, i) => <Fragment key={s}>{i > 0 && <span />}<button className={i === S.cSort ? 'on' : ''} aria-pressed={i === S.cSort} onClick={() => set(() => (S.cSort = i))}>{s}</button></Fragment>)}
             </div>
             {S.cSort === 3 && <p className="note">AI가 오늘의 코디에 많이 넣어 준 옷부터 보여 줘요. 커뮤니티 좋아요와는 관계없어요</p>}
             <div className="scroller" aria-label="색으로 거르기">
@@ -68,14 +68,14 @@ export default function Closet() {
                   <p className="s">{i.cat} · {worn(i)}</p>
                   {i.ex ? <p className="s">추천에서 뺀 옷</p> : i.isNew ? <p className="s pink">새로 넣은 옷</p> : i.rec ? <p className="s">AI 추천 {i.rec}번</p> : <p className="s pink">곧 추천 예정</p>}
                 </div>
-              )) : <div className="empty" style={{ gridColumn: '1/-1' }}>조건에 맞는 옷이 없어요</div>}
+              )) : <div className="empty span-all">조건에 맞는 옷이 없어요</div>}
             </div>
           </div>
         ) : (
           <div>
-            <p className="note" style={{ marginTop: 16 }}>여기 있는 옷은 오늘의 코디 추천에 넣지 않아요</p>
+            <p className="note mt16">여기 있는 옷은 오늘의 코디 추천에 넣지 않아요</p>
             <p className="ccount" id="c-count">{count}</p>
-            <div style={{ marginTop: 8 }}>
+            <div className="mt8">
               {ex.length ? ex.map((i) => (
                 <div className="erow" key={i.id}>
                   <Ph item={i} as="span" />

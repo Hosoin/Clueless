@@ -15,12 +15,12 @@ function StylePick({ after }: { after: () => void }) {
   return (
     <>
       <h3>좋아하는 스타일</h3><p>3개까지 고를 수 있어요</p>
-      <div className="ob-styles" style={{ marginTop: 0 }}>
+      <div className="ob-styles mt0">
         {STYLES.map(([k, d]) => { const on = pick.includes(k); return (
           <button key={k} className={`ob-sty ${on ? 'on' : ''}`} aria-pressed={on} disabled={!on && pick.length >= 3} onClick={() => setPick(on ? pick.filter((x) => x !== k) : [...pick, k])}><b>{k}</b><span>{d}</span></button>
         ) })}
       </div>
-      <button className="btn solid full" style={{ marginTop: 16 }} disabled={!pick.length} onClick={() => { S.pref.styles = pick; closeAll(); after() }}>저장</button>
+      <button className="btn solid full mt16" disabled={!pick.length} onClick={() => { S.pref.styles = pick; closeAll(); after() }}>저장</button>
     </>
   )
 }
@@ -37,7 +37,7 @@ export default function Settings() {
   return (
     <section className="screen on" id="s-settings">
       <button className="backrow" onClick={() => nav('/my')}><Back />MY</button>
-      <div className="head" style={{ paddingTop: 4 }}><h1>Set<i>tings</i></h1></div>
+      <div className="head pt4"><h1>Set<i>tings</i></h1></div>
       <div className="pad">
         <div className="sec"><h3>알림</h3>
           <div className="setrow"><div><p>아침 코디 알림</p><p className="sub2">매일 오전 8시에 오늘의 코디를 알려드려요</p></div><Switch label="아침 코디 알림" on={noti} set={setNoti} /></div>

@@ -94,7 +94,7 @@ export function askPermission(kind: keyof typeof PERM, go: () => void, why?: str
     <>
       <h3>‘Clueless’에서 {p.title}</h3>
       <p className="sub">{why || p.why}</p>
-      <div className="row2" style={{ marginTop: 18 }}>
+      <div className="row2 mt18">
         <button className="btn" onClick={() => { closeModal(); toast('접근을 허용해야 사진을 올릴 수 있어요') }}>허용 안 함</button>
         <button className="btn solid" onClick={() => { granted.add(kind); closeModal(); go() }}>허용</button>
       </div>

@@ -24,7 +24,7 @@ export default function Onboard() {
     nav('/')
   }
   return (
-    <section className="screen on" id="s-onboard" style={{ display: 'flex' }}>
+    <section className="screen on" id="s-onboard">
       <div className="ob-top">{i ? <button className="backrow" onClick={() => set(() => (ob.step = steps[i - 1]))}><Back />이전</button> : <span />}<p className="ob-step">{i + 1} / {n}</p></div>
       <div className="ob-bar"><i style={{ width: `${((i + 1) / n) * 100}%` }} /></div>
       <div className="ob-main">

@@ -153,7 +153,7 @@ export default function Upload() {
   return (
     <section className="screen on" id="s-upload">
       <button className="backrow" onClick={() => nav('/closet')}><Back />옷장</button>
-      <div className="head" style={{ paddingTop: 4 }}><h1>Add <i>Items</i></h1></div>
+      <div className="head pt4"><h1>Add <i>Items</i></h1></div>
       <div className="pad">
         <div className="row2" style={{ marginTop: 20 }}>
           <button className="btn solid" onClick={() => askPermission('photos', () => album.current?.click())}>앨범에서 고르기</button>
@@ -166,13 +166,13 @@ export default function Upload() {
         <input type="file" ref={shot} accept="image/*" capture="environment" hidden onChange={(e) => { startBatch(e.target.files); e.target.value = '' }} />
         {!batch.length ? (
           <div className="empty" style={{ paddingTop: 56 }}>아직 고른 사진이 없어요<br />
-            <button className="btn" style={{ marginTop: 16, padding: '0 18px' }} onClick={() => startBatch(null)}>예시 사진으로 해 보기</button></div>
+            <button className="btn cta" onClick={() => startBatch(null)}>예시 사진으로 해 보기</button></div>
         ) : (
           <>
             <div className="prog"><b>{batch.length}장 중 {done}장 정리했어요</b><span>{left ? left + '장 확인 중' : ''}</span></div>
             <div className="track"><i style={{ width: `${(done / batch.length) * 100}%` }} /></div>
             {/* 사진 칸: 후보 목록 없이 사진만 보인다. 분석이 끝난 사진을 누르면 그 사진부터 확인 창이 열린다 */}
-            <div className="grid3" style={{ marginTop: 16 }}>
+            <div className="grid3 mt16">
               {batch.map((b, i) => (
                 <div key={b.id} className="tile">
                   <button className={`ph ${b.done ? '' : 'wait'}`} disabled={!b.done} aria-label={b.done ? `${i + 1}번째 옷 확인하기` : '확인 중'} onClick={() => openConfirm(i)}>
@@ -184,7 +184,7 @@ export default function Upload() {
             </div>
             <p className="hint">{done ? '사진을 누르면 그 옷부터 다시 확인할 수 있어요' : '사진을 확인하고 있어요. 첫 옷이 확인되면 한 벌씩 보여 드릴게요'}</p>
             {/* 확인 창을 닫았을 때 돌아가는 길. 창이 저절로 열리기 전(첫 분석 전)에는 누를 것이 없어 숨긴다 */}
-            {done > 0 && <button className="btn solid full" style={{ marginTop: 16 }} onClick={() => openConfirm(cur)}>이어서 확인하기 ({cur + 1} / {batch.length})</button>}
+            {done > 0 && <button className="btn solid full mt16" onClick={() => openConfirm(cur)}>이어서 확인하기 ({cur + 1} / {batch.length})</button>}
           </>
         )}
       </div>

@@ -89,7 +89,7 @@ function confirmDelete(it: Item) {
     <>
       <h3>이 옷을 삭제할까요?</h3>
       <p className="sub">{it.name}{iga(it.name)} 옷장에서 사라지고, 저장한 코디, 입은 기록, 입을 계획에서도 빠져요. 되돌릴 수 없어요.</p>
-      <div className="row2" style={{ marginTop: 18 }}>
+      <div className="row2 mt18">
         <button className="btn" onClick={() => lightbox(it)}>취소</button>
         <button className="btn solid danger" onClick={() => { deleteItem(it); closeAll(); toast('옷을 삭제했어요') }}>삭제</button>
       </div>
