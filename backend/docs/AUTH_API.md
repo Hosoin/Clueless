@@ -5,7 +5,7 @@
 | 기능 | 메서드 · 경로 | 성공 | 호출 주체 |
 |---|---|---|---|
 | Google 로그인·최초 가입 시작 | `GET /oauth2/authorization/google` | `302` → Google | 브라우저 페이지 이동 |
-| Google 인증 콜백 | `GET /login/oauth2/code/google` | `302` → `http://localhost:5173/home` | Google이 브라우저를 돌려보냄 |
+| Google 인증 콜백 | `GET /login/oauth2/code/google` | `302` → FE 복귀 주소(기본 `http://localhost:5173/home`) | Google이 브라우저를 돌려보냄 |
 | 내 정보 | `GET /api/auth/me` | `200` JSON + CSRF 응답 헤더 | 세션 쿠키가 있는 브라우저 |
 | 로그아웃 | `POST /api/auth/logout` | `204` 본문 없음 | 같은 세션 쿠키 + CSRF 요청 헤더 |
 
@@ -15,9 +15,9 @@ Google 버튼에서 JSON을 `fetch`하지 말고 로그인 시작 URL로 **페�
 
 백엔드는 검증한 ID 토큰의 `sub`와 제공자 `google`로 사용자를 식별한다. 첫 로그인이면 `user_info`에 가입 처리하고 표시용 닉네임을 생성한다. 재로그인이면 같은 내부 ID를 사용한다. 이메일로 계정을 합치지 않는다. 동의 거부·인증 검증 실패 등 OAuth 콜백 실패는 `401`이며 성공 화면으로 이동하지 않는다.
 
-**현재 구현:** 성공하면 백엔드는 고정 FE 주소 `http://localhost:5173/home`로 `302` 리디렉션한다. 리디렉션 응답은 프로필 JSON이 아니다. 인증 수단은 클루리스 세션 쿠키이며 FE가 Google 토큰을 저장하거나 Bearer 헤더를 만들지 않는다.
+**현재 구현:** 성공하면 백엔드는 `FRONTEND_LOGIN_SUCCESS_URL`에 지정한 FE 주소(미설정 시 `http://localhost:5173/home`)로 `302` 리디렉션한다. 요청 파라미터로 이 주소를 바꿀 수 없다. 리디렉션 응답은 프로필 JSON이 아니다. 인증 수단은 클루리스 세션 쿠키이며 FE가 Google 토큰을 저장하거나 Bearer 헤더를 만들지 않는다.
 
-**FE 연동 시 남은 작업:** FE의 `/home` 라우팅과 해당 화면에서의 `/api/auth/me` 호출, 프록시 또는 CORS 설정은 별도 연동·확인이 필요하며 이 리디렉션 변경으로 자동 완료되지 않는다. Google 콘솔에 등록하는 주소는 여전히 **백엔드 콜백** `http://localhost:8081/login/oauth2/code/google`이며 FE 복귀 주소로 바꾸지 않는다.
+**FE 연동 시 남은 작업:** FE의 복귀 경로(로컬 기본 `/home`) 라우팅과 해당 화면에서의 `/api/auth/me` 호출, 프록시 또는 CORS 설정은 별도 연동·확인이 필요하며 이 리디렉션 변경으로 자동 완료되지 않는다. Google 콘솔에 등록하는 주소는 여전히 **백엔드 콜백** `http://localhost:8081/login/oauth2/code/google`이며 FE 복귀 주소로 바꾸지 않는다.
 
 ## 2. 내 정보 — `GET /api/auth/me`
 
