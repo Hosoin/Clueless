@@ -162,8 +162,9 @@ docker run --rm -p 5173:80 -e API_UPSTREAM=http://host.docker.internal:8081 clue
 ```
 
 - **`/api`는 nginx가 백엔드로 전달합니다.** 개발 서버의 프록시(`vite.config.ts`)와 같은 방식이라, 브라우저에게는 같은 출처로 보여서 CORS 설정 없이도 로그인 쿠키가 같이 갑니다. 그래서 `VITE_CLOSET_API_URL`은 비워 둔 채로 빌드합니다.
-- **`API_UPSTREAM`**: `/api`를 넘길 `closet-service` 주소입니다. 실행할 때 `-e`로 바꿀 수 있습니다. 기본값은 compose 안에서 쓰는 `http://closet-service:8081`이고, 내 PC에서 켠 백엔드는 `http://host.docker.internal:8081`입니다. 백엔드가 꺼져 있어도 nginx는 뜨고, 그동안 `/api` 요청만 502가 됩니다.
-- **포트를 5173으로 여는 이유**: 백엔드가 Google 로그인에 성공하면 `http://localhost:5173/home`으로 보내도록 고정되어 있습니다(`SecurityConfig.java`). 다른 포트로 열면 로그인 뒤 개발 서버 주소로 돌아갑니다. 백엔드에서 이 주소를 설정으로 바꿀 수 있게 되면 포트를 자유롭게 바꿀 수 있습니다. 같은 포트를 쓰므로 `npm run dev`와 동시에 켤 수 없습니다.
+- **`API_UPSTREAM`**: `/api`를 넘길 `closet-service` 주소입니다. 실행할 때 `-e`로 바꿀 수 있습니다. 기본값은 compose 안에서 쓰는 `http://closet-service:8081`이고, 내 PC에서 켠 백엔드는 `http://host.docker.internal:8081`입니다. **끝에 `/`나 경로를 붙이지 않습니다.** 붙이면 모든 `/api` 요청이 백엔드의 `/`로 가서 로그인이 안 된 것처럼 보입니다. 기본값의 서비스 이름(`closet-service`)은 BE와 합의하기 전의 임시값입니다. 백엔드가 꺼져 있어도 nginx는 뜨고, 그동안 `/api` 요청만 502가 됩니다.
+- **포트를 5173으로 여는 이유**: 백엔드가 Google 로그인에 성공하면 `http://localhost:5173`의 앱 주소로 돌려보내도록 고정되어 있습니다(`SecurityConfig.java`). 다른 포트로 열면 로그인 뒤 개발 서버 주소로 돌아갑니다. 백엔드에서 이 주소를 설정으로 바꿀 수 있게 되면 포트를 자유롭게 바꿀 수 있습니다. 같은 포트를 쓰므로 `npm run dev`와 동시에 켤 수 없습니다.
+- **백엔드가 돌려보내는 주소에는 `#`이 있어야 합니다.** 앱은 `HashRouter`라서 화면 주소가 `/#/...`이고, nginx는 늘 `/`만 받습니다. `#` 없이 `/home` 같은 주소로 오면 nginx에 그런 파일이 없어 404가 됩니다. (개발 서버는 없는 경로에도 `index.html`을 줘서 이 문제가 보이지 않습니다) 지금 백엔드는 `/home`으로 보내고 있어 `#/...`로 바꿔 달라고 BE에 요청했습니다. 반영되기 전에는 Docker 이미지에서 Google 로그인 뒤 404가 뜹니다.
 - **`VITE_` 값은 빌드할 때 고정됩니다.** 실행할 때 `-e`로 넘겨도 바뀌지 않고, 바꾸려면 `--build-arg`로 다시 빌드합니다. 빌드 결과를 열면 누구나 볼 수 있으므로 비밀값을 넣지 않습니다.
 - 백엔드·ML 이미지와 전체를 함께 띄우는 `docker-compose.yml`은 BE·ML 팀과 정한 뒤 추가합니다.
 

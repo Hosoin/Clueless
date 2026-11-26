@@ -30,6 +30,8 @@ COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # /api를 전달할 closet-service 주소. compose 안에서는 서비스 이름으로, 따로 띄울 때는 -e로 바꾼다.
+# 끝에 /나 경로를 붙이지 않는다 (http://host:8081 O, http://host:8081/ X). 이유는 nginx/default.conf.template 참고.
+# closet-service라는 이름은 BE와 compose 서비스 이름을 합의하기 전의 임시값이다. 지금은 내 PC의 백엔드를 -e로 지정해서 쓴다.
 ENV API_UPSTREAM=http://closet-service:8081 \
     NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 
