@@ -49,9 +49,10 @@
 
 | 화면 문구 | 코드 | 설명 |
 | --- | --- | --- |
-| 옷 | `Item` | 옷 한 벌. `cat`(종류), `sub`(세부 종류), `color`, `pattern`을 가짐 |
+| 옷 | `Item` | 옷 한 벌. `cat`(종류), `sub`(세부 종류), `color`, `material`(재질)을 가짐. 무늬는 다루지 않음 |
 | 종류 | `Category`, `CATS` | 상의·덧입기·하의·아우터·원피스 |
 | 세부 종류 | `Item.sub`, `SUBS` | 티셔츠·셔츠·니트·코트 등 |
+| 재질 | `Item.material`, `MATERIALS` | 면·니트·데님 등. 옷 등록에서 고름 |
 | 덧입기 | `cat: '덧입기'`, 줄 키 `m` | 상의 위에 겹쳐 입는 옷 |
 | 아우터 | 줄 키 `j`(재킷), `o`(코트·패딩) | 화면에서는 둘 다 '아우터'로 보임 |
 | 코디 | `Look` | 상의·덧입기·재킷·코트·하의 칸에 옷 id를 넣은 조합 |
@@ -74,7 +75,7 @@
 | 위치 | 이름 | 용도 |
 | --- | --- | --- |
 | `src/store.ts` | `useApp`, `emit`, `S` | 상태 읽기, 바꾼 뒤 다시 그리기 |
-| | `byId`, `hexOf`, `swatchBg` | 옷 찾기, 옷 색, 무늬 배경 |
+| | `byId`, `hexOf` | 옷 찾기, 옷 색 |
 | | `worn`, `wornNote`, `dayLabel`, `wornDate` | "어제 입음" 같은 날짜 문구 |
 | | `eun`, `iga` | 받침에 맞는 조사(은/는, 이/가). `을(를)` 같은 표기를 쓰지 않습니다 |
 | | `matchText`, `fit` | 코디가 어울리는지 판단 |
@@ -87,7 +88,7 @@
 | | `Face` | 프로필 동그라미 |
 | | `Icons.tsx` | 선 아이콘 (`Arrow`, `Heart`, `Back`, `Plus` 등) |
 | | `writeSheet` | 코디 올리기·글 수정 창 |
-| `src/data/seed.ts` | `COLORS`, `PATTERNS`, `CATS`, `SUBS`, `TRENDS`, `STYLES` | 색·무늬·종류·스타일 목록 |
+| `src/data/seed.ts` | `COLORS`, `MATERIALS`, `CATS`, `SUBS`, `TRENDS`, `STYLES` | 색·재질·종류·스타일 목록 |
 
 ## 스타일링
 

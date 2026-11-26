@@ -7,7 +7,7 @@ import { writeSheet } from '../components/WriteSheet'
 import { CATS } from '../data/seed'
 import type { Hist, Item } from '../data/types'
 import {
-  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, recalcWorn, swatchBg, useApp, wearToday, wornNote, wornOn,
+  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, recalcWorn, useApp, wearToday, wornNote, wornOn,
 } from '../store'
 import { closeAll, closeModal, openModal, openSheet, toast } from '../ui'
 
@@ -179,7 +179,7 @@ function editHist(h: Hist) {
         <h4>빠뜨린 옷 더하기</h4>
         {CATS.filter((c) => rest.some((i) => i.cat === c)).map((c) => (
           <div key={c}><p className="optcat">{c}</p>
-            <div className="opts">{rest.filter((i) => i.cat === c).map((i) => <button key={i.id} className="opt" onClick={() => { ids.push(i.id); emit() }}><i style={{ background: swatchBg(hexOf(i), i.pattern) }} />{i.name}</button>)}</div></div>
+            <div className="opts">{rest.filter((i) => i.cat === c).map((i) => <button key={i.id} className="opt" onClick={() => { ids.push(i.id); emit() }}><i style={{ background: hexOf(i) }} />{i.name}</button>)}</div></div>
         ))}
         <div className="row2">
           <button className="btn" onClick={() => openModal(() => (

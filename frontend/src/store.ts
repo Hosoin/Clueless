@@ -59,14 +59,6 @@ export const useApp = () => { useSyncExternalStore(subscribe, () => version); re
 /* ---------- 공통 ---------- */
 export const byId = (id?: number | null) => (id ? S.items.find((i) => i.id === id) : undefined)
 export const hexOf = (it: Item) => it.hex || COLORS[it.color] || '#CCCCCC'
-export function swatchBg(hex: string, pattern?: string) {
-  const c = 'rgba(30,34,53,.55)'
-  if (pattern === '스트라이프') return `repeating-linear-gradient(90deg,${hex} 0 3px,${c} 3px 4px)`
-  if (pattern === '체크') return `repeating-linear-gradient(90deg,transparent 0 3px,${c} 3px 4px),repeating-linear-gradient(0deg,${hex} 0 3px,${c} 3px 4px)`
-  if (pattern === '도트') return `radial-gradient(${c} 1.2px,transparent 1.6px) 0 0/5px 5px,${hex}`
-  if (pattern === '플라워' || pattern === '프린트') return `radial-gradient(circle at 30% 35%,${c} 1.5px,transparent 2px),radial-gradient(circle at 70% 65%,${c} 1.5px,transparent 2px),${hex}`
-  return hex
-}
 export const isRecent = (it?: Item | null) => !!it && it.lastWorn !== null && it.lastWorn <= S.RECENT
 export const wornDate = (n: number) => {
   const t = new Date(); t.setDate(t.getDate() - n)
@@ -81,15 +73,11 @@ export const worn = (it: Item) => (it.lastWorn === null ? '아직 안 입음' : 
 export const dayLabel = (n: number) => (n === 0 ? '오늘' : n === 1 ? '어제' : wornDate(n))
 export const trendOf = (it?: Item | null) => !!it && it.tags.some((t) => TRENDS.find((x) => x.k === t && x.up))
 export const forgotten = (it?: Item | null) => !!it && (it.lastWorn === null || it.lastWorn >= 90)
-export const patterned = (it?: Item | null) => !!it && !!it.pattern && it.pattern !== '무지'
 export const wornKey = (it: Item) => (it.lastWorn === null ? 99999 : it.lastWorn)
 
 export function matchText(list: (Item | null | undefined)[]) {
   const l = list.filter(Boolean) as Item[]
-  const pats = l.filter(patterned)
-  if (pats.length >= 2) return { hit: false, t: '무늬가 겹쳐요. 한쪽을 무지로 바꿔 보세요' }
   const hit = l.some(trendOf)
-  if (pats.length === 1) return { hit, t: hit ? '요즘 유행과 잘 어울려요. 무늬 옷엔 무지를 맞췄어요' : `${pats[0].pattern} 무늬엔 무지 옷이 잘 어울려요` }
   return { hit, t: hit ? '요즘 유행과 잘 어울려요' : '무난하게 입기 좋은 조합이에요' }
 }
 
@@ -185,14 +173,11 @@ export function keepSel(fn: () => void) {
   emit()
 }
 
-/* 지금 고른 다른 옷과 얼마나 어울리는지: 무늬 겹침, 색, 유행, 오래 안 입은 옷, 최근 입은 옷 */
+/* 지금 고른 다른 옷과 얼마나 어울리는지: 색, 유행, 오래 안 입은 옷, 최근 입은 옷 */
 const NEUTRAL = ['화이트', '아이보리', '베이지', '블랙', '차콜', '그레이', '네이비', '데님', '카멜', '브라운']
 export function fit(it: Item, k: RowKey, c: Combo) {
   const others = K.filter((x) => x !== k).map((x) => c[x]).filter(Boolean) as Item[]
   let sc = 0, why = ''
-  const pat = others.filter(patterned)
-  if (patterned(it) && pat.length) { sc -= 4; why = '무늬가 겹쳐요' }
-  else if (!patterned(it) && pat.length) sc += 1
   const bright = (x: Item) => !NEUTRAL.includes(x.color)
   if (bright(it) && others.some(bright)) sc -= 2; else if (!bright(it)) sc += 1
   if (trendOf(it)) { sc += 2; why = why || '요즘 유행' }

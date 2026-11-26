@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { Item } from '../data/types'
-import { deleteItem, emit, hexOf, iga, swatchBg, tidyRows, worn } from '../store'
+import { deleteItem, emit, hexOf, iga, tidyRows, worn } from '../store'
 import { closeAll, openModal, toast } from '../ui'
 
 /** 옷 사진 칸: 사진 + 오른쪽 위 색 동그라미. 누르면 크게 보기 (onClick을 주면 그걸 대신 함) */
@@ -10,7 +10,7 @@ export function Ph({ item, label = '', onClick, style, className = '', as = 'but
   const inner = (
     <>
       {item?.img && <img src={item.img} alt="" />}
-      {item && <span className="chip" style={{ background: swatchBg(hexOf(item), item.pattern) }} />}
+      {item && <span className="chip" style={{ background: hexOf(item) }} />}
       {!item?.img && label && <p className="lbl">{label}</p>}
     </>
   )
@@ -29,14 +29,13 @@ export function lightbox(it: Item) {
     <>
       <button className="ph big" style={{ cursor: 'default' }}>
         {it.img && <img src={it.img} alt="" />}
-        <span className="chip" style={{ background: swatchBg(hexOf(it), it.pattern) }} />
+        <span className="chip" style={{ background: hexOf(it) }} />
         <p className="lbl">{it.img ? '' : '사진 자리'}</p>
       </button>
       <h3>{it.name}</h3>
       <dl>
         <dt>종류</dt><dd>{it.cat}</dd>
         <dt>색</dt><dd>{it.color}{it.hex ? ' (사진에서 뽑은 색)' : ''}</dd>
-        <dt>무늬</dt><dd>{it.pattern}</dd>
         <dt>마지막</dt><dd>{worn(it)}</dd>
         <dt>AI 추천</dt><dd>{it.ex ? '추천에서 뺀 옷' : it.rec ? `오늘의 코디에 ${it.rec}번 추천됨` : '곧 추천 예정'}</dd>
       </dl>

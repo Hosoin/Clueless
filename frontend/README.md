@@ -52,7 +52,7 @@ frontend/
 │  ├─ pages/              화면 하나 = 파일 하나, `export default`
 │  │  ├─ Home.tsx         홈: 오늘의 코디 맞추기, 아바타 보기, 트렌드
 │  │  ├─ Closet.tsx       옷장: 내 옷 / 추천에서 뺀 옷
-│  │  ├─ Upload.tsx       옷 등록: 사진마다 옷 후보를 보여 주고 고르기
+│  │  ├─ Upload.tsx       옷 등록: AI가 고른 값을 한 벌씩 확인하고 고치기
 │  │  ├─ Calendar.tsx     캘린더: 입은 기록, 입을 계획, 저장한 코디
 │  │  ├─ Community.tsx    커뮤니티 피드
 │  │  ├─ Post.tsx         글 보기: 댓글, 내 옷장과 비교, 따라 입기
