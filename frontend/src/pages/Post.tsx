@@ -6,7 +6,7 @@ import { Face } from '../components/Face'
 import { writeSheet } from '../components/WriteSheet'
 import type { Comment, Post as PostT } from '../data/types'
 import { go, toLogin } from '../nav'
-import { S, byId, emit, owned, setCombo, useApp } from '../store'
+import { S, byId, emit, eulreul, owned, setCombo, useApp } from '../store'
 import { closeAll, openModal, showIn, toast } from '../ui'
 
 
@@ -71,7 +71,7 @@ export default function Post() {
         <div className="urow"><Face mine={mine} name={who} className={`uav ${mine ? 'me' : ''}`} />
           <div><p className="nm">{who}</p><p className="sub">{p.ago}{p.ch ? ' · 1년 안 입은 옷 꺼내 입기' : ''}</p></div>
           {mine ? <button className="btn" onClick={() => writeSheet(null, p)}>수정</button>
-            : <button className={`btn ${follow ? 'on' : ''}`} onClick={() => { if (needLogin('로그인하면 팔로우할 수 있어요')) return; if (follow) S.followingSet.delete(p.user); else S.followingSet.add(p.user); toast(follow ? `${p.user} 팔로우를 끊었어요` : `${p.user}를 팔로우해요`); emit() }}>{follow ? '팔로잉' : '팔로우'}</button>}
+            : <button className={`btn ${follow ? 'on' : ''}`} onClick={() => { if (needLogin('로그인하면 팔로우할 수 있어요')) return; if (follow) S.followingSet.delete(p.user); else S.followingSet.add(p.user); toast(follow ? `${p.user} 팔로우를 끊었어요` : `${p.user}${eulreul(p.user)} 팔로우해요`); emit() }}>{follow ? '팔로잉' : '팔로우'}</button>}
         </div>
         <p className="dcap">{p.body}</p>
         <div className="dacts">

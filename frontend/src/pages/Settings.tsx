@@ -5,7 +5,7 @@ import { logout } from '../api/auth'
 import { Back } from '../components/Icons'
 import { STYLES } from '../data/seed'
 import { toLogin } from '../nav'
-import { S, emit, useApp } from '../store'
+import { S, emit, euro, useApp } from '../store'
 import { closeAll, openSheet, toast } from '../ui'
 
 /** 좋아하는 스타일 고르기 (설정에서 추천 방식을 '취향대로'로 바꿀 때) */
@@ -54,7 +54,7 @@ export default function Settings() {
         </div>
         <div className="sec"><h3>커뮤니티</h3>
           <div className="setrow"><div><p>내 글 공개 범위</p><p className="sub2">새로 올리는 글에 적용돼요</p></div>
-            <div className="chips2">{['전체 공개', '팔로워만'].map((x) => <button key={x} className={x === S.defScope ? 'on' : ''} onClick={() => { S.defScope = x; toast(`새 글은 ${x}로 올라가요`); emit() }}>{x}</button>)}</div></div>
+            <div className="chips2">{['전체 공개', '팔로워만'].map((x) => <button key={x} className={x === S.defScope ? 'on' : ''} onClick={() => { S.defScope = x; toast(`새 글은 ${x}${euro(x)} 올라가요`); emit() }}>{x}</button>)}</div></div>
           <div className="setrow"><div><p>내 옷장과 비교해 보기</p><p className="sub2">다른 사람 글에 내 옷장의 비슷한 옷을 표시해요</p></div><Switch label="내 옷장과 비교해 보기" on={S.cmpOn} set={(v) => { S.cmpOn = v; emit() }} /></div>
         </div>
         <div className="sec"><h3>계정</h3>

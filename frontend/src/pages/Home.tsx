@@ -11,7 +11,7 @@ import {
 
   EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, current, emit, firstFresh, fit, hexOf,
   isPast, isRecent, keepSel, layersFor, lists, matchText, rowKey, saveLook, showsOutfit, stepFit, useApp,
-  wearList, wearToday, worn, wornKey, wornNote, iga, eun, type Combo, type ExtraKey, type RowKey,
+  wearList, wearToday, worn, wornKey, wornNote, iga, eun, euro, type Combo, type ExtraKey, type RowKey,
 } from '../store'
 import { closeAll, openSheet, showIn, toast } from '../ui'
 
@@ -29,14 +29,6 @@ const rowsOf = (c: Combo): [RowKey, string][] => [
  *  탭을 옮겨 다녀도 유지되도록 컴포넌트 밖에 둔다 (트렌드의 tSel과 같은 방식).
  *  지금은 프로토타입이라 추천 이유 문구만 바뀌고, 스타일에 맞춘 실제 추천은 백엔드 연동 때 붙인다 */
 let pickedStyle: string | null = null
-
-/** 받침에 맞는 조사 '으로/로'. ㄹ 받침은 '로'(예: 데님·니트로, 깔끔한 선으로) */
-const euro = (w: string) => {
-  const code = w.charCodeAt(w.length - 1) - 0xac00
-  if (code < 0 || code > 11171) return '로' // 한글이 아니면 '로'
-  const jong = code % 28
-  return jong === 0 || jong === 8 ? '로' : '으로'
-}
 
 /** 스타일을 골랐을 때 추천 이유 문구. 예: '미니멀 · 무채색과 깔끔한 선으로 맞춰 봤어요' */
 const styleReason = (name: string) => {
@@ -356,7 +348,7 @@ function Trend() {
   useApp()
   const resultRef = useRef<HTMLDivElement>(null)
   const t = TRENDS[tSel], mine = S.items.filter((i) => i.tags.includes(t.k))
-  const short = t.k.split(' ').pop()
+  const short = t.k.split(' ').pop() ?? t.k // 마지막 낱말 (예: 와이드 데님 → 데님)
   const title = mine.length ? (mine.length > 1 ? `내 옷장에 ${t.k}${iga(t.k)} ${mine.length}벌이나 있어요` : `내 옷장에 ${t.k}${iga(t.k)} 1벌 있어요`) : `내 옷장에 아직 ${t.k}${eun(t.k)} 없어요`
   const it = mine.find((x) => !isRecent(x)) || mine[0]
   // 고른 옷의 종류에 따라 나머지 칸을 채운다. 숫자는 원래 짝지어 둔 옷(6 인디고 와이드 데님, 10 카멜 롱 코트,
@@ -395,10 +387,10 @@ function Trend() {
             {mine.length ? mine.slice(0, 3).map((x) => <div key={x.id}><Ph item={x} label={x.name} style={{ height: 104 }} /><p className="cap">{x.name}</p></div>)
               : <div className="empty" style={{ gridColumn: '1/-1', padding: '20px 0' }}>{t.up ? '비슷한 옷으로 코디를 찾아볼게요' : '지금은 다른 옷에 집중해도 좋아요'}</div>}
           </div>
-          {mine.length > 0 && t.up && !tResult && <button className="btn solid full" style={{ marginTop: 16 }} onClick={() => { tResult = true; emit() }}>이 {short}로 코디 받기</button>}
+          {mine.length > 0 && t.up && !tResult && <button className="btn solid full" style={{ marginTop: 16 }} onClick={() => { tResult = true; emit() }}>이 {short}{euro(short)} 코디 받기</button>}
           {tResult && look && (
             <div className="so" style={{ marginTop: 16 }} ref={resultRef}>
-              <div className="meta"><p className="nm">{t.k}로 맞춘 코디</p><button className="link" style={{ minHeight: 32 }} onClick={() => { tResult = false; emit() }}>닫기</button></div>
+              <div className="meta"><p className="nm">{t.k}{euro(t.k)} 맞춘 코디</p><button className="link" style={{ minHeight: 32 }} onClick={() => { tResult = false; emit() }}>닫기</button></div>
               <div className="pair">{ps.map((p) => <div className="slot" key={p.id}><Ph item={p} label={p.cat} /><p className="cap">{p.cat}</p></div>)}</div>
               <p style={{ margin: 0, fontSize: 13 }}>{ps.map((p) => p.name).join(' + ')}</p>
               <div className="match" style={{ marginTop: 8 }}><span className={`dot ${mm.hit ? '' : 'grey'}`} /><p>{mm.t}</p></div>

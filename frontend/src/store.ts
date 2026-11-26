@@ -83,9 +83,18 @@ export const wornDate = (n: number) => {
   const t = new Date(); t.setDate(t.getDate() - n)
   return (t.getFullYear() !== new Date().getFullYear() ? `${t.getFullYear()}년 ` : '') + `${t.getMonth() + 1}월 ${t.getDate()}일`
 }
-const jong = (w: string) => (w.charCodeAt(w.length - 1) - 0xac00) % 28 > 0
-export const eun = (w: string) => (jong(w) ? '은' : '는')
-export const iga = (w: string) => (jong(w) ? '이' : '가')
+/* 조사 고르기: 앞 말의 마지막 글자 받침을 보고 고른다. 조사가 필요한 문구는 모두 여기 함수를 쓴다 (코드 리뷰 24번).
+   한글이 아닌 글자(영어 아이디, 숫자 등)로 끝나면 받침이 없는 것으로 보고 '는/가/를/로'를 붙인다. */
+/** 마지막 글자의 받침 번호. 0 = 받침 없음, 8 = ㄹ. 한글(가~힣)이 아니면 0 */
+const jongOf = (w: string) => {
+  const code = w.charCodeAt(w.length - 1) - 0xac00
+  return code >= 0 && code <= 11171 ? code % 28 : 0
+}
+export const eun = (w: string) => (jongOf(w) ? '은' : '는')
+export const iga = (w: string) => (jongOf(w) ? '이' : '가')
+export const eulreul = (w: string) => (jongOf(w) ? '을' : '를')
+/** '으로/로'. ㄹ 받침도 '로'다 (예: 니트로, 데님으로, 팔로워만으로, 원피스 한 벌로) */
+export const euro = (w: string) => { const j = jongOf(w); return j === 0 || j === 8 ? '로' : '으로' }
 const when = (it: Item) => (it.lastWorn === 0 ? '오늘' : it.lastWorn === 1 ? '어제' : `${wornDate(it.lastWorn!)}에`)
 export const wornNote = (it: Item) => `${it.name}${eun(it.name)} ${when(it)} 입었어요`
 export const worn = (it: Item) => (it.lastWorn === null ? '아직 안 입음' : it.lastWorn === 0 ? '오늘 입음' : it.lastWorn === 1 ? '어제 입음' : `${wornDate(it.lastWorn)} 입음`)
@@ -293,7 +302,8 @@ export const planOn = (d: Date) => S.plans.find((p) => p.date === dkey(d))
 
 /* ---------- 커뮤니티 ---------- */
 export const owned = (p: Post) => p.wear.filter((w) => w[2] && byId(w[2])).length
-export const ini = (u: string) => (u || '?').replace(/[^a-z가-힣]/i, '').slice(0, 1).toUpperCase()
+// 앞의 기호·숫자를 모두 지우고 첫 글자를 쓴다 (g가 없으면 앞 기호를 하나만 지웠다, 코드 리뷰 24번)
+export const ini = (u: string) => (u || '?').replace(/[^a-z가-힣]/gi, '').slice(0, 1).toUpperCase()
 
 /* 처음엔 돌리지 않고 추천 코디 1번을 바로 보여 줌 */
 applyOutfit(firstFresh(0))
