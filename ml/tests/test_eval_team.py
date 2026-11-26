@@ -43,6 +43,9 @@ problems = check_labels([
     {"file": "a.jpg", "category": "상의", "sleeve": "긴 팔", "color": "네이비"},
     {"file": "b.jpg", "category": "모자", "sleeve": "", "color": "보라"},
     {"file": "c.jpg", "category": "하의", "sleeve": "", "color": ""},
+    {"file": "d.jpg", "category": "상의", "subcategory": "티셔츠", "print": "레터링", "styles": "스트리트, 스포티"},  # 맞는 값
+    {"file": "e.jpg", "category": "상의", "subcategory": "맨투맨", "print": "줄무늬", "styles": "스트리트,고딕"},
 ])
-assert len(problems) == 3 and "긴 팔" in problems[0] and "모자" in problems[1] and "보라" in problems[2], problems
+assert len(problems) == 6 and "긴 팔" in problems[0] and "모자" in problems[1] and "보라" in problems[2], problems
+assert "맨투맨" in problems[3] and "줄무늬" in problems[4] and "고딕" in problems[5], problems
 print("ok")

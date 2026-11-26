@@ -14,7 +14,6 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
-import pyarrow.parquet as pq
 import torch
 from huggingface_hub import hf_hub_download
 from PIL import Image
@@ -68,6 +67,8 @@ def white_bg_mask(rgb: np.ndarray) -> np.ndarray:
 
 @torch.no_grad()
 def main() -> None:
+    import pyarrow.parquet as pq  # 학습 데이터 만들 때만 (dev 의존성). 서비스(API)는 이 파일의 상수만 쓴다
+
     paths = [hf_hub_download(DATASET, f, repo_type="dataset") for f in FILES]
     meta = [r for p in paths for r in pq.read_table(p, columns=["item_ID", "category"]).to_pylist()]
     outfits = build_outfits(meta)

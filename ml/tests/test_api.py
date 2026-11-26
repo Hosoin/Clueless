@@ -48,7 +48,7 @@ body = r.json()
 assert body["category"]["name"] == "상의" and len(body["embedding"]) == 512
 assert body["sleeve"]["name"] == "긴팔" and body["color_name"]["name"] == "네이비"
 assert body["style"]["tags"] == ["스트리트", "스포티"] and len(body["style"]["scores"]) == 6
-assert body["subcategory"]["name"] == "티셔츠" and body["print"]["name"] == "레터링"
+assert body["subcategory"]["name"] == "티셔츠" and body["print"]["name"] == "프린트"  # 내부 '레터링' → 프론트 '프린트'
 assert base64.b64decode(body["crop_png_base64"])[:8] == b"\x89PNG\r\n\x1a\n"
 
 # 큰 이미지는 긴 변 2048로 줄여서 모델에 넘김
