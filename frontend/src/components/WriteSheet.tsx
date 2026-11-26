@@ -21,6 +21,10 @@ function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
   const ok = () => {
     const text = cap.trim()
     if (edit) { edit.body = text || edit.body; edit.t = (text || edit.t).slice(0, 26); edit.scope = scope; edit.ch = ch; closeAll(); toast('글을 고쳤어요'); return emit() }
+    // 사진 없는 글은 올리지 않는다: 코디의 옷이 모두 사진이 있어야 한다.
+    // 글 사진은 첫 번째 옷의 사진이라, 비어 있으면 커뮤니티·MY·글 보기에서 그림이 깨진다 (코드 리뷰 16번).
+    // 지워져서 찾을 수 없는 옷도 사진이 없는 것으로 본다.
+    if (!pick!.ids.every((id) => byId(id)?.img)) return toast('사진이 없는 옷이 있는 코디는 올릴 수 없어요')
     const first = byId(pick!.ids[0])!
     S.posts.unshift({ id: ++S.pid, mine: true, user: S.me.handle, img: first.img || '', pos: '50% 50%', min: 0, ago: '방금', ch, scope, likes: 0, cmts: 0,
       t: (text || names(pick!)).slice(0, 26), body: text || names(pick!),
