@@ -58,6 +58,12 @@ export const useApp = () => { useSyncExternalStore(subscribe, () => version); re
 
 /* ---------- 공통 ---------- */
 export const byId = (id?: number | null) => (id ? S.items.find((i) => i.id === id) : undefined)
+/**
+ * 옷장에서 보여 줄 옷 이름: 별명이 있으면 별명, 없으면 원래 이름.
+ * 별명은 내 옷장에서 알아보기 쉽게 붙이는 이름이라 옷장 화면(카드·크게 보기)에서만 쓰고,
+ * 홈·캘린더·커뮤니티는 다른 사람도 알아볼 수 있게 원래 이름(name)을 그대로 쓴다.
+ */
+export const displayName = (it: Item) => it.alias || it.name
 export const hexOf = (it: Item) => it.hex || COLORS[it.color] || '#CCCCCC'
 export function swatchBg(hex: string, pattern?: string) {
   const c = 'rgba(30,34,53,.55)'

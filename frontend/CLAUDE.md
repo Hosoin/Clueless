@@ -66,6 +66,7 @@
 | 글 | `Post` | 커뮤니티에 올린 코디 글 |
 | 따라 입기 | `setCombo` | 커뮤니티 글의 옷 조합을 홈 화면 줄에 맞춤 |
 | 첫 설정 | `Onboard`, `S.ob` | 추천 방식(유행·취향), 스타일, 닉네임 고르기 |
+| 별명 | `Item.alias`, `displayName` | 사용자가 옷에 붙인 이름. 옷장 화면에서만 원래 이름 대신 보여 줌 |
 
 ## 재사용할 것
 
@@ -79,6 +80,7 @@
 | | `eun`, `iga` | 받침에 맞는 조사(은/는, 이/가). `을(를)` 같은 표기를 쓰지 않습니다 |
 | | `matchText`, `fit` | 코디가 어울리는지 판단 |
 | | `wearToday`, `saveLook`, `deleteItem` | 입기, 코디 저장, 옷 삭제 (연결된 기록까지 정리) |
+| | `displayName` | 옷장에서 보여 줄 옷 이름 (별명이 있으면 별명) |
 | `src/ui.tsx` | `toast`, `openSheet`, `openModal`, `closeModal`, `closeAll` | 알림, 아래 창, 가운데 창 |
 | | `askPermission` | 사진·카메라 접근 권한 묻기 |
 | | `showIn` | 화면 안에서만 스크롤해 요소를 가운데로 |
