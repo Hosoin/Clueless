@@ -16,6 +16,11 @@ spring:
   sql:
     init:
       mode: never
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+      resolve-lazily: true
 closet:
   security:
     google:
@@ -23,6 +28,10 @@ closet:
       client-secret: '${GOOGLE_CLIENT_SECRET:}'
 server:
   port: 8081
+logging:
+  level:
+    # Avoid SDK diagnostics that can contain configured endpoints or upstream error messages.
+    com.azure: 'OFF'
 ---
 spring:
   config:

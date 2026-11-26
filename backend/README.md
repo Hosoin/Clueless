@@ -11,7 +11,7 @@ Java 21 JDK와 Gradle Wrapper를 사용하는 두 개의 Spring Boot 하위 프�
 | `closet-service` | Google 로그인 및 옷장·의류 서비스 로직 | `8081` |
 | `recommendation-service` | 추천 관련 API와 서비스 로직 | `8082` |
 
-Google 로그인 외 옷장·추천 업무 API는 아직 없습니다. 두 서비스는 서로 독립적으로 실행하며, 각각의 기본 애플리케이션 설정에 PostgreSQL 연결 정보가 있습니다.
+옷장 서비스는 Google 로그인과 의류 분석·미리보기·최종 저장·부분 편집 API를 제공합니다. 두 서비스는 서로 독립적으로 실행하며, 각각의 기본 애플리케이션 설정에 PostgreSQL 연결 정보가 있습니다.
 
 ## 로컬 준비와 빌드
 
@@ -103,7 +103,7 @@ curl -i http://localhost:8082/test
 
 검증된 Google ID 토큰의 `sub`로 사용자를 식별합니다. 별도의 UserInfo 요청 없이 토큰의 `name`을 `public.user_info.user_name`에, `email_verified`가 불리언 `true`인 경우에만 `email`을 저장합니다. 이름이나 검증된 이메일이 없어도 로그인할 수 있습니다. 신규 사용자에게만 개인정보를 사용하지 않은 표시용 랜덤 닉네임(한글 조합과 숫자, 최대 12자)을 부여합니다. 닉네임은 고유 식별자가 아니므로 중복될 수 있습니다. 재로그인 시에는 비어 있는 이름과 이메일만 채울 수 있으며, 닉네임이 `NULL`인 기존 행도 그대로 둡니다.
 
-로그인 성공 시 백엔드는 고정 FE 주소 `http://localhost:5173/home`로 `302` 리디렉션합니다. Google 콘솔의 콜백 주소 `http://localhost:8081/login/oauth2/code/google`는 바뀌지 않습니다. 이 변경만으로 FE의 `/home` 라우팅이나 `/api/auth/me` 호출용 프록시·CORS 설정이 자동 완료되지는 않습니다. FE는 아래 API를 같은 오리진(또는 같은 오리진의 프록시)을 통해 세션 쿠키와 함께 호출하도록 별도 연동해야 합니다.
+로그인 성공 시 백엔드는 고정 FE 주소 `http://localhost:5173/home`로 `302` 리디렉션합니다. Google 콘솔의 콜백 주소는 `http://localhost:8081/login/oauth2/code/google`입니다. FE는 아래 API를 같은 오리진(또는 같은 오리진의 프록시)으로 세션 쿠키와 함께 호출하는 것을 권장합니다. 로컬 CORS 범위는 의류 최종 저장 및 부분 편집 절을 참고하세요.
 
 | 요청 | 결과 |
 | --- | --- |
@@ -112,9 +112,59 @@ curl -i http://localhost:8082/test
 
 기존 응답의 `nickname` 키는 `nickName`으로 교체되었습니다. FE는 `nickname` 대신 `nickName`을 읽어야 합니다.
 
+## 의류 API 설정 및 스키마
+
+- [의류 전용 빈 설정 템플릿](closet-service/.env.example)의 항목을 환경변수 또는 `bootRun`이 읽는 Git 제외 `backend/.env`에 설정합니다. 배포 JAR은 `.env`를 자동으로 읽지 않습니다. `ML_API_URL`은 `/v1/garments/analyze`를 제외한 기본 주소(HTTPS, 루프백만 HTTP 허용), `ML_API_KEY`는 서버 간 인증 키입니다. Blob 연결 문자열·키·서명 URL은 로그, 이슈, 커밋에 남기지 마세요.
+- `AZURE_STORAGE_CONNECTION_STRING`은 Blob 조회와 분석 미리보기용 SAS 발급에 사용합니다. SAS 발급에는 계정 키 인증이 필요합니다. `BLOB_DRAFTS_CONTAINER`는 ML이 쓰는 `closet-drafts` 컨테이너와 일치해야 하고, `BLOB_CONTAINER_NAME`은 기존 등록 의류 이미지의 컨테이너 설정입니다. 분석과 ML 크롭 프리뷰에는 후자 설정이 필요하지 않습니다.
+- 새 DB에는 [`db/closet/schema.sql`](db/closet/schema.sql)을 적용합니다. 기존 DB에는 [`001` → `002` → `003` 마이그레이션](db/closet/migrations)을 배포 전에 수동으로 한 번씩 적용합니다. 기존 등록 행은 `CONFIRMED`/`Y`로 보존되고, `002`부터 모든 신규 INSERT는 `status`를 명시해야 합니다. Spring은 SQL을 자동 적용하지 않습니다.
+- **배포 전 확인:** 비재촬영 응답에는 ML이 업로드한 `crop_blob` 키가 필요합니다(`closet-drafts/<UUID>.webp`). 현재 `main`의 base64 PNG만 반환하는 ML로는 비재촬영 분석이 `502`로 끝납니다. 또한 confirm은 DB 상태만 변경합니다. Blob 복사·이동은 하지 않으므로 원본 컨테이너의 수명 정책이 Blob을 삭제하면 확정된 의류의 미리보기도 사라집니다. Blob 호환 ML과 확정 Blob 보존 방안을 별도로 확인하세요.
+
+## 의류 분석
+
+`POST /api/closet/analyze` (`POST /api/closet/items/analyze`도 같은 운영 API)는 로그인 세션 쿠키와 같은 세션의 `/api/auth/me`에서 받은 `X-CSRF-TOKEN`을 요구합니다. FE는 같은 오리진 또는 같은 오리진의 프록시로 호출하세요.
+
+`multipart/form-data`의 `image` 파일 항목 하나로 JPEG·PNG·WebP(최대 10 MiB)를 보냅니다. multipart `Content-Type`과 boundary는 클라이언트가 자동 설정하도록 둡니다.
+
+| 분석 결과 | `200 OK` 응답 및 저장 |
+| --- | --- |
+| 재촬영 필요 | `{"retake":true}`만 반환합니다. DB 저장과 ID 발급은 없습니다. |
+| 재촬영 불필요 | 본인의 `DRAFT`를 저장한 뒤 `id`, `previewImg`, `category`, `sub_category`, `color`, `hex`, `styles`, `name`, `retake`를 반환합니다. `id`는 bigint의 **문자열**이며 `retake`는 `false`입니다. 예측값이 없으면 `sub_category`, `color`, `hex`는 JSON `null`, `styles`는 빈 배열일 수 있습니다. |
+
+`previewImg`는 WebP Blob 하나를 읽는 HTTPS 전용 SAS URL(발급 후 5분 유효)입니다. 재사용할 영구 주소가 아니며 로깅·공유하지 마세요. 잘못된 multipart는 `400`, 초과 크기는 `413`, 지원하지 않는 형식은 `415`, ML이 읽지 못한 이미지는 `422`입니다. 연동 오류는 `502`/`503`/`504`로 응답하며 상위 응답 내용이나 접속 정보를 반환하지 않습니다.
+
+## 의류 최종 저장 및 부분 편집
+
+| 요청 | 처리 |
+| --- | --- |
+| `POST /api/closet/items/{id}/confirm` | 본인의 보이는 `DRAFT`를 `CONFIRMED`로 변경합니다. `{}`를 보내면 분석 값을 그대로 사용합니다. 분석에서 색을 선택하지 못했다면 `color`를 입력해야 합니다. |
+| `PATCH /api/closet/items/{id}` | 본인의 보이는 `CONFIRMED` 의류의 지정 필드만 갱신합니다. `{}`는 변경 없이 의류를 확인합니다. |
+
+두 요청은 로그인 세션 쿠키와 같은 세션의 `X-CSRF-TOKEN`을 요구하며, `Content-Type: application/json`의 JSON 객체(최대 64 KiB)를 받습니다. 성공은 `204 No Content`로 본문이 없습니다. 존재하지 않거나 다른 사용자 소유, 숨김, 해당 요청에 맞지 않는 상태의 의류는 모두 `404`입니다(확정 재호출 포함). 잘못된 ID·필드·본문은 `400`, 초과 본문은 `413`, DB 오류는 `503`입니다.
+
+필드: `name`(최대 50자), `category`(상의·덧입기·하의·아우터·원피스), `sub_category`, `color`, `styles`·`tags`(문자열 배열), `memo`(문자열), `hex`(`#RRGGBB`). 생략한 필드는 유지합니다. `sub_category`와 `hex`는 `null`, 목록은 `[]`, 메모는 `""`로 지울 수 있습니다. `status`, 소유자 정보, 이미지 키 및 ML 메타데이터는 편집할 수 없습니다.
+
+같은 오리진이나 프록시를 권장합니다. 직접 호출 시 로컬 FE `http://localhost:5173`에는 `/api/auth/me`의 `X-CSRF-TOKEN` 헤더 조회와 위 confirm/PATCH만 CORS로 허용됩니다. 그 경우에도 `credentials: 'include'`와 CSRF 헤더가 필요합니다.
+
+## 등록 의류 이미지 미리보기
+
+`GET /api/closet/preview?id=<id>`는 세션 쿠키를 요구하고 CSRF 토큰은 필요하지 않습니다. 본인의 보이는 `CONFIRMED` 의류에 이미지가 있으면 `200`과 JPEG·PNG·WebP 바이트를 반환합니다. 대상·이미지가 없으면 `404`이며, `DRAFT`는 이 경로로 조회할 수 없습니다. 응답은 `Cache-Control: no-store`를 사용하고 Blob URL이나 SAS로 리디렉션하지 않습니다.
+
+## 분석 요청만 로컬에서 확인하기 (선택)
+
+`./gradlew :closet-service:runLocalGarmentAnalysis`를 실행하고 Postman에서 `POST http://127.0.0.1:18081/api/closet/items/analyze`에 운영 API와 같은 `image` 파일을 보냅니다. **이 테스트용 실행기만** 세션·CSRF 없이 호출할 수 있습니다. `ML_API_URL`/`ML_API_KEY`를 설정하면 해당 ML을 실제 호출하고 원본 JSON을 반환합니다. DB 삽입·Blob 조회·SAS 발급은 하지 않으며, 키를 Postman에 입력할 필요가 없습니다. 포트를 프록시나 터널로 공개하지 마세요. 실행기는 배포 JAR에 포함되지 않습니다. 외부 연동 없이 확인할 때는 기본 Gradle 테스트를 사용하세요.
+
 ## 로컬 종료
 
 실행한 각 터미널에서 `Ctrl+C`를 눌러 종료합니다. 재실행 시 포트 사용 중 오류가 나면 이전 서비스 프로세스가 종료되었는지 먼저 확인합니다.
+
+## 격리 PostgreSQL에서 의류 스키마 테스트 (선택)
+
+새로 만든 루프백 PostgreSQL 클러스터에 빈 `closet_draft_fresh_test`, `closet_draft_migration_test` DB를 준비하고 해당 클러스터의 `closet_test` 사용자로 접속할 수 있게 합니다. 새 스키마와 기존 스키마의 업그레이드 경로를 각각 테스트합니다. 개발·운영 DB에서는 실행하지 마세요.
+
+```sh
+# 55432는 예시입니다. 격리 클러스터의 실제 포트로 바꾸세요.
+CLOSET_DRAFT_TEMP_POSTGRES_PORT=55432 ./gradlew :closet-service:test --rerun --tests '*ClosetDraftPostgresTest'
+```
 
 ## 개발 PostgreSQL 연결 확인 (선택)
 
