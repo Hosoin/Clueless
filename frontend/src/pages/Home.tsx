@@ -54,7 +54,7 @@ export default function Home() {
   const tr = same ? TRENDS.find((t) => t.k === o.ref) : TRENDS.find((t) => t.up && ps.some((it) => it.tags.includes(t.k)))
   const rec = ps.filter(isPast), hidden = S.fresh ? S.items.filter(isPast).length : 0
   const layers = EXTRA.filter((k) => c[k]).length, okN = layersFor(TEMP)
-  const wx = `오늘 ${TEMP}°라 상의 위로 ${okN}겹까지 겹쳐 입기 좋아요${layers > okN ? ` (지금 ${layers}겹)` : ''}`
+  const wx = `지금 ${TEMP}°라 상의 위로 ${okN}겹까지 겹쳐 입기 좋아요${layers > okN ? ` (지금 ${layers}겹)` : ''}`
   const note = [rec.length ? wornNote(rec[0]) : hidden ? `최근 ${S.RECENT}일 안에 입은 옷 ${hidden}벌은 빼고 보여드려요` : '', wx].filter(Boolean).join(' · ')
   const isChosen = S.chosenKey === comboKey(c)
   const next = EXTRA.find((k) => !S.on[k] && L[k].length)

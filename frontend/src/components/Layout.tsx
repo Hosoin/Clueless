@@ -4,7 +4,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { fetchMe, takeGoogleLoginReturn } from '../api/auth'
-import { S, emit, useApp } from '../store'
+import { S, WEATHER, emit, useApp } from '../store'
 import { closeAll } from '../ui'
 import { Overlays } from './Overlays'
 import { setNav } from '../nav'
@@ -104,7 +104,7 @@ export function Layout() {
     <div className={`phone ${loginOn ? 'login-on' : ''}`} id="app" ref={phone}
       onScroll={(e) => { if (e.currentTarget.scrollTop) e.currentTarget.scrollTop = 0 }}
       >{/* 폰 틀(#app)은 절대 움직이지 않게 */}
-      {!loginOn && <div className="top"><span className="d">{todayLabel()}</span><p className="logo">Clueless</p><span className="w">4°/12°, 맑음</span></div>}
+      {!loginOn && <div className="top"><span className="d">{todayLabel()}</span><p className="logo">Clueless</p><span className="w">{WEATHER.low}°/{WEATHER.high}°, {WEATHER.sky}</span></div>}
       <Outlet />
       {!loginOn && (
         <nav id="nav" ref={navRef} className={navHide ? 'hide' : ''}>

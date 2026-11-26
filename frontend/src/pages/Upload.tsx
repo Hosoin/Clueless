@@ -16,7 +16,7 @@ import { CATS, COLORS, MATERIALS, SUBS, photo } from '../data/seed'
 import type { Category } from '../data/types'
 import { resizeImage } from '../image'
 import { go } from '../nav'
-import { S, emit, useApp } from '../store'
+import { S, emit, present, useApp } from '../store'
 import { askPermission, closeAll, openSheet, toast } from '../ui'
 
 /**
@@ -210,7 +210,12 @@ export default function Upload() {
  */
 function Camera({ onClose, onFail }: { onClose: (shots: Blob[]) => void; onFail: (denied: boolean) => void }) {
   const v = useRef<HTMLVideoElement>(null), flash = useRef<HTMLDivElement>(null)
-  const [shots, setShots] = useState<Blob[]>([])
+  // 찍은 사진. 셔터를 누르면 JPEG로 만드는 일(toBlob)이 끝나기 전에 바로 자리를 잡아 두고(약속 Promise),
+  // 완료를 누르면 만들던 사진이 모두 끝날 때까지 기다렸다 넘긴다. 전에는 끝난 사진만 목록에 넣어서,
+  // 셔터 직후 바로 완료를 누르면 마지막 사진이 빠졌다 (코드 리뷰 35번)
+  const pending = useRef<Promise<Blob | null>[]>([])
+  const [count, setCount] = useState(0) // 찍은 장 수 (버튼 글자와 'n장' 표시용)
+  const closing = useRef(false) // 완료를 두 번 눌러도 한 번만 넘기게
   const failRef = useRef(onFail)
   useEffect(() => {
     let cancelled = false, stream: MediaStream | null = null
@@ -228,22 +233,28 @@ function Camera({ onClose, onFail }: { onClose: (shots: Blob[]) => void; onFail:
       if (video) video.srcObject = null
     }
   }, [])
-  const close = () => onClose(shots) // 화면이 닫히면 위의 정리 함수가 카메라를 끈다
+  // 만들던 사진까지 모두 기다렸다 넘긴다. 만들기에 실패한 사진(null)은 뺀다. 화면이 닫히면 위의 정리 함수가 카메라를 끈다
+  const close = () => {
+    if (closing.current) return
+    closing.current = true
+    Promise.all(pending.current).then((bs) => onClose(bs.filter(present)))
+  }
   return (
     <div className="cam on">
       <video ref={v} playsInline muted autoPlay />
       <p className="msg">옷이 화면에 꽉 차게 찍어 주세요</p>
       <div className="flash" ref={flash} />
       <div className="bar2">
-        <button className="x" onClick={close}>{shots.length ? '완료' : '닫기'}</button>
+        <button className="x" onClick={close}>{count ? '완료' : '닫기'}</button>
         <button className="shutter" aria-label="사진 찍기" onClick={() => {
           const el = v.current; if (!el?.videoWidth) return
           const c = document.createElement('canvas'); c.width = el.videoWidth; c.height = el.videoHeight
           c.getContext('2d')!.drawImage(el, 0, 0)
-          c.toBlob((b) => { if (b) setShots((s) => [...s, b]) }, 'image/jpeg', 0.85)
+          pending.current.push(new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.85)))
+          setCount((n) => n + 1)
           if (flash.current) { flash.current.style.opacity = '.8'; setTimeout(() => { if (flash.current) flash.current.style.opacity = '0' }, 80) }
         }} />
-        <span style={{ minWidth: 56, textAlign: 'right', color: 'var(--ivory)', fontSize: 13 }}>{shots.length ? shots.length + '장' : ''}</span>
+        <span style={{ minWidth: 56, textAlign: 'right', color: 'var(--ivory)', fontSize: 13 }}>{count ? count + '장' : ''}</span>
       </div>
     </div>
   )

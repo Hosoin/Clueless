@@ -138,9 +138,15 @@ export const EXTRA: ExtraKey[] = ['m', 'j', 'o'] // 겹옷 줄
 /** 겹옷 줄인지. true면 k를 ExtraKey로 좁혀 S.on[k]에 바로 쓸 수 있다 (`(EXTRA as RowKey[]).includes(k)`와 `k as ExtraKey` 대신, 코드 리뷰 32번) */
 export const isExtra = (k: RowKey): k is ExtraKey => EXTRA.some((x) => x === k)
 export const NAME: Record<RowKey, string> = { t: '상의', m: '덧입기', j: '아우터', o: '아우터', b: '하의' } // 재킷·코트는 화면에서 모두 '아우터'
-/** 옷이 들어갈 줄. 아우터는 이름에 코트·패딩이 있으면 코트 줄(o), 아니면 재킷 줄(j). 원피스는 상의 줄(t) */
-export const rowKey = (it: Item): RowKey => (it.cat === '하의' ? 'b' : it.cat === '덧입기' ? 'm' : it.cat === '아우터' ? (/코트|패딩/.test(it.name) ? 'o' : 'j') : 't')
-export const TEMP = 9 // 오늘 기온(°C). 날씨 API를 붙이기 전까지 고정값
+/** 코트 줄(o)에 둘 아우터인지. 세부 종류(sub)가 있으면 그걸로(코트·패딩), 없으면(예시 옷) 이름에 코트·패딩이 있는지로 본다.
+ *  이름으로만 보면 '코트 같은 재킷'처럼 이름이 애매한 옷이 잘못 들어갈 수 있어서 sub를 먼저 본다 (코드 리뷰 35번) */
+const isCoat = (it: Item) => (it.sub ? it.sub === '코트' || it.sub === '패딩' : /코트|패딩/.test(it.name))
+/** 옷이 들어갈 줄. 아우터는 코트·패딩이면 코트 줄(o), 아니면(재킷·점퍼) 재킷 줄(j). 원피스는 상의 줄(t) */
+export const rowKey = (it: Item): RowKey => (it.cat === '하의' ? 'b' : it.cat === '덧입기' ? 'm' : it.cat === '아우터' ? (isCoat(it) ? 'o' : 'j') : 't')
+/** 오늘 날씨. 날씨 API를 붙이기 전까지 고정값. 위쪽 날씨(Layout.tsx)와 홈 겹쳐 입기 문구가 같이 읽는다 (코드 리뷰 35번).
+ *  now: 지금 기온, low·high: 오늘 최저·최고 기온(°C), sky: 하늘 */
+export const WEATHER = { now: 9, low: 4, high: 12, sky: '맑음' }
+export const TEMP = WEATHER.now // 겹쳐 입기 겹 수를 정하는 기온(°C) = 지금 기온
 export const layersFor = (t: number) => (t >= 15 ? 1 : t >= 5 ? 2 : 3) // 기온별로 상의 위에 겹쳐 입기 좋은 겹 수
 
 /** 코디의 옷 id를 줄 순서(상의·덧입기·재킷·코트·하의)로. 빈 칸은 null·undefined 그대로 */
