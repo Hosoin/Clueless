@@ -1,0 +1,36 @@
+[project]
+name = "clueless"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "einops>=0.8.2",
+    "fastapi>=0.165.0",
+    "kornia>=0.9.2",
+    "numpy>=2.5.5",
+    "onnxruntime>=1.20",
+    "opencv-python-headless>=5.1.0.95",
+    "pillow>=13.0.0",
+    "python-multipart>=0.0.34",
+    "timm>=1.0.31",
+    "torch>=2.15.0",
+    "torchvision>=0.29.2",
+    "transformers>=5.23.0",
+    "uvicorn>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pyarrow>=26.0.1",
+]
+
+# 리눅스(컨테이너·CI·Azure)에서는 CPU 전용 torch를 받는다. 기본 PyPI torch는 리눅스에서 CUDA 포함이라 수 GB.
+# 맥·윈도우는 기존대로 PyPI.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]

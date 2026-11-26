@@ -1,0 +1,3 @@
+rootProject.name = 'clueless-backend'
+
+include 'closet-service', 'recommendation-service'
