@@ -166,3 +166,8 @@ h1 i{font-style:italic}
 .cand span{flex-shrink:0}
 .cand.manual{justify-content:center;border-style:dashed;color:var(--soft)}
 .cand.manual.on{border-style:solid;color:var(--ivory)}
+
+/* 옷 크게 보기 · 별명 (Ph.tsx lightbox, editAlias) */
+.lb h3 + .sub{margin:2px 0 10px}             /* 별명 아래 원래 이름 */
+.alias-edit{margin-left:10px;min-height:0;padding:0}
+.alias-field{margin-top:16px}

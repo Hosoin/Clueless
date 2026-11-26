@@ -4,6 +4,7 @@ export type Category = '상의' | '덧입기' | '하의' | '아우터' | '원피
 export type Item = {
   id: number
   name: string
+  alias?: string | null // 별명: 사용자가 붙인 이름 (예: 최애 코트). 옷장에서 name 대신 보여 줌. 없으면 name
   cat: Category
   sub?: string | null // 세부 종류 (티셔츠·셔츠·니트·코트 등). SUBS의 값. 모르면 없음
   color: string // COLORS의 키
