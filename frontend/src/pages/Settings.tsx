@@ -5,7 +5,7 @@ import { logout } from '../api/auth'
 import { Back } from '../components/Icons'
 import { StyleGrid } from '../components/StyleGrid'
 import { toLogin } from '../nav'
-import { S, emit, euro, useApp } from '../store'
+import { S, clearMe, emit, euro, keepSel, useApp } from '../store'
 import { closeAll, openSheet, toast } from '../ui'
 
 /** 좋아하는 스타일 창을 연다 (추천 방식을 '취향대로'로 바꿀 때, '좋아하는 스타일'을 누를 때). after: 저장한 뒤 할 일.
@@ -32,6 +32,7 @@ function Switch({ label, on, set }: { label: string; on: boolean; set: (v: boole
 export default function Settings() {
   useApp()
   const nav = useNavigate()
+  const [loggingOut, setLoggingOut] = useState(false) // 로그아웃 요청 중인지 (버튼 연타 막기)
   const [noti, setNoti] = useState(true), [cnoti, setCnoti] = useState(true)
   const setMode = (m: 'taste' | 'trend') => { S.pref.mode = m; toast(m === 'taste' ? '내 취향대로 추천할게요' : '요즘 유행대로 추천할게요'); emit() }
   return (
@@ -45,7 +46,7 @@ export default function Settings() {
         </div>
         <div className="sec"><h3>추천</h3>
           <div className="setrow"><div><p>최근 입은 옷 빼기 기준</p><p className="sub2">이 기간 안에 입은 옷은 추천에서 빼요</p></div>
-            <div className="chips2">{[3, 7, 14].map((n) => <button key={n} className={n === S.RECENT ? 'on' : ''} onClick={() => { S.RECENT = n; toast(`최근 ${n}일 안에 입은 옷은 추천에서 뺄게요`); emit() }}>{n}일</button>)}</div></div>
+            <div className="chips2">{[3, 7, 14].map((n) => <button key={n} className={n === S.RECENT ? 'on' : ''} onClick={() => { keepSel(() => { S.RECENT = n }); toast(`최근 ${n}일 안에 입은 옷은 추천에서 뺄게요`) }}>{n}일</button>)}</div></div>
           <div className="setrow"><div><p>추천 방식</p><p className="sub2">오늘의 코디를 고르는 기준이에요</p></div>
             <div className="chips2">{([['taste', '취향대로'], ['trend', '유행대로']] as const).map(([k, l]) => (
               <button key={k} className={S.pref.mode === k ? 'on' : ''} style={{ whiteSpace: 'nowrap' }} onClick={() => { if (k === 'taste' && !S.pref.styles.length) styleSheet(() => setMode('taste')); else setMode(k) }}>{l}</button>
@@ -60,11 +61,14 @@ export default function Settings() {
         <div className="sec"><h3>계정</h3>
           {S.loggedIn ? (
             <><div className="setrow"><p>로그인 계정</p><p style={{ fontSize: 13, color: 'var(--soft)' }}>Google</p></div>
-              <button className="link" style={{ padding: 0 }} onClick={async () => {
+              <button className="link" style={{ padding: 0 }} disabled={loggingOut} onClick={async () => {
+                // 요청 중에는 버튼을 막아 연타로 로그아웃 요청이 여러 번 가지 않게 한다
+                setLoggingOut(true)
                 // 서버 로그인이면 서버 세션도 끝낸다. 서버가 실패하면 로그인 상태를 그대로 두고 알린다
-                try { await logout() } catch { return toast('로그아웃하지 못했어요. 잠시 후 다시 해 주세요') }
-                S.loggedIn = false; toast('로그아웃했어요'); emit()
-              }}>로그아웃</button></>
+                try { await logout() } catch { setLoggingOut(false); return toast('로그아웃하지 못했어요. 잠시 후 다시 해 주세요') }
+                // 성공하면 내 정보를 비우고 로그인 화면으로 보낸다. replace로 이동해 뒤로가기로 설정 화면에 돌아오지 않게 한다
+                clearMe(); toast('로그아웃했어요'); nav('/login', { replace: true })
+              }}>{loggingOut ? '로그아웃하는 중' : '로그아웃'}</button></>
           ) : <div className="login"><button className="btn solid" onClick={() => toLogin('/settings')}>로그인하기</button></div>}
         </div>
       </div>

@@ -16,7 +16,7 @@ import { CATS, COLORS, MATERIALS, SUBS, photo } from '../data/seed'
 import type { Category } from '../data/types'
 import { resizeImage } from '../image'
 import { go } from '../nav'
-import { S, emit, present, useApp } from '../store'
+import { S, emit, keepSel, present, useApp } from '../store'
 import { askPermission, closeAll, openSheet, toast } from '../ui'
 
 /**
@@ -130,14 +130,18 @@ const isSet = (b: Tile) => b.done && !!b.cat && !!b.color
  */
 function putInCloset() {
   const take = batch.filter(isSet)
-  take.forEach((b) => S.items.unshift({
+  // 옷장 맨 앞에 끼워 넣으면 홈의 줄 순서가 밀리므로 keepSel로 감싸 홈에서 고른 옷이 바뀌지 않게 한다
+  keepSel(() => take.forEach((b) => S.items.unshift({
     id: b.id, name: b.name || `${b.color} ${b.sub || b.cat}`, cat: b.cat!, sub: b.sub, color: b.color!, hex: b.hex, material: b.material,
     rec: 0, tags: [], lastWorn: null, img: b.img || undefined, isNew: true, added: Date.now(),
-  }))
+  })))
   batch = batch.filter((b) => !isSet(b))
+  cur = 0 // 남은 사진이 있으면 처음부터 이어서 확인. 그대로 두면 남은 장수보다 큰 번호가 남아 '이어서 확인하기 (6 / 1)'처럼 보였다
   closeAll()
   toast(`${take.length}벌을 옷장에 넣었어요`)
-  S.cView = 'items'; S.cSort = 0 // 옷장에서 '내 옷'을 최근 넣은 순으로 보여 줘야 새 옷이 맨 앞에 보인다
+  // 옷장에서 '내 옷'을 최근 넣은 순으로, 종류 탭은 '전체', 색 필터는 '모든 색'으로 보여 줘야 새 옷이 맨 앞에 다 보인다.
+  // 탭·필터를 그대로 두면 '하의' 탭이나 '블랙' 필터가 켜진 채 열려 방금 넣은 옷이 안 보였다
+  S.cView = 'items'; S.cSort = 0; S.cTab = '전체'; S.cColor = null
   go('/closet')
 }
 
@@ -272,14 +276,21 @@ function scanColor(b: Tile, done: () => void) {
   const fin = (hex: string) => { b.hex = hex; b.color = nearestName(hex); done() }
   if (!b.img) return setTimeout(() => fin(COLORS[b.color || '아이보리'] || '#E5DCC8'), 500)
   const im = new Image()
+  // 다른 서버(예: Blob Storage)의 사진도 픽셀을 읽을 수 있게 CORS로 불러온다. 서버가 허용하지 않으면 onerror로 간다
+  im.crossOrigin = 'anonymous'
   im.onload = () => {
-    const c = document.createElement('canvas'); c.width = c.height = 24
-    const s = Math.min(im.width, im.height) * 0.4
-    c.getContext('2d')!.drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, 24, 24)
-    const px = c.getContext('2d')!.getImageData(0, 0, 24, 24).data
-    let r = 0, g = 0, bl = 0; for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i + 1]; bl += px[i + 2] }
-    const n = px.length / 4, h = (v: number) => Math.round(v / n).toString(16).padStart(2, '0')
-    fin(('#' + h(r) + h(g) + h(bl)).toUpperCase())
+    // 픽셀 읽기가 실패해도(다른 서버 사진이라 막힘, 캔버스를 못 만듦 등) 기본 색으로 끝낸다.
+    // done()이 불리지 않으면 'scanning'이 true로 남아 모든 사진의 '사진에서 색 뽑기'가 '뽑는 중'에서 멈췄다
+    try {
+      const c = document.createElement('canvas'); c.width = c.height = 24
+      const ctx = c.getContext('2d'); if (!ctx) return fin('#E5DCC8')
+      const s = Math.min(im.width, im.height) * 0.4
+      ctx.drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, 24, 24)
+      const px = ctx.getImageData(0, 0, 24, 24).data
+      let r = 0, g = 0, bl = 0; for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i + 1]; bl += px[i + 2] }
+      const n = px.length / 4, h = (v: number) => Math.round(v / n).toString(16).padStart(2, '0')
+      fin(('#' + h(r) + h(g) + h(bl)).toUpperCase())
+    } catch { fin('#E5DCC8') }
   }
   im.onerror = () => fin('#E5DCC8')
   im.src = b.img

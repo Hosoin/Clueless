@@ -12,7 +12,8 @@ export default function Onboard() {
   const nav = useNavigate()
   const [err, setErr] = useState('')
   const ob = S.ob
-  if (!ob) return <Navigate to="/login" replace />
+  // 첫 설정 진행 정보가 없으면: 로그인 전이면 로그인 화면, 첫 설정을 이미 마쳤으면(끝낼 때 비움) 홈으로
+  if (!ob) return <Navigate to={S.loggedIn ? '/' : '/login'} replace />
   const steps = ob.mode === 'taste' ? (['mode', 'taste', 'nick'] as const) : (['mode', 'nick'] as const)
   const i = (steps as readonly string[]).indexOf(ob.step), n = steps.length
   const set = (f: () => void) => { f(); emit() }
@@ -22,8 +23,10 @@ export default function Onboard() {
     const v = ob.nick.trim()
     if (v.length < 2) return setErr('닉네임은 2자 이상이에요')
     S.me.nick = v; S.pref.mode = ob.mode; if (ob.mode === 'taste') S.pref.styles = [...ob.styles]; S.onboarded = true
-    // 첫 설정이 끝나면 홈으로만 보냄. "오늘의 코디를 골랐어요" 알림은 홈 화면에 바로 코디가 보여서 군더더기라 띄우지 않는다
-    nav('/')
+    S.ob = null // 진행 정보를 비워, 첫 설정 주소로 다시 와도 끝난 단계가 그대로 다시 그려지지 않게 한다 (위 Navigate가 홈으로 보냄)
+    // 첫 설정이 끝나면 홈으로만 보냄. "오늘의 코디를 골랐어요" 알림은 홈 화면에 바로 코디가 보여서 군더더기라 띄우지 않는다.
+    // replace로 이동해 방문 기록에서 첫 설정을 지운다. 쌓아 두면 홈에서 뒤로가기했을 때 끝낸 첫 설정 화면이 다시 나왔다
+    nav('/', { replace: true }); emit()
   }
   return (
     <section className="screen on" id="s-onboard">

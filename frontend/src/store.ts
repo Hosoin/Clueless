@@ -15,6 +15,10 @@ export function withComments<T extends Post>(p: T): T {
 }
 
 /* ---------- 상태 ---------- */
+/** 처음 상태의 내 정보와 추천 취향. 앱을 켤 때와 로그아웃할 때(clearMe) 같은 값으로 시작하려고 함수로 둔다 */
+const newMe = () => ({ ...ME, photo: null as string | null }) // photo: 프로필 사진 (없으면 닉네임 첫 글자)
+const newPref = () => ({ mode: 'trend' as 'trend' | 'taste', styles: [] as string[] })
+
 /** 앱 전체 상태 (메모리에만 있어서 새로고침하면 seed.ts의 처음 상태로 돌아간다). 바꾼 뒤에는 emit()을 부른다 */
 export const S = {
   items: seedItems(), // 내 옷장
@@ -23,8 +27,8 @@ export const S = {
   history: seedHistory(), // 입은 기록
   plans: [] as Plan[], // 입을 계획 (캘린더)
   posts: seedPosts().map(withComments), // 커뮤니티 글
-  me: { ...ME, photo: null as string | null }, // photo: 프로필 사진 (없으면 닉네임 첫 글자)
-  pref: { mode: 'trend' as 'trend' | 'taste', styles: [] as string[] }, // 추천 방식(유행·취향)과 좋아하는 스타일
+  me: newMe(), // 내 정보. photo: 프로필 사진 (없으면 닉네임 첫 글자)
+  pref: newPref(), // 추천 방식(유행·취향)과 좋아하는 스타일
   loggedIn: false, // 로그인했는지 (Google은 서버 세션, 카카오·Apple은 가짜)
   onboarded: false, // 첫 설정을 마쳤는지
   RECENT: 3, // 이 날수 안에 입은 옷은 추천에서 뺌
@@ -191,15 +195,28 @@ export function clampPos() { const L = lists(); for (const k of K) S.pos[k] = Ma
  * 추천에서 뺀 옷은 줄에서 빠지므로, 그 옷을 가리키는 겹을 그대로 켜면 "옷이 없어요"만 뜬 하얀 칸이 생겨서
  * (예: 덧입기가 한 벌뿐인데 그 옷을 뺀 경우). 뺀 옷이 든 코디를 어떻게 다시 짤지는 추천 서버(ML)가 정할 일이라
  * 여기서는 화면에 빈 칸만 생기지 않게 한다.
+ * 상의·하의도 추천에서 빠져 줄에 없을 수 있다. 예전에는 이때 줄의 0번째 옷을 골라 코디와 상관없는 옷이 들어갔다
+ * (Math.max(0, -1)). 지금은 나머지 옷을 먼저 맞춘 뒤, 그 줄에서 나머지 옷과 가장 잘 어울리는 옷(ranked)으로 대신한다.
  */
 export function applyOutfit(i: number) {
   S.oi = i; const o: Outfit = S.outfits[i]
   if (S.fresh && recentIn(o).length) S.fresh = false // 추천 코디에 최근 입은 옷이 있으면 그대로 보여 줌
-  const L = lists(), at = (arr: Item[], id: number) => Math.max(0, arr.findIndex((x) => x.id === id))
+  const L = lists()
   const inRow = (k: ExtraKey, id?: number | null) => !!id && L[k].some((x) => x.id === id)
   S.on.m = inRow('m', o.mid); S.on.j = inRow('j', o.jacket); S.on.o = inRow('o', o.outer)
   const ids: Record<RowKey, number | null | undefined> = { t: o.top, m: o.mid, j: o.jacket, o: o.outer, b: o.bottom }
-  K.forEach((k) => { const id = ids[k]; if (id) S.pos[k] = at(L[k], id) })
+  const missing: RowKey[] = [] // 코디에 있지만 줄에서 못 찾은 상의·하의
+  K.forEach((k) => {
+    const id = ids[k]; if (!id) return
+    const at = L[k].findIndex((x) => x.id === id)
+    if (at >= 0) S.pos[k] = at
+    else if ((k === 't' || k === 'b') && L[k].length) missing.push(k) // 겹옷은 위에서 줄을 껐으니 따로 고를 필요 없음
+  })
+  // 못 찾은 칸은 나머지 옷과 가장 잘 어울리는 옷으로. 하의가 있는 코디의 상의 자리에 원피스가 오면 하의가 사라지므로 원피스는 건너뜀
+  missing.forEach((k) => {
+    const best = ranked(k).find((x) => k !== 't' || x.cat !== '원피스' || !o.bottom)
+    if (best) S.pos[k] = L[k].indexOf(best)
+  })
   appliedKey = comboKey(current())
 }
 /**
@@ -222,7 +239,16 @@ export function tidyRows() {
   EXTRA.forEach((k) => { if (S.on[k] && !L[k].length) S.on[k] = false })
   clampPos()
 }
-/** 커뮤니티 따라 입기 등: 지정한 옷으로 줄을 맞춤 */
+/**
+ * 로그아웃한 뒤 앱에 남은 내 정보를 처음 상태로 비운다 (docs/API_CONVENTION.md 4장).
+ * 비우지 않으면 다음 사람이 로그인 화면을 거쳐 들어와도 앞 사람의 닉네임·프로필 사진·첫 설정 결과가 그대로 보인다.
+ * 첫 설정 여부(onboarded)도 풀어서, 다시 로그인하면 첫 설정부터 한다. 서버 세션과 CSRF 토큰은 api/auth.ts의 logout이 정리한다
+ */
+export function clearMe() {
+  S.me = newMe(); S.pref = newPref()
+  S.loggedIn = false; S.onboarded = false; S.ob = null; S.loginBack = '/'
+}
+/** 커뮤니티 따라 입기 등: 지정한 옷으로 줄을 맞춤. 줄에 없는 옷(추천에서 뺀 옷)은 건너뜀 */
 export function setCombo(ids: number[]) {
   S.fresh = false
   EXTRA.forEach((k) => (S.on[k] = false))
@@ -230,15 +256,24 @@ export function setCombo(ids: number[]) {
   ids.forEach((id) => {
     const it = byId(id); if (!it) return
     const k = rowKey(it), i = L[k].findIndex((x) => x.id === id)
-    if (i >= 0) S.pos[k] = i
+    if (i < 0) return // 추천에서 뺀 옷은 줄에 없다. 그 겹옷 줄을 켜면 하얀 '옷이 없어요' 칸만 생기므로 건너뜀
+    S.pos[k] = i
     if (isExtra(k)) S.on[k] = true
   })
 }
-/** 줄 구성(겹 수, 최근 입은 옷 빼기 등)을 바꿔도 지금 고른 옷은 그대로 둠 */
+/**
+ * 홈의 줄 목록이 바뀌는 일(fn)을 해도 지금 고른 옷은 그대로 둔다.
+ * 홈은 고른 옷을 옷 id가 아니라 줄 안의 순서(S.pos)로 기억한다. 그래서 옷 등록(맨 앞에 끼워 넣음), 삭제, 추천에서 빼기,
+ * 최근 입은 옷 빼기 기준 변경처럼 줄 목록이 바뀌면 같은 번호가 다른 옷을 가리켜, 고른 옷이 저절로 바뀌었다.
+ * fn 전에 고른 옷을 기억해 두고, fn 뒤에 그 옷을 줄에서 다시 찾아 번호를 맞춘다.
+ * 고른 옷이 줄에서 빠졌으면(지웠거나 추천에서 뺀 옷) 찾을 수 없어 번호를 그대로 두고, 그 번호가 줄 길이를 넘거나
+ * 겹옷 줄에 남은 옷이 없으면 tidyRows가 정리한다 (하얀 '옷이 없어요' 칸 방지).
+ */
 export function keepSel(fn: () => void) {
   const c = current(); fn()
   const L = lists()
   for (const k of K) { const it = c[k]; if (it) { const i = L[k].findIndex((x) => x.id === it.id); if (i >= 0) S.pos[k] = i } }
+  tidyRows()
   emit()
 }
 
@@ -277,11 +312,20 @@ function logWear(ps: (Item | null | undefined)[]) {
   const today = S.history.find((h) => h.ago === 0)
   if (today) today.ids = ids; else S.history.unshift({ ago: 0, ids })
 }
-/** '이 코디로 입을래요': 옷마다 마지막으로 입은 날을 오늘로 하고 입은 기록에 남긴다.
- *  입기 전 값은 prevWorn에 한 번만 남겨, 오늘 기록을 고치거나 지울 때 되돌린다 */
+/**
+ * '이 코디로 입을래요': 옷마다 마지막으로 입은 날을 오늘로 하고 입은 기록에 남긴다.
+ * 입기 전 값은 prevWorn에 한 번만 남겨, 오늘 기록을 고치거나 지울 때 되돌린다.
+ * 오늘 이미 다른 코디를 입었다면 그 기록은 덮어쓰인다. 그래서 새 코디에서 빠진 옷은
+ * '마지막으로 입은 날'을 다시 계산해 원래대로 돌린다 (안 하면 계속 '오늘 입음'으로 남음).
+ * 홈의 '오늘 코디로 정했어요' 표시(S.chosenKey)도 푼다. 오늘 코디가 바뀌었으니 예전 표시는 맞지 않다.
+ * 홈에서 부를 때는 이 함수 뒤에 chosenKey를 새 코디로 다시 정한다 (Home.tsx chooseToday)
+ */
 export function wearToday(ps: Item[]) {
+  const before = S.history.find((h) => h.ago === 0)?.ids ?? [] // 덮어쓰기 전 오늘 입은 옷
   ps.forEach((it) => { if (it.prevWorn === undefined) it.prevWorn = it.lastWorn; it.lastWorn = 0 })
   logWear(ps)
+  before.filter((id) => !ps.some((it) => it.id === id)).forEach(recalcWorn) // 오늘 기록에서 빠진 옷만
+  S.chosenKey = null
 }
 /** 입은 기록을 고치면 옷마다 마지막으로 입은 날을 다시 계산 */
 export function recalcWorn(id: number) {
@@ -290,15 +334,32 @@ export function recalcWorn(id: number) {
   it.lastWorn = hs.length ? Math.min(...hs.map((h) => h.ago)) : it.prevWorn !== undefined ? it.prevWorn : null
   if (!hs.some((h) => h.ago === 0)) delete it.prevWorn
 }
+/**
+ * 이 옷들(ps)이 오늘 입은 코디와 같은지. 오늘 입은 기록(S.history의 ago 0)과 옷이 똑같으면 true.
+ * '오늘 코디로 정했어요' 표시를 화면 안 상태(useState)에 두면 탭을 옮길 때 풀리고, 다른 코디로 바꿔도 남아서
+ * 기록을 보고 그때그때 판단한다 (캘린더 저장한 코디, 홈 트렌드 코디)
+ */
+export function isWornToday(ps: Item[]) {
+  const today = S.history.find((h) => h.ago === 0)
+  return !!today && ps.length > 0 && today.ids.length === ps.length && ps.every((it) => today.ids.includes(it.id))
+}
+/** 이미 저장한 코디인지. '저장했어요' 표시와 saveLook의 중복 확인이 같이 쓴다 */
+export const isSavedLook = (look: Look) => S.saved.some((q) => outfitKey(q) === outfitKey(look))
 /** 코디를 저장한다. 같은 코디가 이미 있으면 저장하지 않는다. 결과: 이미 있었으면 true */
 export function saveLook(next: Look) {
-  const dup = S.saved.some((q) => outfitKey(q) === outfitKey(next))
+  const dup = isSavedLook(next)
   if (!dup) { const n = new Date(); S.saved.unshift({ id: ++S.sid, ...next, at: `${n.getMonth() + 1}월 ${n.getDate()}일` } as Saved) }
   return dup
 }
 
-/** 옷 삭제: 추천 코디·저장한 코디·입은 기록·입을 계획에서도 함께 빠짐 */
+/**
+ * 옷 삭제: 추천 코디·저장한 코디·입은 기록·입을 계획에서도 함께 빠짐.
+ * 홈 줄에서도 옷이 빠지므로 keepSel로 감싸 홈에서 고른 다른 옷이 바뀌지 않게 한다 (keepSel이 끝에 emit)
+ */
 export function deleteItem(it: Item) {
+  keepSel(() => removeItem(it))
+}
+function removeItem(it: Item) {
   const id = it.id, i = S.items.indexOf(it); if (i < 0) return
   S.items.splice(i, 1)
   const F = ['top', 'mid', 'jacket', 'outer', 'bottom'] as const
@@ -313,7 +374,6 @@ export function deleteItem(it: Item) {
   // 입을 계획(캘린더)에서도 뺀다. 남겨 두면 캘린더가 지운 옷을 찾다가 멈춤. 옷이 하나도 안 남은 계획은 지운다
   for (let k = S.plans.length - 1; k >= 0; k--) { const p: Plan = S.plans[k]; p.ids = p.ids.filter((x) => x !== id); if (!p.ids.length) S.plans.splice(k, 1) }
   S.chosenKey = null
-  emit()
 }
 
 /* ---------- 캘린더 ---------- */

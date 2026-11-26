@@ -2,14 +2,13 @@
 // - 달력에서 지난날을 누르면 그날 입은 코디를 보고 수정하기·삭제하기, 이 코디 저장하기를 할 수 있다
 // - 오늘·앞날을 누르면 입을 코디를 계획하고, 다른 코디로 바꾸기·삭제하기를 할 수 있다
 // - 예전 '입은 기록' 탭은 없앴다. 입은 기록은 날짜를 눌러 달력에서 바로 고치고 지운다 (11/25 Figma 수정안)
-import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Arrow } from '../components/Icons'
 import { PhPair, Thumbs } from '../components/Ph'
 import { CATS } from '../data/seed'
 import type { Hist, Look } from '../data/types'
 import {
-  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, lookIds, matchText, planOn, present, recalcWorn, rowKey, saveLook, useApp, wearToday, wornNote, wornOn,
+  S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, isWornToday, lookIds, matchText, planOn, present, recalcWorn, rowKey, saveLook, useApp, wearToday, wornNote, wornOn,
 } from '../store'
 import { closeAll, closeModal, openModal, openSheet, toast } from '../ui'
 
@@ -141,13 +140,12 @@ function planSheet(d: Date) {
 /** 저장한 코디 목록: 코디마다 썸네일, 어울림, 최근 입은 옷 안내 */
 function SavedList() {
   const nav = useNavigate()
-  const [wornIds, setWorn] = useState<number[]>([])
   if (!S.saved.length) return <div className="saved"><div className="empty">아직 저장한 코디가 없어요<br /><button className="btn cta" onClick={() => nav('/')}>코디 맞춰 보기</button></div></div>
   return (
     <div className="saved">
       {S.saved.map((o, i) => {
         const ps = lookIds(o).map((x) => byId(x)).filter(present), m = matchText(ps), rec = ps.filter(isRecent)
-        const done = wornIds.includes(o.id)
+        const done = isWornToday(ps) // 오늘 입은 기록을 보고 판단 (탭을 옮겨도, 오늘 코디를 바꿔도 맞게 보임)
         return (
           <div className="so" key={o.id}>
             <div className="meta"><p className="nm">{ps.map((p) => p.name).join(' + ')}</p><p className="dt">{o.at}</p></div>
@@ -155,7 +153,7 @@ function SavedList() {
             <div className="match" style={{ margin: 0 }}><span className={`dot ${m.hit ? '' : 'grey'}`} /><p>{m.t}</p></div>
             {rec.length > 0 && <p className="note">{wornNote(rec[0])}</p>}
             <div className="acts">
-              <button className="btn solid" disabled={done} onClick={() => { wearToday(ps); setWorn([...wornIds, o.id]); toast('오늘 코디로 정했어요'); emit() }}>{done ? '오늘 코디로 정했어요' : '이 코디로 입기'}</button>
+              <button className="btn solid" disabled={done} onClick={() => { wearToday(ps); toast('오늘 코디로 정했어요'); emit() }}>{done ? '오늘 코디로 정했어요' : '이 코디로 입기'}</button>
               <button className="link" onClick={() => { S.saved.splice(i, 1); toast('코디를 삭제했어요'); emit() }}>삭제</button>
             </div>
           </div>
@@ -210,7 +208,8 @@ function editHist(h: Hist) {
       <>
         <h3>입은 기록 고치기</h3><p>{dayLabel(h.ago)} 입은 옷이에요. 안 입은 옷은 빼 주세요</p>
         <div className="list" style={{ marginBottom: 14 }}>
-          {ids.length ? ids.map((id) => { const it = byId(id)!; return (
+          {/* 옷장에 없는 옷 id는 건너뛴다. 서버(API) 데이터가 어긋나 기록에만 남은 옷이 있으면 byId가 undefined라 화면이 멈춤 */}
+          {ids.length ? ids.map((id) => { const it = byId(id); if (!it) return null; return (
             <div className="erow" key={id}><span className="ph">{it.img && <img src={it.img} alt="" />}</span><p>{it.name}<span>{it.cat}</span></p>
               <button className="btn" onClick={() => { ids = ids.filter((x) => x !== id); emit() }}>빼기</button></div>
           ) }) : <p className="note" style={{ padding: '12px 0' }}>남은 옷이 없어요. 저장하면 이 기록이 지워져요</p>}

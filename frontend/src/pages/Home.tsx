@@ -2,14 +2,14 @@
 // - 제목 아래 스타일 칩(추천·미니멀·캐주얼…)으로 원하는 스타일을 고르면 추천 이유 문구가 그 스타일로 바뀐다
 // - 아래 버튼: [다음 추천 코디] / [이 코디로 입을래요][아바타로 보기]
 // - [아바타로 보기]를 누르면 같은 화면이 'My Avatar' 보기로 바뀐다 (S.view = 'avatar'). 닫기로 룩북으로 돌아옴
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { Arrow, SpinIc, TabIcon } from '../components/Icons'
 import { Ph, PhPair } from '../components/Ph'
 import { COLORS, STYLES, TRENDS } from '../data/seed'
 import type { Item, Look } from '../data/types'
 import {
   EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, current, emit, firstFresh, fit, hexOf,
-  isExtra, isPast, isRecent, keepSel, layersFor, lists, matchText, present, rowKey, saveLook, showsOutfit, stepFit, useApp,
+  isExtra, isPast, isSavedLook, isWornToday, keepSel, layersFor, lists, matchText, present, rowKey, saveLook, showsOutfit, stepFit, useApp,
   wearList, wearToday, worn, wornKey, wornNote, iga, eun, euro, type Combo, type RowKey,
 } from '../store'
 import { closeAll, openSheet, showIn, toast } from '../ui'
@@ -68,7 +68,7 @@ export default function Home() {
   )
 
   /* 첫 화면 한 장(아래 탭을 뺀 높이)에 코디 사진과 버튼이 모두 들어오게.
-     높이는 창 크기에만 달려 있어서, 홈에 들어올 때 한 번 맞추고 그 뒤로는 창 크기가 바뀔 때만 다시 맞춘다.
+     높이는 창 크기와 하단 탭 높이에 달려 있어서, 홈에 들어올 때 한 번 맞추고 그 뒤로는 창 크기나 탭 높이가 바뀔 때만 다시 맞춘다.
      의존성 배열([])이 없으면 코디를 돌리는 동안(약 45ms마다 다시 그림) 매번 resize 감지를 뗐다 다시 걸고 높이를 다시 계산했다 */
   useLayoutEffect(() => {
     const fit = () => {
@@ -79,7 +79,10 @@ export default function Home() {
     fit()
     window.addEventListener('resize', fit)
     window.visualViewport?.addEventListener('resize', fit)
-    return () => { window.removeEventListener('resize', fit); window.visualViewport?.removeEventListener('resize', fit) }
+    // 하단 탭 높이(--navh)가 바뀌어도 다시 맞춘다. 홈이 처음 그려질 때는 Layout이 아직 탭 높이를 재기 전이라 (자식의 이 effect가
+    // 부모의 effect보다 먼저 돎) 기본값 66px로 계산되므로, Layout이 탭 높이를 잰 뒤 보내는 'navh' 이벤트로 한 번 더 맞춘다
+    window.addEventListener('navh', fit)
+    return () => { window.removeEventListener('resize', fit); window.visualViewport?.removeEventListener('resize', fit); window.removeEventListener('navh', fit) }
   }, [])
 
   // 화보 배치: 가장 바깥 아우터를 왼쪽에 크게, 나머지는 오른쪽에 위에서부터 (아우터가 없으면 상의가 크게)
@@ -335,13 +338,15 @@ let tSel = 0, tUp = true, tResult = false
  *  - 짝지어 둔 옷이 옷장에 그대로 있으면 그 옷을 쓴다. 기본 옷장에서는 화면이 전과 같게 보이도록
  *  - 그 옷이 지워졌거나 추천에서 뺀 옷(ex)이면, 지금 옷장에 남은 같은 종류의 옷으로 바꾼다.
  *    전에는 id를 고정으로 적어서, 지운 옷이 코디에 들어가 저장되고 캘린더에서 byId(id)!가 터질 수 있었다
- *  - 최근 입은 옷은 되도록 피하고, 그런 옷밖에 없으면 그거라도 쓴다 */
+ *  - 최근 입은 옷은 되도록 피하고, 그런 옷밖에 없으면 그거라도 쓴다.
+ *    오늘 입은 옷은 최근 입은 옷으로 치지 않는다(isPast). isRecent(오늘 포함)를 쓰면 트렌드 코디를 입자마자
+ *    방금 입은 옷이 '최근 입은 옷'이 되어 코디가 다른 옷으로 바뀌었다. 홈 추천 줄(pool)과 같은 기준이다 */
 function pairFor(prefer: number, cat: Item['cat']) {
   const usable = (i?: Item | null): i is Item => !!i && !i.ex && i.cat === cat
   const p = byId(prefer)
   if (usable(p)) return p.id
   const pool = S.items.filter(usable)
-  return (pool.find((i) => !isRecent(i)) || pool[0])?.id ?? null
+  return (pool.find((i) => !isPast(i)) || pool[0])?.id ?? null
 }
 function Trend() {
   useApp()
@@ -349,7 +354,7 @@ function Trend() {
   const t = TRENDS[tSel], mine = S.items.filter((i) => i.tags.includes(t.k))
   const short = t.k.split(' ').pop() ?? t.k // 마지막 낱말 (예: 와이드 데님 → 데님)
   const title = mine.length ? (mine.length > 1 ? `내 옷장에 ${t.k}${iga(t.k)} ${mine.length}벌이나 있어요` : `내 옷장에 ${t.k}${iga(t.k)} 1벌 있어요`) : `내 옷장에 아직 ${t.k}${eun(t.k)} 없어요`
-  const it = mine.find((x) => !isRecent(x)) || mine[0]
+  const it = mine.find((x) => !isPast(x)) || mine[0] // 오늘 입은 옷은 빼지 않음 (위 pairFor 설명과 같은 이유)
   // 고른 옷의 종류에 따라 나머지 칸을 채운다. 숫자는 원래 짝지어 둔 옷(6 인디고 와이드 데님, 10 카멜 롱 코트,
   // 1 아이보리 오버핏 니트, 3 블랙 오버핏 니트, 7 블랙 플리츠 스커트)이고, 없으면 pairFor가 남은 옷으로 바꾼다
   const look = !it ? null
@@ -360,7 +365,10 @@ function Trend() {
   const ps = look ? ([byId(look.top), byId(look.outer), byId(look.bottom)].filter(present)) : []
   const mm = matchText(ps)
   const pick = (i: number) => { tSel = i; tResult = false; emit() }
-  const shown = useRef(false)
+  // 트렌드 코디를 이미 보여 준 상태인지. 코디 받기를 막 눌렀을 때(false → true)만 그 위치로 스크롤하려고 둔다.
+  // tResult는 탭을 옮겨도 남는 모듈 변수라, 처음 값을 false로 두면 홈에 돌아올 때마다 '막 열린 것'으로 보고
+  // 트렌드 코디 위치로 스크롤해 버렸다. 그래서 돌아왔을 때 이미 열려 있던 결과는 '보여 준 것'으로 시작한다
+  const shown = useRef(tResult)
   // 결과를 열고 닫을 때만 실행한다. 의존성이 없으면 홈이 다시 그려질 때마다(돌리는 중 약 45ms마다) 불렸다 (코드 리뷰 22번)
   useEffect(() => { if (tResult && !shown.current) showIn(resultRef.current); shown.current = tResult }, [tResult]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
@@ -403,13 +411,14 @@ function Trend() {
 }
 /** 트렌드 코디 아래 버튼: 오늘 입기, 저장하기. look은 칸이 비어 있을 수 있어서(고를 옷이 없을 때) Look 타입으로 받는다 */
 function TrendActs({ ps, look }: { ps: Item[]; look: Look }) {
-  const [wornNow, setWorn] = useState(false), [savedNow, setSaved] = useState(false)
+  // 화면 안 상태로 두면 탭을 옮길 때 풀려서, 오늘 입은 기록·저장한 코디를 보고 그때그때 판단한다
+  const wornNow = isWornToday(ps), savedNow = isSavedLook(look)
   return (
     <div className="acts">
-      <button className="btn solid" disabled={wornNow} onClick={() => { wearToday(ps); setWorn(true); toast('오늘 코디로 정했어요'); emit() }}>{wornNow ? '오늘 코디로 정했어요' : '이 코디로 입을래요'}</button>
+      <button className="btn solid" disabled={wornNow} onClick={() => { wearToday(ps); toast('오늘 코디로 정했어요'); emit() }}>{wornNow ? '오늘 코디로 정했어요' : '이 코디로 입을래요'}</button>
       <button className="btn" disabled={savedNow} onClick={() => {
         if (saveLook(look)) return toast('이미 저장한 코디예요')
-        setSaved(true); toast('저장했어요. 캘린더의 저장한 코디에서 볼 수 있어요'); emit()
+        toast('저장했어요. 캘린더의 저장한 코디에서 볼 수 있어요'); emit()
       }}>{savedNow ? '저장했어요' : '저장하기'}</button>
     </div>
   )
