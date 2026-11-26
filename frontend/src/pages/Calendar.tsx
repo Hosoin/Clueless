@@ -195,7 +195,8 @@ function editHist(h: Hist) {
       <>
         <h3>입은 기록 고치기</h3><p>{dayLabel(h.ago)} 입은 옷이에요. 안 입은 옷은 빼 주세요</p>
         <div className="list" style={{ marginBottom: 14 }}>
-          {ids.length ? ids.map((id) => { const it = byId(id)!; return (
+          {/* 옷장에 없는 옷 id는 건너뛴다. 서버(API) 데이터가 어긋나 기록에만 남은 옷이 있으면 byId가 undefined라 화면이 멈춤 */}
+          {ids.length ? ids.map((id) => { const it = byId(id); if (!it) return null; return (
             <div className="erow" key={id}><span className="ph">{it.img && <img src={it.img} alt="" />}</span><p>{it.name}<span>{it.cat}</span></p>
               <button className="btn" onClick={() => { ids = ids.filter((x) => x !== id); emit() }}>빼기</button></div>
           ) }) : <p className="note" style={{ padding: '12px 0' }}>남은 옷이 없어요. 저장하면 이 기록이 지워져요</p>}

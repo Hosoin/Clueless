@@ -1,6 +1,6 @@
 // 코디 올리기 / 글 수정 (입은 기록과 커뮤니티에서 같이 씀)
 import { useState } from 'react'
-import type { Hist, Post } from '../data/types'
+import type { Hist, Item, Post } from '../data/types'
 import { S, byId, dayLabel, emit, hexOf } from '../store'
 import { go, toLogin } from '../nav'
 import { closeAll, openSheet, toast } from '../ui'
@@ -11,7 +11,9 @@ export function writeSheet(h?: Hist | null, edit?: Post) {
   openSheet(() => <Write h={h} edit={edit} />)
 }
 
-const names = (x: Hist) => x.ids.map((id) => byId(id)!.name).join(' + ')
+/** 기록의 옷 중 옷장에 있는 옷만. 서버(API) 데이터가 어긋나 기록에만 남은 옷 id가 있어도 화면이 멈추지 않게 건너뛴다 */
+const wornItems = (x: Hist) => x.ids.map((id) => byId(id)).filter((it): it is Item => !!it)
+const names = (x: Hist) => wornItems(x).map((it) => it.name).join(' + ')
 
 function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
   const [pick, setPick] = useState<Hist | null>(edit ? null : h || S.history[0])
@@ -21,10 +23,12 @@ function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
   const ok = () => {
     const text = cap.trim()
     if (edit) { edit.body = text || edit.body; edit.t = (text || edit.t).slice(0, 26); edit.scope = scope; edit.ch = ch; closeAll(); toast('글을 고쳤어요'); return emit() }
-    const first = byId(pick!.ids[0])!
+    const ps = pick ? wornItems(pick) : []
+    if (!ps.length) return toast('올릴 옷을 찾지 못했어요. 다른 코디를 골라 주세요')
+    const first = ps[0]
     S.posts.unshift({ id: ++S.pid, mine: true, user: S.me.handle, img: first.img || '', pos: '50% 50%', min: 0, ago: '방금', ch, scope, likes: 0, cmts: 0,
       t: (text || names(pick!)).slice(0, 26), body: text || names(pick!),
-      wear: pick!.ids.map((id) => { const it = byId(id)!; return [it.name, hexOf(it), id, 'same'] }) })
+      wear: ps.map((it) => [it.name, hexOf(it), it.id, 'same']) })
     closeAll(); S.myTab = 'posts'; go('/my'); toast('올렸어요. MY에서 고치거나 지울 수 있어요')
   }
   return (
