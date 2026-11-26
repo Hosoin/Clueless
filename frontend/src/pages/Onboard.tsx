@@ -2,9 +2,11 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { Back } from '../components/Icons'
-import { MODES, STYLES } from '../data/seed'
+import { StyleGrid } from '../components/StyleGrid'
+import { MODES } from '../data/seed'
 import { S, emit, useApp } from '../store'
 
+/** 첫 설정 화면. 진행 상태는 S.ob에 두고, 마지막 단계에서 S.me·S.pref에 넣은 뒤 홈으로 */
 export default function Onboard() {
   useApp()
   const nav = useNavigate()
@@ -27,7 +29,7 @@ export default function Onboard() {
     nav('/', { replace: true }); emit()
   }
   return (
-    <section className="screen on" id="s-onboard" style={{ display: 'flex' }}>
+    <section className="screen on" id="s-onboard">
       <div className="ob-top">{i ? <button className="backrow" onClick={() => set(() => (ob.step = steps[i - 1]))}><Back />이전</button> : <span />}<p className="ob-step">{i + 1} / {n}</p></div>
       <div className="ob-bar"><i style={{ width: `${((i + 1) / n) * 100}%` }} /></div>
       <div className="ob-main">
@@ -46,12 +48,7 @@ export default function Onboard() {
         {ob.step === 'taste' && (
           <>
             <h2>좋아하는 스타일을<br />골라 주세요</h2><p className="sub">3개까지 고를 수 있어요</p>
-            <div className="ob-styles">
-              {STYLES.map(([k, d]) => { const on = ob.styles.includes(k); return (
-                <button key={k} className={`ob-sty ${on ? 'on' : ''}`} aria-pressed={on} disabled={!on && ob.styles.length >= 3}
-                  onClick={() => set(() => (ob.styles = on ? ob.styles.filter((x) => x !== k) : [...ob.styles, k]))}><b>{k}</b><span>{d}</span></button>
-              ) })}
-            </div>
+            <StyleGrid picked={ob.styles} onChange={(f) => set(() => (ob.styles = f(ob.styles)))} />
           </>
         )}
         {ob.step === 'nick' && (

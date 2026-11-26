@@ -3,11 +3,13 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Gear, Heart } from '../components/Icons'
 import { Face } from '../components/Face'
-import { writeSheet } from '../components/WriteSheet'
+import { writeSheet } from '../sheets'
+import { JPEG_QUALITY, PROFILE_SIDE, resizeImage } from '../image'
 import { openPost, toLogin } from '../nav'
 import { S, emit, useApp } from '../store'
 import { askPermission, closeAll, openSheet, toast } from '../ui'
 
+/** MY 화면: 프로필, 내 게시물 / 저장한 글. 로그인하지 않았으면 로그인 안내 */
 export default function My() {
   useApp()
   const nav = useNavigate()
@@ -38,8 +40,8 @@ export default function My() {
                   </button>
                 ))}</div>
             ) : S.myTab === 'posts'
-              ? <div className="empty">아직 올린 코디가 없어요<br /><button className="btn" style={{ marginTop: 16, padding: '0 18px' }} onClick={() => writeSheet()}>코디 올리기</button></div>
-              : <div className="empty">커뮤니티에서 마음에 드는 글을 저장해 보세요<br /><button className="btn" style={{ marginTop: 16, padding: '0 18px' }} onClick={() => nav('/community')}>커뮤니티 보기</button></div>}
+              ? <div className="empty">아직 올린 코디가 없어요<br /><button className="btn cta" onClick={() => writeSheet()}>코디 올리기</button></div>
+              : <div className="empty">커뮤니티에서 마음에 드는 글을 저장해 보세요<br /><button className="btn cta" onClick={() => nav('/community')}>커뮤니티 보기</button></div>}
           </>
         )}
       </div>
@@ -47,6 +49,7 @@ export default function My() {
   )
 }
 
+/** 프로필 편집 창: 사진·닉네임·아이디·소개. 저장을 눌러야 S.me에 넣고, 내 글의 아이디도 함께 바꾼다 */
 function Profile() {
   const [photo, setPhoto] = useState(S.me.photo)
   const file = useRef<HTMLInputElement>(null)
@@ -57,14 +60,18 @@ function Profile() {
     <>
       <h3>프로필 편집</h3><p>커뮤니티에서 다른 사람에게 보이는 정보예요</p>
       <div className="pfphoto">
-        <span className={`avatar ${photo ? 'has-photo' : ''}`}>{photo ? <img src={photo} alt="" /> : nick.slice(0, 1)}</span>
+        <Face name={nick} photo={photo} className="avatar" />
         <div>
           <button className="btn" onClick={() => askPermission('photos', () => file.current?.click(), '프로필 사진을 고르려면 사진 보관함과 파일에 접근해야 해요. 고른 사진만 올라가요.')}>사진 바꾸기</button>
           {photo && <button className="link" onClick={() => setPhoto(null)}>사진 지우기</button>}
         </div>
         <input type="file" ref={file} accept="image/*" hidden onChange={(e) => {
           const f = e.target.files?.[0]; e.target.value = ''; if (!f) return
-          const r = new FileReader(); r.onload = () => setPhoto(String(r.result)); r.readAsDataURL(f)
+          // 폰 원본(수 MB)을 그대로 data URL로 들고 있지 않게, 256×256 정사각형 JPEG로 줄이고(가운데 기준으로 자름) 저장한다 (코드 리뷰 18번).
+          // 줄이기에 실패하면(브라우저가 못 여는 형식 등) resizeImage가 원본을 돌려주므로 지금처럼 원본이 들어간다
+          resizeImage(f, PROFILE_SIDE, JPEG_QUALITY, 'cover').then((small) => {
+            const r = new FileReader(); r.onload = () => setPhoto(String(r.result)); r.readAsDataURL(small)
+          })
         }} />
       </div>
       <label className="field2"><span>닉네임</span><input maxLength={12} value={nick} onChange={(e) => setNick(e.target.value)} /><em>{e1}</em></label>

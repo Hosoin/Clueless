@@ -1,3 +1,5 @@
+// 앱 시작점: 글꼴과 스타일(proto.css 위에 luxe.css)을 불러오고, App을 HashRouter로 감싸 #root에 그린다.
+// StrictMode는 개발 중에만 화면을 두 번 그려 보며 실수를 찾아 준다 (배포 빌드에는 영향 없음).
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router'

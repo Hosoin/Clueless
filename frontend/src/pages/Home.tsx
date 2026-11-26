@@ -4,14 +4,13 @@
 // - [아바타로 보기]를 누르면 같은 화면이 'My Avatar' 보기로 바뀐다 (S.view = 'avatar'). 닫기로 룩북으로 돌아옴
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { Arrow, SpinIc, TabIcon } from '../components/Icons'
-import { Ph } from '../components/Ph'
+import { Ph, PhPair } from '../components/Ph'
 import { COLORS, STYLES, TRENDS } from '../data/seed'
 import type { Item, Look } from '../data/types'
 import {
-
-  EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, current, clampPos, emit, firstFresh, fit, hexOf,
-  isPast, isSavedLook, isWornToday, keepSel, layersFor, lists, matchText, rowKey, saveLook, showsOutfit, stepFit, useApp,
-  wearList, wearToday, worn, wornKey, wornNote, iga, eun, type Combo, type ExtraKey, type RowKey,
+  EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, current, emit, firstFresh, fit, hexOf,
+  isExtra, isPast, isSavedLook, isWornToday, keepSel, layersFor, lists, matchText, present, rowKey, saveLook, showsOutfit, stepFit, useApp,
+  wearList, wearToday, worn, wornKey, wornNote, iga, eun, euro, type Combo, type RowKey,
 } from '../store'
 import { closeAll, openSheet, showIn, toast } from '../ui'
 
@@ -30,14 +29,6 @@ const rowsOf = (c: Combo): [RowKey, string][] => [
  *  지금은 프로토타입이라 추천 이유 문구만 바뀌고, 스타일에 맞춘 실제 추천은 백엔드 연동 때 붙인다 */
 let pickedStyle: string | null = null
 
-/** 받침에 맞는 조사 '으로/로'. ㄹ 받침은 '로'(예: 데님·니트로, 깔끔한 선으로) */
-const euro = (w: string) => {
-  const code = w.charCodeAt(w.length - 1) - 0xac00
-  if (code < 0 || code > 11171) return '로' // 한글이 아니면 '로'
-  const jong = code % 28
-  return jong === 0 || jong === 8 ? '로' : '으로'
-}
-
 /** 스타일을 골랐을 때 추천 이유 문구. 예: '미니멀 · 무채색과 깔끔한 선으로 맞춰 봤어요' */
 const styleReason = (name: string) => {
   const desc = STYLES.find(([n]) => n === name)?.[1] ?? name
@@ -55,7 +46,7 @@ export default function Home() {
   const foldRef = useRef<HTMLDivElement>(null)
   // 돌리는 중에 다른 탭으로 가면 타이머를 멈추고 바로 추천 코디에 맞춰 둔다 (나간 뒤에도 emit()이 계속 불리지 않게)
   useEffect(() => () => finishSpin(), []) // finishSpin은 돌릴 때마다 바뀌므로 나가는 시점의 것을 부름
-  clampPos()
+  // 줄 위치(S.pos)는 그리기 전에 store.ts의 emit()이 줄 길이에 맞춰 둔다 (그리는 중에 상태를 바꾸지 않음)
   const L = lists()
   // same: 지금 줄이 마지막으로 맞춘 추천 코디 그대로인지. 뺀 옷이 든 코디도 맞춘 그대로면 같은 코디로 본다 (store.ts showsOutfit)
   const c = current(), o = S.outfits[S.oi], same = showsOutfit(c), rows = rowsOf(c)
@@ -63,7 +54,7 @@ export default function Home() {
   const tr = same ? TRENDS.find((t) => t.k === o.ref) : TRENDS.find((t) => t.up && ps.some((it) => it.tags.includes(t.k)))
   const rec = ps.filter(isPast), hidden = S.fresh ? S.items.filter(isPast).length : 0
   const layers = EXTRA.filter((k) => c[k]).length, okN = layersFor(TEMP)
-  const wx = `오늘 ${TEMP}°라 상의 위로 ${okN}겹까지 겹쳐 입기 좋아요${layers > okN ? ` (지금 ${layers}겹)` : ''}`
+  const wx = `지금 ${TEMP}°라 상의 위로 ${okN}겹까지 겹쳐 입기 좋아요${layers > okN ? ` (지금 ${layers}겹)` : ''}`
   const note = [rec.length ? wornNote(rec[0]) : hidden ? `최근 ${S.RECENT}일 안에 입은 옷 ${hidden}벌은 빼고 보여드려요` : '', wx].filter(Boolean).join(' · ')
   const isChosen = S.chosenKey === comboKey(c)
   const next = EXTRA.find((k) => !S.on[k] && L[k].length)
@@ -100,7 +91,7 @@ export default function Home() {
   const rest = order.filter((k) => k !== bigK)
   const piece = (k: RowKey, big = false) => (
     <Piece key={k} k={k} item={c[k]} big={big} canStep={L[k].length > 1} rolling={S.spinKeys.has(k)}
-      off={(EXTRA as RowKey[]).includes(k) ? () => keepSel(() => { S.on[k as ExtraKey] = false }) : undefined} />
+      off={isExtra(k) ? () => keepSel(() => { S.on[k] = false }) : undefined} />
   )
 
   return (
@@ -116,7 +107,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="hhead">
-            <div className="h1row" style={{ alignItems: 'flex-end' }}>
+            <div className="h1row">
               <h1>Today’s <i>Look</i></h1>
               <span className="hcount2">{S.spinning ? '맞추는 중' : same ? <><b>{String(S.oi + 1).padStart(2, '0')}</b> / {String(S.outfits.length).padStart(2, '0')}</> : null}</span>
             </div>
@@ -141,7 +132,7 @@ export default function Home() {
             <div className="arows">
               {rows.map(([k, label]) => (
                 <div className="arow" key={k}>
-                  <p className="k">{label}{(EXTRA as RowKey[]).includes(k) && <button className="link xs" onClick={() => keepSel(() => { S.on[k as ExtraKey] = false })}>빼기</button>}</p>
+                  <p className="k">{label}{isExtra(k) && <button className="link xs" onClick={() => keepSel(() => { S.on[k] = false })}>빼기</button>}</p>
                   <button className="n pickname" onClick={() => openPicker(k)}>{c[k] ? c[k]!.name : '없음'} <span>고르기</span></button>
                   <button className="arrow" aria-label={`이전 ${label}`} disabled={L[k].length <= 1} onClick={() => stepFit(k, -1)}><Arrow dir={-1} /></button>
                   <button className="arrow" aria-label={`다음 ${label}`} disabled={L[k].length <= 1} onClick={() => stepFit(k, 1)}><Arrow dir={1} /></button>
@@ -172,7 +163,7 @@ export default function Home() {
       {/* 아바타 보기는 한 화면짜리라 아래 설명과 트렌드는 룩북에서만 보여 준다 */}
       {!isAvatar && <>
       <div className="pad hmore">
-        <div className="match hm" style={{ marginTop: 0 }}>
+        <div className="match hm mt0">
           <span className={`dot ${m.hit || S.spinning ? '' : 'grey'}`} />
           <p>{same ? `${o.reason} · ${m.t}` : m.t}</p>
         </div>
@@ -206,6 +197,9 @@ function Piece({ k, item, big, canStep, rolling, off }: { k: RowKey; item: Item 
         swiped.current = true; setTimeout(() => (swiped.current = false), 50)
         stepFit(k, dx < 0 ? 1 : -1)
       }}
+      // 누른 채 세로로 스크롤하는 등 브라우저가 누르기를 취소하면 시작 위치를 지운다.
+      // 남겨 두면 다음에 살짝 탭할 때 예전 위치와의 차이로 계산돼 옆 옷으로 넘어간다 (코드 리뷰 22번)
+      onPointerCancel={() => { x0.current = null }}
       onClickCapture={(e) => { if (swiped.current) e.stopPropagation() }}>
       <button className="ph" aria-label={`${NAME[k]} 고르기`} onClick={() => openPicker(k)}>
         {item?.img && <SpinImg src={item.img} rolling={rolling} />}
@@ -240,7 +234,10 @@ function Avatar({ c }: { c: Combo }) {
     const f = (it: Item | null) => it ? { id: it.id, name: it.name, category: it.cat, color: it.color, colorHex: hexOf(it), image: it.img || null } : null
     const data = { top: f(c.t), layer: f(c.m), jacket: f(c.j), coat: f(c.o), bottom: f(c.b), isDress: c.dress }
     if (typeof window.renderAvatar === 'function') {
-      try { window.renderAvatar(el, data) } catch (e) { el.innerHTML = `<p class="avph">avatar.js 오류: ${(e as Error).message}</p>` }
+      // 오류 메시지는 HTML로 넣지 않고 글자(textContent)로만 넣는다. 메시지에 데이터가 섞여 있어도 태그로 해석되지 않게 (코드 리뷰 20번)
+      try { window.renderAvatar(el, data) } catch (e) {
+        const p = document.createElement('p'); p.className = 'avph'; p.textContent = `avatar.js 오류: ${e instanceof Error ? e.message : String(e)}`; el.replaceChildren(p)
+      }
     } else el.innerHTML = '<p class="avph">아바타 자리 (avatar.js의 renderAvatar가 아직 없어요)</p>'
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
   return <div className="astage" ref={ref} />
@@ -278,7 +275,9 @@ function spinTo(i: number) {
       if (tick < stop[k] && n > 1) {
         done = false; S.spinKeys.add(k)
         S.pos[k] = (S.pos[k] + 1) % n
-        if (k === 't' && L.t[S.pos.t].cat === '원피스') S.pos.t = (S.pos.t + 1) % n // 도는 동안 줄 수가 바뀌지 않게
+        // 도는 동안 줄 수가 바뀌지 않게 원피스는 건너뛴다. 원피스가 연달아 있어도 모두 건너뛰고,
+        // 전부 원피스여도 끝없이 돌지 않게 한 바퀴(n칸)까지만 본다 (코드 리뷰 22번)
+        if (k === 't') for (let s = 0; s < n && L.t[S.pos.t].cat === '원피스'; s++) S.pos.t = (S.pos.t + 1) % n
       } else { S.pos[k] = target[k]; S.spinKeys.delete(k) }
     }
     if (done) { Object.assign(S.on, onTarget); S.spinning = false; S.spinKeys.clear(); spinTimer = 0; finishSpin = () => {}; emit(); return }
@@ -313,12 +312,12 @@ function Picker({ k }: { k: RowKey }) {
         <button className={pkSort === 'fit' ? 'on' : ''} onClick={() => { pkSort = 'fit'; re() }}>잘 어울리는 순</button><span />
         <button className={pkSort === 'old' ? 'on' : ''} onClick={() => { pkSort = 'old'; re() }}>오래 안 입은 순</button>
       </div>
-      {(EXTRA as RowKey[]).includes(k) && <button className="btn full" style={{ margin: '10px 0 0' }} onClick={() => { closeAll(); keepSel(() => { S.on[k as ExtraKey] = false }) }}>{label} 빼기</button>}
+      {isExtra(k) && <button className="btn full" style={{ margin: '10px 0 0' }} onClick={() => { closeAll(); keepSel(() => { S.on[k] = false }) }}>{label} 빼기</button>}
       <div className="grid3 pkg">
         {list.length ? list.map(({ it, f }) => (
           <button key={it.id} className={`pki ${c[k]?.id === it.id ? 'on' : ''}`} onClick={() => {
             S.pos[k] = lists()[k].findIndex((x) => x.id === it.id)
-            if ((EXTRA as RowKey[]).includes(k)) S.on[k as ExtraKey] = true
+            if (isExtra(k)) S.on[k] = true
             closeAll()
           }}>
             <Ph item={it} as="span" />
@@ -353,7 +352,7 @@ function Trend() {
   useApp()
   const resultRef = useRef<HTMLDivElement>(null)
   const t = TRENDS[tSel], mine = S.items.filter((i) => i.tags.includes(t.k))
-  const short = t.k.split(' ').pop()
+  const short = t.k.split(' ').pop() ?? t.k // 마지막 낱말 (예: 와이드 데님 → 데님)
   const title = mine.length ? (mine.length > 1 ? `내 옷장에 ${t.k}${iga(t.k)} ${mine.length}벌이나 있어요` : `내 옷장에 ${t.k}${iga(t.k)} 1벌 있어요`) : `내 옷장에 아직 ${t.k}${eun(t.k)} 없어요`
   const it = mine.find((x) => !isPast(x)) || mine[0] // 오늘 입은 옷은 빼지 않음 (위 pairFor 설명과 같은 이유)
   // 고른 옷의 종류에 따라 나머지 칸을 채운다. 숫자는 원래 짝지어 둔 옷(6 인디고 와이드 데님, 10 카멜 롱 코트,
@@ -363,14 +362,15 @@ function Trend() {
     : it.cat === '하의' ? { top: pairFor(1, '상의'), bottom: it.id, outer: pairFor(10, '아우터') }
     : it.cat === '아우터' ? { top: pairFor(3, '상의'), bottom: pairFor(7, '하의'), outer: it.id }
     : { top: it.id, bottom: null, outer: pairFor(10, '아우터') } // 원피스·덧입기는 그 옷을 상의 칸에 두고 하의는 비움
-  const ps = look ? ([byId(look.top), byId(look.outer), byId(look.bottom)].filter(Boolean) as Item[]) : []
+  const ps = look ? ([byId(look.top), byId(look.outer), byId(look.bottom)].filter(present)) : []
   const mm = matchText(ps)
   const pick = (i: number) => { tSel = i; tResult = false; emit() }
   // 트렌드 코디를 이미 보여 준 상태인지. 코디 받기를 막 눌렀을 때(false → true)만 그 위치로 스크롤하려고 둔다.
   // tResult는 탭을 옮겨도 남는 모듈 변수라, 처음 값을 false로 두면 홈에 돌아올 때마다 '막 열린 것'으로 보고
   // 트렌드 코디 위치로 스크롤해 버렸다. 그래서 돌아왔을 때 이미 열려 있던 결과는 '보여 준 것'으로 시작한다
   const shown = useRef(tResult)
-  useEffect(() => { if (tResult && !shown.current) showIn(resultRef.current); shown.current = tResult })
+  // 결과를 열고 닫을 때만 실행한다. 의존성이 없으면 홈이 다시 그려질 때마다(돌리는 중 약 45ms마다) 불렸다 (코드 리뷰 22번)
+  useEffect(() => { if (tResult && !shown.current) showIn(resultRef.current); shown.current = tResult }, [tResult]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       <div className="tdiv" id="h-trend"><p className="eyebrow">이번 달 유행</p><h2>Trend <i>Forecast</i></h2><p className="lead">한 달 동안 인기가 오를 옷과 내릴 옷이에요</p></div>
@@ -380,7 +380,7 @@ function Trend() {
             <button key={String(up)} className={tUp === up ? 'on' : ''} onClick={() => { tUp = up; pick(TRENDS.findIndex((x) => x.up === up)) }}>{up ? '상승 랭킹' : '하락 랭킹'}</button>
           ))}
         </div>
-        <div className="list" style={{ marginTop: 16 }}>
+        <div className="list mt16">
           {TRENDS.map((x, i) => [x, i] as const).filter(([x]) => x.up === tUp).map(([x, i], rank) => (
             <button key={x.k} className={`li trow ${i === tSel ? 'sel' : ''}`} onClick={() => pick(i)}>
               <p className="num">0{rank + 1}</p><p className="name">{x.k}</p><p className={x.up ? 'up' : 'down'}>{x.up ? '상승' : '하락'}</p>
@@ -392,15 +392,15 @@ function Trend() {
           <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{title}</p>
           <div className="grid3" style={{ marginTop: 12 }}>
             {mine.length ? mine.slice(0, 3).map((x) => <div key={x.id}><Ph item={x} label={x.name} style={{ height: 104 }} /><p className="cap">{x.name}</p></div>)
-              : <div className="empty" style={{ gridColumn: '1/-1', padding: '20px 0' }}>{t.up ? '비슷한 옷으로 코디를 찾아볼게요' : '지금은 다른 옷에 집중해도 좋아요'}</div>}
+              : <div className="empty span-all" style={{ padding: '20px 0' }}>{t.up ? '비슷한 옷으로 코디를 찾아볼게요' : '지금은 다른 옷에 집중해도 좋아요'}</div>}
           </div>
-          {mine.length > 0 && t.up && !tResult && <button className="btn solid full" style={{ marginTop: 16 }} onClick={() => { tResult = true; emit() }}>이 {short}로 코디 받기</button>}
+          {mine.length > 0 && t.up && !tResult && <button className="btn solid full mt16" onClick={() => { tResult = true; emit() }}>이 {short}{euro(short)} 코디 받기</button>}
           {tResult && look && (
-            <div className="so" style={{ marginTop: 16 }} ref={resultRef}>
-              <div className="meta"><p className="nm">{t.k}로 맞춘 코디</p><button className="link" style={{ minHeight: 32 }} onClick={() => { tResult = false; emit() }}>닫기</button></div>
-              <div className="pair">{ps.map((p) => <div className="slot" key={p.id}><Ph item={p} label={p.cat} /><p className="cap">{p.cat}</p></div>)}</div>
+            <div className="so mt16" ref={resultRef}>
+              <div className="meta"><p className="nm">{t.k}{euro(t.k)} 맞춘 코디</p><button className="link" style={{ minHeight: 32 }} onClick={() => { tResult = false; emit() }}>닫기</button></div>
+              <PhPair items={ps} caption={(p) => p.cat} />
               <p style={{ margin: 0, fontSize: 13 }}>{ps.map((p) => p.name).join(' + ')}</p>
-              <div className="match" style={{ marginTop: 8 }}><span className={`dot ${mm.hit ? '' : 'grey'}`} /><p>{mm.t}</p></div>
+              <div className="match mt8"><span className={`dot ${mm.hit ? '' : 'grey'}`} /><p>{mm.t}</p></div>
               <TrendActs ps={ps} look={look} />
             </div>
           )}

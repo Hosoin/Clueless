@@ -13,7 +13,7 @@ export const toLogin = (from: string) => { S.loginBack = from; go('/login') }
 
 /** 커뮤니티 글 열기 (from = 돌아갈 탭) */
 export const openPost = (id: number, from: string) => {
-  S.curPost = id; S.postFrom = from
+  S.postFrom = from
   const q = S.posts.find((x) => x.id === id); if (q) q.replyTo = null
   go(`/post/${id}`)
 }

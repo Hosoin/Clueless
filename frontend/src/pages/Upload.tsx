@@ -16,7 +16,7 @@ import { CATS, COLORS, MATERIALS, SUBS, photo } from '../data/seed'
 import type { Category } from '../data/types'
 import { resizeImage } from '../image'
 import { go } from '../nav'
-import { S, emit, keepSel, useApp } from '../store'
+import { S, emit, keepSel, present, useApp } from '../store'
 import { askPermission, closeAll, openSheet, toast } from '../ui'
 
 /**
@@ -157,7 +157,7 @@ export default function Upload() {
   return (
     <section className="screen on" id="s-upload">
       <button className="backrow" onClick={() => nav('/closet')}><Back />옷장</button>
-      <div className="head" style={{ paddingTop: 4 }}><h1>Add <i>Items</i></h1></div>
+      <div className="head pt4"><h1>Add <i>Items</i></h1></div>
       <div className="pad">
         <div className="row2" style={{ marginTop: 20 }}>
           <button className="btn solid" onClick={() => askPermission('photos', () => album.current?.click())}>앨범에서 고르기</button>
@@ -170,13 +170,13 @@ export default function Upload() {
         <input type="file" ref={shot} accept="image/*" capture="environment" hidden onChange={(e) => { startBatch(e.target.files); e.target.value = '' }} />
         {!batch.length ? (
           <div className="empty" style={{ paddingTop: 56 }}>아직 고른 사진이 없어요<br />
-            <button className="btn" style={{ marginTop: 16, padding: '0 18px' }} onClick={() => startBatch(null)}>예시 사진으로 해 보기</button></div>
+            <button className="btn cta" onClick={() => startBatch(null)}>예시 사진으로 해 보기</button></div>
         ) : (
           <>
             <div className="prog"><b>{batch.length}장 중 {done}장 정리했어요</b><span>{left ? left + '장 확인 중' : ''}</span></div>
             <div className="track"><i style={{ width: `${(done / batch.length) * 100}%` }} /></div>
             {/* 사진 칸: 후보 목록 없이 사진만 보인다. 분석이 끝난 사진을 누르면 그 사진부터 확인 창이 열린다 */}
-            <div className="grid3" style={{ marginTop: 16 }}>
+            <div className="grid3 mt16">
               {batch.map((b, i) => (
                 <div key={b.id} className="tile">
                   <button className={`ph ${b.done ? '' : 'wait'}`} disabled={!b.done} aria-label={b.done ? `${i + 1}번째 옷 확인하기` : '확인 중'} onClick={() => openConfirm(i)}>
@@ -188,7 +188,7 @@ export default function Upload() {
             </div>
             <p className="hint">{done ? '사진을 누르면 그 옷부터 다시 확인할 수 있어요' : '사진을 확인하고 있어요. 첫 옷이 확인되면 한 벌씩 보여 드릴게요'}</p>
             {/* 확인 창을 닫았을 때 돌아가는 길. 창이 저절로 열리기 전(첫 분석 전)에는 누를 것이 없어 숨긴다 */}
-            {done > 0 && <button className="btn solid full" style={{ marginTop: 16 }} onClick={() => openConfirm(cur)}>이어서 확인하기 ({cur + 1} / {batch.length})</button>}
+            {done > 0 && <button className="btn solid full mt16" onClick={() => openConfirm(cur)}>이어서 확인하기 ({cur + 1} / {batch.length})</button>}
           </>
         )}
       </div>
@@ -214,7 +214,12 @@ export default function Upload() {
  */
 function Camera({ onClose, onFail }: { onClose: (shots: Blob[]) => void; onFail: (denied: boolean) => void }) {
   const v = useRef<HTMLVideoElement>(null), flash = useRef<HTMLDivElement>(null)
-  const [shots, setShots] = useState<Blob[]>([])
+  // 찍은 사진. 셔터를 누르면 JPEG로 만드는 일(toBlob)이 끝나기 전에 바로 자리를 잡아 두고(약속 Promise),
+  // 완료를 누르면 만들던 사진이 모두 끝날 때까지 기다렸다 넘긴다. 전에는 끝난 사진만 목록에 넣어서,
+  // 셔터 직후 바로 완료를 누르면 마지막 사진이 빠졌다 (코드 리뷰 35번)
+  const pending = useRef<Promise<Blob | null>[]>([])
+  const [count, setCount] = useState(0) // 찍은 장 수 (버튼 글자와 'n장' 표시용)
+  const closing = useRef(false) // 완료를 두 번 눌러도 한 번만 넘기게
   const failRef = useRef(onFail)
   useEffect(() => {
     let cancelled = false, stream: MediaStream | null = null
@@ -232,22 +237,28 @@ function Camera({ onClose, onFail }: { onClose: (shots: Blob[]) => void; onFail:
       if (video) video.srcObject = null
     }
   }, [])
-  const close = () => onClose(shots) // 화면이 닫히면 위의 정리 함수가 카메라를 끈다
+  // 만들던 사진까지 모두 기다렸다 넘긴다. 만들기에 실패한 사진(null)은 뺀다. 화면이 닫히면 위의 정리 함수가 카메라를 끈다
+  const close = () => {
+    if (closing.current) return
+    closing.current = true
+    Promise.all(pending.current).then((bs) => onClose(bs.filter(present)))
+  }
   return (
     <div className="cam on">
       <video ref={v} playsInline muted autoPlay />
       <p className="msg">옷이 화면에 꽉 차게 찍어 주세요</p>
       <div className="flash" ref={flash} />
       <div className="bar2">
-        <button className="x" onClick={close}>{shots.length ? '완료' : '닫기'}</button>
+        <button className="x" onClick={close}>{count ? '완료' : '닫기'}</button>
         <button className="shutter" aria-label="사진 찍기" onClick={() => {
           const el = v.current; if (!el?.videoWidth) return
           const c = document.createElement('canvas'); c.width = el.videoWidth; c.height = el.videoHeight
           c.getContext('2d')!.drawImage(el, 0, 0)
-          c.toBlob((b) => { if (b) setShots((s) => [...s, b]) }, 'image/jpeg', 0.85)
+          pending.current.push(new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.85)))
+          setCount((n) => n + 1)
           if (flash.current) { flash.current.style.opacity = '.8'; setTimeout(() => { if (flash.current) flash.current.style.opacity = '0' }, 80) }
         }} />
-        <span style={{ minWidth: 56, textAlign: 'right', color: 'var(--ivory)', fontSize: 13 }}>{shots.length ? shots.length + '장' : ''}</span>
+        <span style={{ minWidth: 56, textAlign: 'right', color: 'var(--ivory)', fontSize: 13 }}>{count ? count + '장' : ''}</span>
       </div>
     </div>
   )
