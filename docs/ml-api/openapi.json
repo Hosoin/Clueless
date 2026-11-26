@@ -488,8 +488,26 @@
             "type": "boolean",
             "title": "Needs Review"
           },
+          "crop_blob": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crop Blob"
+          },
           "crop_png_base64": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Crop Png Base64"
           },
           "embedding": {
@@ -528,7 +546,6 @@
           "mask_ratio",
           "retake",
           "needs_review",
-          "crop_png_base64",
           "embedding",
           "model_version",
           "model_versions"

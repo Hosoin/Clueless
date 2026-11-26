@@ -49,7 +49,19 @@ assert body["category"]["name"] == "상의" and len(body["embedding"]) == 512
 assert body["sleeve"]["name"] == "긴팔" and body["color_name"]["name"] == "네이비"
 assert body["style"]["tags"] == ["스트리트", "스포티"] and len(body["style"]["scores"]) == 6
 assert body["subcategory"]["name"] == "티셔츠" and body["print"]["name"] == "프린트"  # 내부 '레터링' → 프론트 '프린트'
-assert base64.b64decode(body["crop_png_base64"])[:8] == b"\x89PNG\r\n\x1a\n"
+assert base64.b64decode(body["crop_png_base64"])[:8] == b"\x89PNG\r\n\x1a\n" and body["crop_blob"] is None
+
+# Blob 설정이 있으면 크롭은 WebP로 올리고 경로만 (base64 없음), 업로드 실패는 503
+sent = {}
+api.blob.enabled = lambda: True
+api.blob.upload_draft = lambda data: sent.setdefault("data", data) and "closet-drafts/abc.webp"
+b = client.post("/v1/garments/analyze", files={"image": ("a.png", png(100, 80), "image/png")}).json()
+assert b["crop_blob"] == "closet-drafts/abc.webp" and b["crop_png_base64"] is None and sent["data"][8:12] == b"WEBP"
+def _fail(data: bytes) -> str:
+    raise OSError("down")
+api.blob.upload_draft = _fail
+assert client.post("/v1/garments/analyze", files={"image": ("a.png", png(100, 80), "image/png")}).status_code == 503
+api.blob.enabled = lambda: False
 
 # 큰 이미지는 긴 변 2048로 줄여서 모델에 넘김
 client.post("/v1/garments/analyze", files={"image": ("big.png", png(4000, 1000), "image/png")})
