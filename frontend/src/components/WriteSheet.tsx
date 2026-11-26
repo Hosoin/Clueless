@@ -1,20 +1,15 @@
-// 코디 올리기 / 글 수정 (입은 기록과 커뮤니티에서 같이 씀)
+// 코디 올리기 / 글 수정 창의 내용 (입은 기록과 커뮤니티에서 같이 씀). 여는 함수는 src/sheets.tsx의 writeSheet
 import { useState } from 'react'
 import type { Hist, Post } from '../data/types'
 import { Thumbs } from './Ph'
 import { S, byId, dayLabel, emit, hexOf, withComments } from '../store'
-import { go, toLogin } from '../nav'
-import { closeAll, openSheet, toast } from '../ui'
-
-export function writeSheet(h?: Hist | null, edit?: Post) {
-  if (!S.loggedIn) { toast('로그인하면 코디를 올릴 수 있어요'); return toLogin('/community') }
-  if (!edit && !S.history.length) return toast('먼저 입은 코디가 있어야 올릴 수 있어요')
-  openSheet(() => <Write h={h} edit={edit} />)
-}
+import { go } from '../nav'
+import { closeAll, toast } from '../ui'
 
 const names = (x: Hist) => x.ids.map((id) => byId(id)!.name).join(' + ')
 
-function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
+/** 코디 올리기·글 수정 창의 내용. 창을 여는 함수 writeSheet는 src/sheets.tsx에 있다 (코드 리뷰 29번) */
+export function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
   const [pick, setPick] = useState<Hist | null>(edit ? null : h || S.history[0])
   const [cap, setCap] = useState(edit ? edit.body : '')
   const [ch, setCh] = useState(edit ? edit.ch : false)

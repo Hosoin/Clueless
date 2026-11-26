@@ -1,10 +1,13 @@
 // 화면 위에 뜨는 것들: 알림(toast), 아래에서 올라오는 창(sheet), 가운데 창(modal)
 // 프로토타입처럼 어디서든 toast('...'), openSheet(() => <내용/>), openModal(() => <내용/>)로 부른다.
+// 이 파일에는 함수만 둔다. 화면에 그리는 컴포넌트(Overlays)는 components/Overlays.tsx에 있다 (컴포넌트와 함수를 한 파일에서 같이 내보내면
+// 개발 중 화면 자동 갱신이 잘 안 돼서 나눴다, 코드 리뷰 29번)
 import type { ReactNode } from 'react'
-import { emit, useApp } from './store'
+import { emit } from './store'
 
 type Render = () => ReactNode
-const O = {
+/** 지금 떠 있는 알림·창 상태. 그리는 일은 components/Overlays.tsx가 이 값을 읽어서 한다 */
+export const O = {
   toast: '', toastOn: false, toastH: 0 as ReturnType<typeof setTimeout> | 0,
   sheet: null as Render | null, sheetTall: false,
   modal: null as Render | null, modalCls: '',
@@ -58,19 +61,6 @@ window.addEventListener('popstate', () => {
   inHist = false
   O.sheet = null; O.modal = null; emit()
 })
-
-export function Overlays() {
-  useApp()
-  const open = !!(O.sheet || O.modal)
-  return (
-    <>
-      <div className={`toast ${O.toastOn ? 'on' : ''}`} role="status">{O.toast}</div>
-      <div className={`scrim ${open ? 'on' : ''}`} onClick={closeAll} />
-      <div className={`sheet ${O.sheet ? 'on' : ''} ${O.sheetTall ? 'tall' : ''}`}>{O.sheet?.()}</div>
-      <div className={`modal ${O.modal ? 'on' : ''} ${O.modalCls}`} role="dialog" aria-modal="true">{O.modal?.()}</div>
-    </>
-  )
-}
 
 /** 화면 안에서만 스크롤해서 el을 가운데로 (폰 틀 자체는 움직이지 않게) */
 export function showIn(el: HTMLElement | null) {

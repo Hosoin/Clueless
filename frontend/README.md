@@ -45,8 +45,9 @@ frontend/
 │  ├─ main.tsx            진입점: 글꼴·CSS 불러오기, HashRouter로 App 감싸기
 │  ├─ App.tsx             주소(Route) ↔ 화면 연결표
 │  ├─ store.ts            앱 상태 S, 구독(useApp, emit), 추천·기록·삭제 규칙
-│  ├─ ui.tsx              toast, 아래 창(sheet), 가운데 창(modal), 권한 묻기, showIn
+│  ├─ ui.tsx              toast, 아래 창(sheet), 가운데 창(modal)을 여닫는 함수, 권한 묻기, showIn (그리는 건 components/Overlays.tsx)
 │  ├─ nav.ts              컴포넌트 밖에서 화면 이동 (go, toLogin, openPost)
+│  ├─ sheets.tsx          여러 화면에서 여는 창을 여는 함수 (writeSheet)
 │  ├─ api/                백엔드(closet-service) 요청 함수
 │  │  ├─ client.ts        공통 요청(closetFetch): 세션 쿠키 같이 보내기, CSRF 토큰 붙이기
 │  │  ├─ auth.ts          로그인 확인(fetchMe), 로그아웃(logout), Google 로그인 주소(GOOGLE_LOGIN_URL)
@@ -67,11 +68,13 @@ frontend/
 │  │  └─ Onboard.tsx      첫 설정: 추천 방식, 스타일, 닉네임
 │  ├─ components/         여러 화면이 같이 쓰는 부품
 │  │  ├─ Layout.tsx       폰 틀, 위쪽 로고, 하단 탭, 스크롤 시 탭 숨김, 창 띄우는 자리(Overlays), 앱 시작 시 로그인 확인
-│  │  ├─ Ph.tsx           옷 사진 칸(`Ph`), 사진 크게 보기(`lightbox`), 코디 썸네일(`PhPair`, `Thumbs`)
+│  │  ├─ Overlays.tsx     알림·창을 그리는 자리 (상태와 여닫는 함수는 ui.tsx)
+│  │  ├─ Ph.tsx           옷 사진 칸(`Ph`), 코디 썸네일(`PhPair`, `Thumbs`)
+│  │  ├─ lightbox.tsx     옷 크게 보기 창(`lightbox`)과 그 안의 별명·삭제 창
 │  │  ├─ Face.tsx         프로필 동그라미
 │  │  ├─ StyleGrid.tsx    좋아하는 스타일 고르기 격자 (첫 설정·설정에서 같이 씀)
 │  │  ├─ Icons.tsx        선 아이콘
-│  │  └─ WriteSheet.tsx   코디 올리기·글 수정 창(`writeSheet`)
+│  │  └─ WriteSheet.tsx   코디 올리기·글 수정 창의 내용(`Write`). 여는 함수는 sheets.tsx의 `writeSheet`
 │  ├─ styles/             proto.css(기본) 위에 luxe.css(확정 디자인)를 덮어씀
 │  └─ assets/             옷 사진(clothes), 커뮤니티 사진(community), 탭 무늬 이미지
 ├─ public/                빌드에 그대로 복사되는 파일 (avatar.js, 아이콘, 아바타 원본 이미지)

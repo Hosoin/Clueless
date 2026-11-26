@@ -9,7 +9,8 @@ import { S, emit, euro, useApp } from '../store'
 import { closeAll, openSheet, toast } from '../ui'
 
 /** 좋아하는 스타일 고르기 (설정에서 추천 방식을 '취향대로'로 바꿀 때) */
-export function styleSheet(after: () => void) { openSheet(() => <StylePick after={after} />) }
+/** 좋아하는 스타일 창을 연다. 이 화면 안에서만 써서 내보내지 않는다 (코드 리뷰 29번) */
+function styleSheet(after: () => void) { openSheet(() => <StylePick after={after} />) }
 function StylePick({ after }: { after: () => void }) {
   const [pick, setPick] = useState([...S.pref.styles])
   return (

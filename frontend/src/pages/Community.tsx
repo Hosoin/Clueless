@@ -1,7 +1,7 @@
 // 커뮤니티: 피드 (담당: C)
 import { Cmt, Heart } from '../components/Icons'
 import { Face } from '../components/Face'
-import { writeSheet } from '../components/WriteSheet'
+import { writeSheet } from '../sheets'
 import { openPost } from '../nav'
 import { S, emit, owned, useApp } from '../store'
 
