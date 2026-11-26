@@ -87,7 +87,9 @@
 | | `showIn` | 화면 안에서만 스크롤해 요소를 가운데로 |
 | `src/nav.ts` | `go`, `toLogin`, `openPost` | 창 안의 버튼 등 컴포넌트 밖에서 화면 이동 |
 | `src/components/` | `Ph`, `lightbox` | 옷 사진 칸, 사진 크게 보기 |
-| | `Face` | 프로필 동그라미 |
+| | `PhPair`, `Thumbs` (`Ph.tsx`) | 코디 썸네일 줄(`.pair`), 작은 썸네일 묶음(`.thumbs`) |
+| | `Face` | 프로필 동그라미. `photo`를 주면 저장 전 사진을 미리 보여 줌 |
+| | `StyleGrid` | 좋아하는 스타일 고르기 격자 (3개까지) |
 | | `Icons.tsx` | 선 아이콘 (`Arrow`, `Heart`, `Back`, `Plus` 등) |
 | | `writeSheet` | 코디 올리기·글 수정 창 |
 | `src/data/seed.ts` | `COLORS`, `MATERIALS`, `CATS`, `SUBS`, `TRENDS`, `STYLES` | 색·재질·종류·스타일 목록 |

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { logout } from '../api/auth'
 import { Back } from '../components/Icons'
-import { STYLES } from '../data/seed'
+import { StyleGrid } from '../components/StyleGrid'
 import { toLogin } from '../nav'
 import { S, emit, euro, useApp } from '../store'
 import { closeAll, openSheet, toast } from '../ui'
@@ -15,11 +15,7 @@ function StylePick({ after }: { after: () => void }) {
   return (
     <>
       <h3>좋아하는 스타일</h3><p>3개까지 고를 수 있어요</p>
-      <div className="ob-styles mt0">
-        {STYLES.map(([k, d]) => { const on = pick.includes(k); return (
-          <button key={k} className={`ob-sty ${on ? 'on' : ''}`} aria-pressed={on} disabled={!on && pick.length >= 3} onClick={() => setPick(on ? pick.filter((x) => x !== k) : [...pick, k])}><b>{k}</b><span>{d}</span></button>
-        ) })}
-      </div>
+      <StyleGrid picked={pick} onChange={setPick} className="mt0" />
       <button className="btn solid full mt16" disabled={!pick.length} onClick={() => { S.pref.styles = pick; closeAll(); after() }}>저장</button>
     </>
   )

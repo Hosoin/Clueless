@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { Back } from '../components/Icons'
-import { MODES, STYLES } from '../data/seed'
+import { StyleGrid } from '../components/StyleGrid'
+import { MODES } from '../data/seed'
 import { S, emit, useApp } from '../store'
 
 export default function Onboard() {
@@ -43,12 +44,7 @@ export default function Onboard() {
         {ob.step === 'taste' && (
           <>
             <h2>좋아하는 스타일을<br />골라 주세요</h2><p className="sub">3개까지 고를 수 있어요</p>
-            <div className="ob-styles">
-              {STYLES.map(([k, d]) => { const on = ob.styles.includes(k); return (
-                <button key={k} className={`ob-sty ${on ? 'on' : ''}`} aria-pressed={on} disabled={!on && ob.styles.length >= 3}
-                  onClick={() => set(() => (ob.styles = on ? ob.styles.filter((x) => x !== k) : [...ob.styles, k]))}><b>{k}</b><span>{d}</span></button>
-              ) })}
-            </div>
+            <StyleGrid picked={ob.styles} onChange={(f) => set(() => (ob.styles = f(ob.styles)))} />
           </>
         )}
         {ob.step === 'nick' && (

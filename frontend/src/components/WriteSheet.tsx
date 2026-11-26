@@ -1,6 +1,7 @@
 // 코디 올리기 / 글 수정 (입은 기록과 커뮤니티에서 같이 씀)
 import { useState } from 'react'
 import type { Hist, Post } from '../data/types'
+import { Thumbs } from './Ph'
 import { S, byId, dayLabel, emit, hexOf, withComments } from '../store'
 import { go, toLogin } from '../nav'
 import { closeAll, openSheet, toast } from '../ui'
@@ -38,7 +39,7 @@ function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
         <div className="pick">
           {S.history.map((x, i) => (
             <button key={i} className={x === pick ? 'on' : ''} onClick={() => setPick(x)}>
-              <span className="thumbs">{x.ids.map((id) => <span className="ph" key={id}>{byId(id)?.img && <img src={byId(id)!.img} alt="" />}</span>)}</span>
+              <Thumbs ids={x.ids} />
               <span><p>{names(x)}</p><p className="d">{dayLabel(x.ago)}</p></span>
             </button>
           ))}

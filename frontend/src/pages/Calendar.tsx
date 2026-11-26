@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Arrow } from '../components/Icons'
-import { Ph } from '../components/Ph'
+import { PhPair, Thumbs } from '../components/Ph'
 import { CATS } from '../data/seed'
 import type { Hist, Item, Look } from '../data/types'
 import {
@@ -89,7 +89,7 @@ function Day() {
   const d = calSel, ago = agoOf(d), w = wornOn(d), pl = ago <= 0 ? planOn(d) : null
   const pair = (ids: number[]) => (
     // 지운 옷 등으로 id에 맞는 옷이 없으면 그 칸은 건너뛴다 (없는 옷을 그리려다 화면 전체가 멈추지 않게)
-    <div className="pair">{ids.map((id) => { const it = byId(id); return it && <div className="slot" key={id}><Ph item={it} label={it.cat} /><p className="cap">{it.name}</p></div> })}</div>
+    <PhPair items={ids.map(byId).filter(Boolean) as Item[]} caption={(it) => it.name} />
   )
   return (
     <div className="calday">
@@ -124,7 +124,7 @@ function planSheet(d: Date) {
                 if (old) old.ids = x.ids; else S.plans.push({ date: k, ids: x.ids })
                 closeAll(); toast(`${d.getMonth() + 1}월 ${d.getDate()}일에 입을 코디로 정했어요`)
               }}>
-                <span className="thumbs">{x.ids.map((id) => <span className="ph" key={id}>{byId(id)!.img && <img src={byId(id)!.img} alt="" />}</span>)}</span>
+                <Thumbs ids={x.ids} />
                 <p>{x.ids.map((id) => byId(id)!.name).join(' + ')}</p>
               </button>
             ))}
@@ -147,7 +147,7 @@ function SavedList() {
         return (
           <div className="so" key={o.id}>
             <div className="meta"><p className="nm">{ps.map((p) => p.name).join(' + ')}</p><p className="dt">{o.at}</p></div>
-            <div className="pair">{ps.map((p) => <div className="slot" key={p.id}><Ph item={p} label={p.cat} /><p className="cap">{p.cat}</p></div>)}</div>
+            <PhPair items={ps} caption={(p) => p.cat} />
             <div className="match" style={{ margin: 0 }}><span className={`dot ${m.hit ? '' : 'grey'}`} /><p>{m.t}</p></div>
             {rec.length > 0 && <p className="note">{wornNote(rec[0])}</p>}
             <div className="acts">

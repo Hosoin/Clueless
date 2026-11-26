@@ -67,8 +67,9 @@ frontend/
 │  │  └─ Onboard.tsx      첫 설정: 추천 방식, 스타일, 닉네임
 │  ├─ components/         여러 화면이 같이 쓰는 부품
 │  │  ├─ Layout.tsx       폰 틀, 위쪽 로고, 하단 탭, 스크롤 시 탭 숨김, 창 띄우는 자리(Overlays), 앱 시작 시 로그인 확인
-│  │  ├─ Ph.tsx           옷 사진 칸(`Ph`)과 사진 크게 보기(`lightbox`)
+│  │  ├─ Ph.tsx           옷 사진 칸(`Ph`), 사진 크게 보기(`lightbox`), 코디 썸네일(`PhPair`, `Thumbs`)
 │  │  ├─ Face.tsx         프로필 동그라미
+│  │  ├─ StyleGrid.tsx    좋아하는 스타일 고르기 격자 (첫 설정·설정에서 같이 씀)
 │  │  ├─ Icons.tsx        선 아이콘
 │  │  └─ WriteSheet.tsx   코디 올리기·글 수정 창(`writeSheet`)
 │  ├─ styles/             proto.css(기본) 위에 luxe.css(확정 디자인)를 덮어씀

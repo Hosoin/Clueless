@@ -58,7 +58,7 @@ function Profile() {
     <>
       <h3>프로필 편집</h3><p>커뮤니티에서 다른 사람에게 보이는 정보예요</p>
       <div className="pfphoto">
-        <span className={`avatar ${photo ? 'has-photo' : ''}`}>{photo ? <img src={photo} alt="" /> : nick.slice(0, 1)}</span>
+        <Face name={nick} photo={photo} className="avatar" />
         <div>
           <button className="btn" onClick={() => askPermission('photos', () => file.current?.click(), '프로필 사진을 고르려면 사진 보관함과 파일에 접근해야 해요. 고른 사진만 올라가요.')}>사진 바꾸기</button>
           {photo && <button className="link" onClick={() => setPhoto(null)}>사진 지우기</button>}

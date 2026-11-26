@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { Item } from '../data/types'
-import { deleteItem, emit, hexOf, iga, tidyRows, worn } from '../store'
+import { byId, deleteItem, emit, hexOf, iga, tidyRows, worn } from '../store'
 import { closeAll, openModal, toast } from '../ui'
 // 별명이 있으면 별명, 없으면 원래 이름 (옷 크게 보기 제목)
 import { displayName } from '../store'
@@ -23,6 +23,18 @@ export function Ph({ item, label = '', onClick, style, className = '', as = 'but
       {inner}
     </button>
   )
+}
+
+/** 코디 썸네일 줄(.pair): 옷마다 사진 칸과 그 아래 한 줄. caption으로 아래 글을 고른다(예: 종류, 이름).
+ *  홈 트렌드 결과, 캘린더 그날 코디, 저장한 코디에서 같이 쓴다 (코드 리뷰 27번) */
+export function PhPair({ items, caption }: { items: Item[]; caption: (it: Item) => string }) {
+  return <div className="pair">{items.map((it) => <div className="slot" key={it.id}><Ph item={it} label={it.cat} /><p className="cap">{caption(it)}</p></div>)}</div>
+}
+
+/** 작은 썸네일 묶음(.thumbs): 코디의 옷 사진을 작게 나란히. 사진이 없거나 지워져서 찾을 수 없는 옷은 빈 칸.
+ *  코디 올리기 창, 캘린더의 입을 코디 고르기 창에서 같이 쓴다 (코드 리뷰 27번) */
+export function Thumbs({ ids }: { ids: number[] }) {
+  return <span className="thumbs">{ids.map((id) => { const img = byId(id)?.img; return <span className="ph" key={id}>{img && <img src={img} alt="" />}</span> })}</span>
 }
 
 /** 사진 크게 보기 */

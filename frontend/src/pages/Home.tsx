@@ -4,7 +4,7 @@
 // - [아바타로 보기]를 누르면 같은 화면이 'My Avatar' 보기로 바뀐다 (S.view = 'avatar'). 닫기로 룩북으로 돌아옴
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Arrow, SpinIc, TabIcon } from '../components/Icons'
-import { Ph } from '../components/Ph'
+import { Ph, PhPair } from '../components/Ph'
 import { COLORS, STYLES, TRENDS } from '../data/seed'
 import type { Item, Look } from '../data/types'
 import {
@@ -391,7 +391,7 @@ function Trend() {
           {tResult && look && (
             <div className="so mt16" ref={resultRef}>
               <div className="meta"><p className="nm">{t.k}{euro(t.k)} 맞춘 코디</p><button className="link" style={{ minHeight: 32 }} onClick={() => { tResult = false; emit() }}>닫기</button></div>
-              <div className="pair">{ps.map((p) => <div className="slot" key={p.id}><Ph item={p} label={p.cat} /><p className="cap">{p.cat}</p></div>)}</div>
+              <PhPair items={ps} caption={(p) => p.cat} />
               <p style={{ margin: 0, fontSize: 13 }}>{ps.map((p) => p.name).join(' + ')}</p>
               <div className="match mt8"><span className={`dot ${mm.hit ? '' : 'grey'}`} /><p>{mm.t}</p></div>
               <TrendActs ps={ps} look={look} />
