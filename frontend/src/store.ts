@@ -128,15 +128,28 @@ export function clampPos() { const L = lists(); for (const k of K) S.pos[k] = Ma
  * 추천에서 뺀 옷은 줄에서 빠지므로, 그 옷을 가리키는 겹을 그대로 켜면 "옷이 없어요"만 뜬 하얀 칸이 생겨서
  * (예: 덧입기가 한 벌뿐인데 그 옷을 뺀 경우). 뺀 옷이 든 코디를 어떻게 다시 짤지는 추천 서버(ML)가 정할 일이라
  * 여기서는 화면에 빈 칸만 생기지 않게 한다.
+ * 상의·하의도 추천에서 빠져 줄에 없을 수 있다. 예전에는 이때 줄의 0번째 옷을 골라 코디와 상관없는 옷이 들어갔다
+ * (Math.max(0, -1)). 지금은 나머지 옷을 먼저 맞춘 뒤, 그 줄에서 나머지 옷과 가장 잘 어울리는 옷(ranked)으로 대신한다.
  */
 export function applyOutfit(i: number) {
   S.oi = i; const o: Outfit = S.outfits[i]
   if (S.fresh && recentIn(o).length) S.fresh = false // 추천 코디에 최근 입은 옷이 있으면 그대로 보여 줌
-  const L = lists(), at = (arr: Item[], id: number) => Math.max(0, arr.findIndex((x) => x.id === id))
+  const L = lists()
   const inRow = (k: ExtraKey, id?: number | null) => !!id && L[k].some((x) => x.id === id)
   S.on.m = inRow('m', o.mid); S.on.j = inRow('j', o.jacket); S.on.o = inRow('o', o.outer)
   const ids: Record<RowKey, number | null | undefined> = { t: o.top, m: o.mid, j: o.jacket, o: o.outer, b: o.bottom }
-  K.forEach((k) => { const id = ids[k]; if (id) S.pos[k] = at(L[k], id) })
+  const missing: RowKey[] = [] // 코디에 있지만 줄에서 못 찾은 상의·하의
+  K.forEach((k) => {
+    const id = ids[k]; if (!id) return
+    const at = L[k].findIndex((x) => x.id === id)
+    if (at >= 0) S.pos[k] = at
+    else if ((k === 't' || k === 'b') && L[k].length) missing.push(k) // 겹옷은 위에서 줄을 껐으니 따로 고를 필요 없음
+  })
+  // 못 찾은 칸은 나머지 옷과 가장 잘 어울리는 옷으로. 하의가 있는 코디의 상의 자리에 원피스가 오면 하의가 사라지므로 원피스는 건너뜀
+  missing.forEach((k) => {
+    const best = ranked(k).find((x) => k !== 't' || x.cat !== '원피스' || !o.bottom)
+    if (best) S.pos[k] = L[k].indexOf(best)
+  })
   appliedKey = comboKey(current())
 }
 /**
@@ -159,7 +172,7 @@ export function tidyRows() {
   EXTRA.forEach((k) => { if (S.on[k] && !L[k].length) S.on[k] = false })
   clampPos()
 }
-/** 커뮤니티 따라 입기 등: 지정한 옷으로 줄을 맞춤 */
+/** 커뮤니티 따라 입기 등: 지정한 옷으로 줄을 맞춤. 줄에 없는 옷(추천에서 뺀 옷)은 건너뜀 */
 export function setCombo(ids: number[]) {
   S.fresh = false
   EXTRA.forEach((k) => (S.on[k] = false))
@@ -167,7 +180,8 @@ export function setCombo(ids: number[]) {
   ids.forEach((id) => {
     const it = byId(id); if (!it) return
     const k = rowKey(it), i = L[k].findIndex((x) => x.id === id)
-    if (i >= 0) S.pos[k] = i
+    if (i < 0) return // 추천에서 뺀 옷은 줄에 없다. 그 겹옷 줄을 켜면 하얀 '옷이 없어요' 칸만 생기므로 건너뜀
+    S.pos[k] = i
     if ((EXTRA as RowKey[]).includes(k)) S.on[k as ExtraKey] = true
   })
 }
