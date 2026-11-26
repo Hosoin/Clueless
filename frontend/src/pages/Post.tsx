@@ -6,7 +6,7 @@ import { Face } from '../components/Face'
 import { writeSheet } from '../components/WriteSheet'
 import { CMTS, MY_CMTS } from '../data/seed'
 import type { Comment, Post as PostT } from '../data/types'
-import { toLogin } from '../nav'
+import { go, toLogin } from '../nav'
 import { S, byId, emit, owned, setCombo, useApp } from '../store'
 import { closeAll, openModal, showIn, toast } from '../ui'
 
@@ -94,7 +94,8 @@ export default function Post() {
             <>
               <h3>이 글을 삭제할까요?</h3><p className="sub">삭제하면 되돌릴 수 없어요</p>
               <div className="col" style={{ marginTop: 18 }}>
-                <button className="btn solid" onClick={() => { S.posts.splice(S.posts.indexOf(p), 1); S.savedPosts.delete(p.id); S.postFrom = '/my'; closeAll(); nav('/my'); toast('글을 삭제했어요') }}>삭제</button>
+                {/* 창 안의 버튼이라 nav()가 아니라 go(): 창을 열 때 쌓은 방문 기록 칸을 MY로 바꿔 끼워, MY에서 뒤로가기가 꼬이지 않게 (코드 리뷰 17번) */}
+                <button className="btn solid" onClick={() => { S.posts.splice(S.posts.indexOf(p), 1); S.savedPosts.delete(p.id); S.postFrom = '/my'; closeAll(); go('/my'); toast('글을 삭제했어요') }}>삭제</button>
                 <button className="btn" onClick={closeAll}>취소</button>
               </div>
             </>
