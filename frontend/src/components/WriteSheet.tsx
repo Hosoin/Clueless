@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import type { Hist, Item, Post } from '../data/types'
 import { Thumbs } from './Ph'
-import { S, byId, dayLabel, emit, hexOf, withComments } from '../store'
+import { S, byId, dayLabel, emit, hexOf } from '../store'
 import { go } from '../nav'
 import { closeAll, toast } from '../ui'
 
@@ -27,9 +27,11 @@ export function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
     // 지워져서 찾을 수 없는 옷도 사진이 없는 것으로 본다.
     if (!pick!.ids.every((id) => byId(id)?.img)) return toast('사진이 없는 옷이 있는 코디는 올릴 수 없어요')
     const first = ps[0]
-    S.posts.unshift(withComments({ id: ++S.pid, mine: true, user: S.me.handle, img: first.img || '', pos: '50% 50%', min: 0, ago: '방금', ch, scope, likes: 0, cmts: 0,
+    // 새 글은 댓글 없이(cmList: []) 시작한다. 전에는 withComments가 내 글이라고 예시 댓글(MY_CMTS)을 채워서,
+    // '방금' 올린 글에 남이 '2일 전'에 쓴 댓글이 달려 있고 댓글 수(cmts)는 0으로 보였다 (코드 리뷰 11/27 7번)
+    S.posts.unshift({ id: ++S.pid, mine: true, user: S.me.handle, img: first.img || '', pos: '50% 50%', min: 0, ago: '방금', ch, scope, likes: 0, cmts: 0,
       t: (text || names(pick!)).slice(0, 26), body: text || names(pick!),
-      wear: ps.map((it) => [it.name, hexOf(it), it.id, 'same']) }))
+      wear: ps.map((it) => [it.name, hexOf(it), it.id, 'same']), cmList: [] })
     closeAll(); S.myTab = 'posts'; go('/my'); toast('올렸어요. MY에서 고치거나 지울 수 있어요')
   }
   return (

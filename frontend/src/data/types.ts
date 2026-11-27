@@ -54,6 +54,6 @@ export type Post = {
   wear: [string, string, number | null, ('same' | 'like')?][] // 입은 옷마다 [이름, 색 코드, 내 옷장의 옷 id(없으면 null), 같은 옷 'same' / 비슷한 옷 'like']
   mine?: boolean // 내가 올린 글
   scope?: string // 공개 범위 ('전체 공개' / '팔로워만')
-  cmList?: Comment[] // 댓글 목록. 글을 만들 때 store.ts의 withComments가 채운다
+  cmList?: Comment[] // 댓글 목록. 가짜 데이터 글은 store.ts의 withComments가 예시 댓글로 채우고, 새로 올린 글은 빈 목록으로 시작한다
   replyTo?: number | null // 지금 답글을 다는 댓글의 순서 (없으면 null)
 }

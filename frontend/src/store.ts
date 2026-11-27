@@ -8,7 +8,8 @@ import type { Comment, Hist, Item, Look, Outfit, Plan, Post, Saved } from './dat
 const toCmt = (x: (typeof CMTS)[number]): Comment => ({ u: x[0], t: x[1], ago: x[2], likes: x[3] || 0, liked: false, replies: (x[4] || []).map((r) => ({ u: r[0], t: r[1], ago: r[2], likes: r[3] || 0, liked: false, replies: [] })) })
 /** 글을 만들 때 댓글 목록을 채운다 (내 글은 MY_CMTS, 남의 글은 CMTS 예시 댓글).
  *  전에는 글 화면을 그리는 도중에 채웠는데, 그리는 중에 상태를 바꾸지 않으려고 글을 만드는 곳으로 옮겼다 (코드 리뷰 23번).
- *  새로 올린 내 글도 예전처럼 예시 댓글로 시작한다. 결과: 같은 글 객체 */
+ *  가짜 데이터(seed.ts)의 글에만 쓴다. 새로 올린 글은 WriteSheet.tsx에서 빈 댓글 목록으로 만든다 (코드 리뷰 11/27 7번).
+ *  cmList가 이미 있으면 그대로 둔다. 결과: 같은 글 객체 */
 export function withComments<T extends Post>(p: T): T {
   if (!p.cmList) p.cmList = (p.mine ? MY_CMTS : CMTS).map(toCmt)
   return p
