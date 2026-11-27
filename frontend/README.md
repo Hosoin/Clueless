@@ -44,7 +44,7 @@ frontend/
 ├─ src/
 │  ├─ main.tsx            진입점: 글꼴·CSS 불러오기, HashRouter로 App 감싸기
 │  ├─ App.tsx             주소(Route) ↔ 화면 연결표
-│  ├─ store.ts            앱 상태 S, 구독(useApp, emit), 추천·기록·삭제 규칙
+│  ├─ store.ts            앱 상태 S, 구독(useApp, emit), 상태를 바꾸는 함수, 추천·기록·삭제 규칙
 │  ├─ ui.tsx              toast, 아래 창(sheet), 가운데 창(modal)을 여닫는 함수, 권한 묻기, showIn (그리는 건 components/Overlays.tsx)
 │  ├─ nav.ts              컴포넌트 밖에서 화면 이동 (go, toLogin, openPost)
 │  ├─ sheets.tsx          여러 화면에서 여는 창을 여는 함수 (writeSheet)
@@ -54,6 +54,7 @@ frontend/
 │  │  └─ error.ts         요청 실패 에러(ApiError)
 │  ├─ data/
 │  │  ├─ types.ts         앱 전체 데이터 모양 (Item, Look, Outfit, Post …)
+│  │  ├─ dates.ts         날짜 계산 (YYYY-MM-DD 날짜 키 만들기, 두 날짜의 차이, 화면 문구)
 │  │  └─ seed.ts          가짜 데이터와 목록 상수 (COLORS, MATERIALS, CATS, SUBS, TRENDS, STYLES)
 │  ├─ pages/              화면 하나 = 파일 하나, `export default`
 │  │  ├─ Home.tsx         홈: 오늘의 코디 맞추기, 아바타 보기, 트렌드
@@ -78,7 +79,7 @@ frontend/
 │  ├─ styles/             proto.css(기본) 위에 luxe.css(확정 디자인)를 덮어씀
 │  └─ assets/             옷 사진(clothes), 커뮤니티 사진(community), 탭 무늬 이미지
 ├─ public/                빌드에 그대로 복사되는 파일 (avatar.js, 아이콘, 아바타 원본 이미지)
-├─ docs/                  LIBRARIES.md(사용 라이브러리), API_CONVENTION.md(백엔드 통신 규칙 초안)
+├─ docs/                  LIBRARIES.md(사용 라이브러리), API_CONVENTION.md(백엔드 통신 규칙 초안), STATE_MANAGEMENT.md(상태관리 구조와 단계)
 ├─ nginx/                 Docker 이미지의 nginx 설정 템플릿 (정적 파일 서빙, /api 전달)
 ├─ Dockerfile             웹 배포용 이미지 (아래 Docker로 띄우기)
 ├─ CLAUDE.md              작업 규칙, 용어 사전, 재사용 목록
@@ -97,14 +98,14 @@ frontend/
 data/seed.ts ──(앱이 켜질 때 한 번 복사)──▶ store.ts 의 S ──useApp()──▶ 각 화면
  가짜 데이터                                  메모리에 있는 앱 상태        읽어서 그림
                                                 ▲                            │
-                                                └── 값을 바꾼 뒤 emit() ◀────┘
-                                                    (구독 중인 화면이 모두 다시 그려짐)
+                                                └── store.ts의 함수 ◀────────┘
+                                                    (S를 고치고 emit() → 구독 중인 화면이 모두 다시 그려짐)
 ```
 
 1. `store.ts`가 불러와질 때 `seedItems()` 같은 함수로 가짜 데이터를 복사해 `S`를 만듭니다.
 2. 화면은 `const s = useApp()`으로 `S`를 읽습니다. `useApp()`은 `emit()`이 불릴 때마다 화면을 다시 그리게 합니다.
-3. 값을 바꾸는 코드(버튼 클릭 등)는 `S`를 직접 고친 뒤 **반드시 `emit()`을 부릅니다.** 빼먹으면 값은 바뀌었는데 화면이 그대로입니다.
-4. 옷 삭제, 오늘 입기, 코디 저장처럼 여러 곳이 같이 바뀌는 일은 `store.ts`의 함수(`deleteItem`, `wearToday`, `saveLook`)를 씁니다. 화면에서 `S`를 하나씩 고치지 않습니다.
+3. 화면은 `S`를 직접 고치지 않습니다. 값을 바꿀 때는 `store.ts`의 함수(예: `deleteSaved`, `toggleLike`, `selectItem`, `setClosetTab`)를 부르고, 함수가 `S`를 고친 뒤 `emit()`을 부릅니다. 필요한 함수가 없으면 `store.ts`에 추가합니다.
+4. 옷 삭제, 오늘 입기, 코디 저장처럼 여러 곳이 같이 바뀌는 일도 `store.ts`의 함수(`deleteItem`, `wearToday`, `saveLook`)를 씁니다. `wearToday`·`saveLook`은 `emit()`을 부르지 않으니 부른 쪽에서 `emit()`을 부릅니다.
 5. 알림·창은 `ui.tsx`의 `toast`, `openSheet`, `openModal`을 어디서든 부릅니다. 내부에서 `emit()`을 불러 다시 그립니다.
 6. 화면 이동은 컴포넌트 안에서는 `useNavigate()`, 창 안의 버튼처럼 컴포넌트 밖에서는 `nav.ts`의 `go`를 씁니다.
 
@@ -112,6 +113,9 @@ data/seed.ts ──(앱이 켜질 때 한 번 복사)──▶ store.ts 의 S �
 - **로그인을 뺀 모든 데이터는 아직 `seed.ts`의 가짜 데이터입니다.** 백엔드는 `closet-service`(8081)와 `recommendation-service`(8082) 두 서비스입니다. `closet-service`에는 옷 사진 분석·확정·수정·사진 보기 API가 있지만([`backend/README.md`](../backend/README.md)) 프론트는 아직 연결하지 않았고, 옷 상세·목록 조회·삭제와 추천 API는 아직 없습니다. 로그인만 `closet-service`와 연결되어 있습니다. (아래 [로그인](#로그인-백엔드-연결))
 - API가 열리면 서비스별로 `seed.ts`가 하던 일을 `src/api/`의 요청 함수가 대신합니다. 그때까지는 같은 함수가 가짜 데이터를 돌려주는 방식으로 넘어갑니다. 자세한 방법은 [`docs/API_CONVENTION.md`](docs/API_CONVENTION.md)를 참고하세요.
 - 화면 구성에만 쓰는 보기 상태(`kView`, `cTab` 등)도 `S`에 있어서, 탭을 옮겨 다녀도 유지됩니다.
+- 날짜는 `YYYY-MM-DD` 문자열로 저장하고 "며칠 전" 같은 문구는 그릴 때 계산합니다 (`data/dates.ts`). 홈에서 고른 옷은 옷 id(`S.pick`)로 기억합니다.
+- 로그아웃하면 `clearMe`가 `S` 전체와 화면 모듈 변수(`registerModuleReset`으로 등록한 것)를 처음 상태로 되돌립니다.
+- 상태관리 구조와 앞으로의 단계(서버 데이터·화면 상태 나누기)는 [`docs/STATE_MANAGEMENT.md`](docs/STATE_MANAGEMENT.md)에 있습니다.
 
 ### 새 화면 추가하기
 

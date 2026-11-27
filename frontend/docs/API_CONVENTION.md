@@ -345,7 +345,7 @@ BE(`closet-service`)가 이미 구현한 방식이 기준입니다. **Google 소
 
 ## 6. 가짜 데이터에서 실제 API로 넘어가기
 
-원칙: **화면 코드는 바꾸지 않고 데이터가 오는 곳만 바꿉니다.** `data/types.ts`의 모양은 유지합니다.
+원칙: **화면 코드는 바꾸지 않고 데이터가 오는 곳만 바꿉니다.** `data/types.ts`의 모양은 유지합니다. 상태를 어디에 둘지(서버 데이터·화면 상태)와 그 단계는 [`STATE_MANAGEMENT.md`](STATE_MANAGEMENT.md)를 따릅니다.
 
 ### 요청 함수에 가짜 데이터를 함께 넣는 방법
 
@@ -391,7 +391,7 @@ try {
 | 2 | **연결 확인**: 서비스가 켜져 있으면 `GET /test`(일반 텍스트)로 주소와 CORS가 맞는지 확인한다. JSON이 아니므로 `request()`가 아니라 `fetch(...).then((r) => r.text())`로 한 번만 시험하고, 확인 코드는 남기지 않는다 | 로컬 확인만 |
 | 3 | 데이터 종류 하나(예: `Item`)의 요청 함수를 만들어 가짜 데이터와 실제 호출을 함께 넣는다. 서버 모양이 `types.ts`와 다르면 이 안에서 변환한다 | `src/api/items.ts` |
 | 4 | `store.ts`의 `S.items = seedItems()`를 "처음 불러오기" 함수(`getItems()` 호출)로 바꾼다. 화면은 계속 `useApp()`으로 읽는다. 아직은 `MOCK=true`라서 화면이 달라지지 않는다 | `store.ts` (**상태 구조가 바뀌면 먼저 팀에 확인**) |
-| 5 | 값을 바꾸는 코드(`deleteItem`, `wearToday`, `saveLook` 등)에서 먼저 서버에 요청하고, 성공하면 지금처럼 `S`를 고치고 `emit()` | `store.ts`의 해당 함수 |
+| 5 | 상태를 바꾸는 `store.ts`의 함수(`deleteItem`, `wearToday`, `saveLook`, `deleteSaved`, `toggleLike` 등. 화면은 이미 이 함수로만 `S`를 바꿈)에서 먼저 서버에 요청하고, 성공하면 지금처럼 `S`를 고치고 `emit()` | `store.ts`의 해당 함수 |
 | 6 | 서버 API가 열리면 `.env.local`에서 `VITE_MOCK_CLOSET=false`로 바꿔 시험하고, 문제가 없으면 팀 설정을 바꾼다 | 환경 변수 |
 | 7 | 서비스 전체가 연결되면 이 문서 0장의 표를 고친다. `seed.ts`의 가짜 데이터 함수는 개발용으로 남기고, `COLORS`, `CATS`, `SUBS`, `STYLES` 같은 목록 상수는 서버가 주지 않는 한 그대로 둔다 | 문서 |
 
@@ -400,8 +400,8 @@ try {
 ### 넘길 때 미리 알아 둘 것
 
 - **추천은 지금 프론트에서 계산합니다.** `store.ts`의 `fit`, `ranked`, `pool`, `current`는 화면에서 고른 옷을 맞추는 규칙(겹쳐 입기)이라 서버로 넘어가도 남습니다. 서버가 주는 것은 `Outfit`(`Look` + `reason`) 목록이고, 이를 `S.outfits`에 넣은 뒤 `applyOutfit`이 지금처럼 동작해야 합니다. 추천에 필요한 "내 옷" 정보를 누가 `recommendation-service`에 넘기는지(프론트가 id를 보내는지, 서비스끼리 조회하는지)는 BE도 미확정입니다.
-- **`store.ts` 마지막 줄의 `applyOutfit(firstFresh(0))`은 시작할 때 옷이 이미 있다고 가정합니다.** 옷을 서버에서 불러오면 불러온 뒤에 실행해야 합니다.
-- **날짜가 "며칠 전"으로 되어 있습니다.** `Item.lastWorn`, `Hist.ago`는 오늘 기준 일수이고 `Post.ago`는 `'2시간 전'` 같은 문구입니다. 서버는 보통 날짜(ISO 8601)를 주므로 `src/api/` 안에서 변환합니다.
+- **처음 홈 선택이 예시 옷 id에 기대고 있습니다.** 시작할 때의 홈 선택(`S.pick`)과 `appliedKey`가 예시 옷 id(1·10·6)로 정해져 있습니다. 옷을 서버에서 불러오면 불러온 뒤 `applyOutfit(firstFresh(0))`으로 정해야 합니다.
+- **날짜 형식이 섞여 있습니다.** `Item.lastWorn`, `Hist.date`, `Plan.date`는 `YYYY-MM-DD` 문자열(`data/dates.ts`)이고, `Saved.at`(예: '11월 26일')과 `Post.ago`·`Comment.ago`(예: '2시간 전')는 아직 화면 문구입니다. 서버가 ISO 8601 날짜를 주면 `src/api/` 안에서 `YYYY-MM-DD`로 바꿔 넣고, 화면 문구는 그릴 때 만듭니다.
 - **`Plan.date`는 `'2026-11-24'` 형식 문자열**(`dkey`)입니다. 서버가 같은 형식을 주는지 확인합니다.
 - **`Item.id`, `Post.id`는 숫자인데, `closet-service`는 옷 id를 문자열(bigint)로 줍니다.** `types.ts`를 바꿀지(팀 확인 필요), `src/api/` 안에서 숫자로 바꿀지 먼저 정합니다. 또한 `S.uid`, `S.sid`, `S.pid`는 새 id를 만들려고 임시로 쓰는 번호라서 서버가 id를 정해 주면 쓰지 않게 됩니다.
 - **옷 상세·목록·삭제 API가 아직 없습니다.** 그래서 4단계(`S.items`를 서버에서 불러오기)와 옷 삭제 연결은 BE API가 생긴 뒤에 할 수 있습니다. 지금 먼저 연결할 수 있는 것은 등록(분석·확정)과 수정입니다.

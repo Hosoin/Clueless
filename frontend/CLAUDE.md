@@ -58,7 +58,8 @@
 | 코디 | `Look` | 상의·덧입기·재킷·코트·하의 칸에 옷 id를 넣은 조합 |
 | 추천 코디 | `Outfit` | `Look` + 추천 이유 |
 | 저장한 코디 | `Saved` | `Look` + 저장한 날 |
-| 입은 기록 | `Hist` | 며칠 전(`ago`)에 입은 옷 id 목록 |
+| 입은 기록 | `Hist` | 날짜(`date`, `YYYY-MM-DD`)에 입은 옷 id 목록 |
+| 마지막으로 입은 날 | `Item.lastWorn` | 입은 기록에서 계산한 날짜(`YYYY-MM-DD`). `null` = 아직 안 입음 |
 | 입을 계획 | `Plan` | 날짜(`date`)에 입을 옷 id 목록 |
 | 최근 입은 옷 | `isPast`, `S.RECENT` | 어제부터 `S.RECENT`일(기본 3일, 설정에서 3·7·14일) 안에 입은 옷. 추천에서 뺌 |
 | 오래 안 입은 옷 | `forgotten` | 90일 넘게 안 입었거나 한 번도 안 입은 옷 |
@@ -75,9 +76,12 @@
 
 | 위치 | 이름 | 용도 |
 | --- | --- | --- |
-| `src/store.ts` | `useApp`, `emit`, `S` | 상태 읽기, 바꾼 뒤 다시 그리기 |
+| `src/store.ts` | `useApp`, `S` | 상태 읽기. 화면에서 `S`를 직접 고치지 않습니다 |
+| | `toggleLike`, `toggleFollow`, `deleteSaved`, `deletePlan`, `savePlan`, `saveHistory`, `setExcluded`, `setAlias`, `addComment`, `deletePost`, `selectItem`, `setClosetTab` 등 | 상태를 바꾸는 함수. 함수 안에서 `emit()`까지 부릅니다. 필요한 함수가 없으면 여기에 추가합니다 (`docs/STATE_MANAGEMENT.md`) |
+| | `emit` | 다시 그리기. 화면 모듈 변수만 바꿨을 때, 그리고 `wearToday`·`saveLook`을 부른 뒤에 씁니다 |
+| | `registerModuleReset`, `clearMe` | 화면 모듈 변수를 로그아웃 때 처음 값으로 되돌리도록 등록, 로그아웃 때 전체 상태 초기화 |
 | | `byId`, `hexOf` | 옷 찾기, 옷 색 |
-| | `worn`, `wornNote`, `dayLabel` | "어제 입음" 같은 날짜 문구 |
+| | `worn`, `wornNote`, `dayLabel`, `daysSince` | "어제 입음" 같은 날짜 문구, 오늘까지 며칠 지났는지 |
 | | `eun`, `iga`, `eulreul`, `euro` | 받침에 맞는 조사(은/는, 이/가, 을/를, 으로/로). `을(를)` 같은 표기를 쓰지 않습니다 |
 | | `matchText`, `fit` | 코디가 어울리는지 판단 |
 | | `wearToday`, `saveLook`, `deleteItem` | 입기, 코디 저장, 옷 삭제 (연결된 기록까지 정리) |
@@ -93,6 +97,7 @@
 | | `Icons.tsx` | 선 아이콘 (`Arrow`, `Heart`, `Back`, `Plus` 등) |
 | `src/sheets.tsx` | `writeSheet` | 코디 올리기·글 수정 창 열기 (창 내용은 `components/WriteSheet.tsx`의 `Write`) |
 | `src/data/seed.ts` | `COLORS`, `MATERIALS`, `CATS`, `SUBS`, `TRENDS`, `STYLES` | 색·재질·종류·스타일 목록 |
+| `src/data/dates.ts` | `todayDateKey`, `toDateKey`, `dateKeyDaysAgo`, `daysBetweenDateKeys`, `formatDateKey` | `YYYY-MM-DD` 날짜 키 만들기, 두 날짜의 차이, '11월 20일' 같은 문구 |
 
 ## 스타일링
 
@@ -152,5 +157,6 @@
 - `any`는 쓰지 않습니다. 타입 단언(`as`)은 꼭 필요한 곳에서만 씁니다.
 - `tsconfig`의 `noUnusedLocals`, `noUnusedParameters`가 켜져 있으므로 쓰지 않는 변수는 남기지 않습니다.
 - 앱 전체 데이터의 모양은 `src/data/types.ts`에 둡니다. API로 바꿔도 이 모양은 유지합니다.
-- 상태는 `src/store.ts`의 `useApp()`으로 읽고, 값을 바꾼 뒤 `emit()`을 호출합니다. 화면 위 알림과 창은 `src/ui.tsx`의 `toast`, `openSheet`, `openModal`을 씁니다.
+- 상태는 `src/store.ts`의 `useApp()`으로 읽고, 값은 `store.ts`의 함수로 바꿉니다 (함수 안에서 `emit()`). 화면에서 `S`를 직접 고치지 않습니다. 구조와 다음 단계는 `docs/STATE_MANAGEMENT.md`에 있습니다. 화면 위 알림과 창은 `src/ui.tsx`의 `toast`, `openSheet`, `openModal`을 씁니다.
+- 날짜는 `YYYY-MM-DD` 문자열로 저장하고, "며칠 전" 같은 값은 그릴 때 `src/data/dates.ts`와 `daysSince`로 계산합니다.
 - 린트는 `oxlint`(`npm run lint`)를 사용합니다. 경고와 오류를 남기지 않습니다.
