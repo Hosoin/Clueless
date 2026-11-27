@@ -31,10 +31,12 @@ CREATE TABLE public.closet_items (
     image_blob text,
     status text NOT NULL,
     disp_yn char(1) NOT NULL DEFAULT 'Y',
+    recommend_yn char(1) NOT NULL DEFAULT 'Y',
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT closet_items_status_chk CHECK (status IN ('DRAFT', 'CONFIRMED')),
-    CONSTRAINT closet_items_disp_yn_chk CHECK (disp_yn IN ('Y', 'N'))
+    CONSTRAINT closet_items_disp_yn_chk CHECK (disp_yn IN ('Y', 'N')),
+    CONSTRAINT closet_items_recommend_yn_chk CHECK (recommend_yn IN ('Y', 'N'))
 );
 
 CREATE INDEX closet_items_user_id_idx ON public.closet_items (user_id);

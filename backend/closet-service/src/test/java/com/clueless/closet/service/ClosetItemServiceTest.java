@@ -88,6 +88,22 @@ class ClosetItemServiceTest {
         verify(transactions).commit(any());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"Y", "N"})
+    void recommendationFlagIsWritableOnlyOnPatch(String value) throws Exception {
+        var session = member();
+        String token = csrf(session);
+        String body = "{\"recommend_yn\":\"" + value + "\"}";
+        when(items.edit(OWNER, ITEM, false, Map.of(EditField.RECOMMEND_YN, value))).thenReturn(true);
+
+        empty(mvc.perform(patch(PATH).session(session).header(CSRF, token)
+                .contentType(MediaType.APPLICATION_JSON).content(body)), 204);
+        empty(mvc.perform(post(PATH + "/confirm").session(session).header(CSRF, token)
+                .contentType(MediaType.APPLICATION_JSON).content(body)), 400);
+        verify(items).edit(OWNER, ITEM, false, Map.of(EditField.RECOMMEND_YN, value));
+        verifyNoMoreInteractions(items);
+    }
+
     @Test
     void preflightsAcceptOnlyTheLocalFeAndDoNotCallService() throws Exception {
         for (String method : List.of("POST", "PATCH")) {

@@ -68,7 +68,7 @@ public class ClosetItemRepository {
     }
 
     public enum EditField {
-        NAME, CATEGORY, SUBCATEGORY, COLOR, STYLES, TAGS, MEMO, COLOR_HEX;
+        NAME, CATEGORY, SUBCATEGORY, COLOR, STYLES, TAGS, MEMO, COLOR_HEX, RECOMMEND_YN;
 
         private int sqlType() {
             return this == STYLES || this == TAGS ? Types.ARRAY : Types.VARCHAR;
