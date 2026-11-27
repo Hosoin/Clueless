@@ -50,7 +50,7 @@ export async function closetFetch(path: string, { timeoutMs, ...init }: FetchOpt
       credentials: 'include',
       headers,
     })
-  } } catch {
+  } catch {
     if (timedOut) {
       throw new ApiError(0, 'TIMEOUT', '요청 시간이 초과됐습니다.')
     }
