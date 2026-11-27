@@ -386,6 +386,12 @@ function removeItem(it: Item) {
   // 입을 계획(캘린더)에서도 뺀다. 남겨 두면 캘린더가 지운 옷을 찾다가 멈춤. 옷이 하나도 안 남은 계획은 지운다
   for (let k = S.plans.length - 1; k >= 0; k--) { const p: Plan = S.plans[k]; p.ids = p.ids.filter((x) => x !== id); if (!p.ids.length) S.plans.splice(k, 1) }
   S.chosenKey = null
+  // 옷 등록(Upload.tsx)에서 찍거나 고른 사진은 blob: 주소로 들고 있다. 옷을 지우면 그 주소도 해제해 사진 메모리를 돌려준다.
+  // 전에는 해제하지 않아서 옷을 지워도 사진이 앱을 끌 때까지 메모리에 남았다 (코드 리뷰 11/27 10번).
+  // 다만 그 옷으로 올린 커뮤니티 글은 같은 주소를 글 사진(Post.img)으로 쓰므로, 그런 글이 남아 있으면 해제하지 않는다.
+  // 예시 옷의 사진(앱 안 이미지)은 blob이 아니라 해제할 것이 없다
+  const img = it.img
+  if (img?.startsWith('blob:') && !S.posts.some((p) => p.img === img)) URL.revokeObjectURL(img)
 }
 
 /* ---------- 캘린더 ---------- */
