@@ -20,10 +20,10 @@ const TABS = [
   { to: '/my', label: 'MY', icon: 'my' },
 ] as const
 
-/** 어떤 탭에 불이 들어올지: 글 보기는 들어온 탭, 설정은 MY, 옷 등록은 옷장 */
+/** 어떤 탭에 불이 들어올지: 글 보기는 들어온 탭, 설정·회원 탈퇴는 MY, 옷 등록은 옷장 */
 function tabOf(path: string) {
   if (path.startsWith('/post')) return S.postFrom
-  if (path === '/settings') return '/my'
+  if (path === '/settings' || path === '/withdraw') return '/my'
   if (path === '/upload') return '/closet'
   return path
 }

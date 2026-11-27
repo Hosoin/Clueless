@@ -70,7 +70,9 @@ export default function Settings() {
                 try { await logout() } catch (e) { setLoggingOut(false); return toast(errorText(e)) }
                 // 성공하면 내 정보를 비우고 로그인 화면으로 보낸다. replace로 이동해 뒤로가기로 설정 화면에 돌아오지 않게 한다
                 clearMe(); toast('로그아웃했어요'); nav('/login', { replace: true })
-              }}>{loggingOut ? '로그아웃하는 중' : '로그아웃'}</button></>
+              }}>{loggingOut ? '로그아웃하는 중' : '로그아웃'}</button>
+              {/* 회원 탈퇴 (Figma v4 5-6): 실수로 누르지 않게 맨 아래에 흐린 글자로 둔다. 누르면 탈퇴 안내 화면으로 */}
+              <button className="setrow setlink wd-link" onClick={() => nav('/withdraw')}><p>회원 탈퇴</p></button></>
           ) : <div className="login"><button className="btn solid" onClick={() => toLogin('/settings')}>로그인하기</button></div>}
         </div>
       </div>

@@ -9,6 +9,7 @@ import Community from './pages/Community'
 import Post from './pages/Post'
 import My from './pages/My'
 import Settings from './pages/Settings'
+import Withdraw from './pages/Withdraw'
 import Login from './pages/Login'
 import Onboard from './pages/Onboard'
 
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="post/:id" element={<Post />} />
         <Route path="my" element={<My />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="withdraw" element={<Withdraw />} />
         <Route path="login" element={<Login />} />
         <Route path="onboard" element={<Onboard />} />
       </Route>
