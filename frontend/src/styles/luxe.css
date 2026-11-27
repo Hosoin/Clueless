@@ -372,3 +372,11 @@ nav button:nth-child(3)::after{display:none}
 #s-com .challenge{border-radius:16px}
 #s-com .post img,#s-com .post .ph{border-radius:14px}
 #s-post .cmp,#s-post .so{border-radius:16px}
+
+/* 바로 찍기 카메라(Upload.tsx의 Camera, .cam.on)가 열려 있는 동안에는 위쪽 날짜·로고 바와 하단 탭을 숨긴다.
+   카메라는 옷 등록 화면 안에 그려져서, 하단 탭이 셔터 줄을 덮어 폰에서 찍기 버튼이 가려졌다 (11/27 피드백).
+   카메라를 닫으면 .cam.on이 사라지므로 바들이 다시 나온다 */
+#app:has(.cam.on)>.top,#app:has(.cam.on)>nav{display:none}
+/* 아이폰 홈바(safe-area) 높이만큼 셔터 줄 아래 여백을 더하고, 안내 문구는 노치 아래로 내린다 */
+.cam .bar2{padding-bottom:calc(40px + env(safe-area-inset-bottom, 0px))}
+.cam .msg{top:calc(64px + env(safe-area-inset-top, 0px))}
