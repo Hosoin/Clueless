@@ -1,9 +1,11 @@
-// 첫 로그인 설정: 추천 방식 → (취향이면) 좋아하는 스타일 → 닉네임 (담당: C)
+// 첫 로그인 설정: 좋아하는 스타일 → 닉네임 (담당: C)
+// - 추천 방식(유행대로·취향대로) 단계는 잠시 숨김 (11/27). 방식은 기본값(S.pref.mode)을 그대로 쓴다.
+//   다시 보이게 하려면 아래 steps와 step을 예전 줄로 되돌리고 'mode' 화면 주석을 푼다
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { Back } from '../components/Icons'
 import { StyleGrid } from '../components/StyleGrid'
-import { MODES } from '../data/seed'
+// 추천 방식 단계를 숨긴 동안 쓰지 않음: import { MODES } from '../data/seed'
 import { S, finishOnboarding, updateOnboarding, useApp } from '../store'
 
 /** 첫 설정 화면. 진행 상태는 S.ob에 두고, 마지막 단계에서 S.me·S.pref에 넣은 뒤 로그인 전에 보던 화면(S.loginBack)으로 */
@@ -14,12 +16,15 @@ export default function Onboard() {
   const ob = S.ob
   // 첫 설정 진행 정보가 없으면: 로그인 전이면 로그인 화면, 첫 설정을 이미 마쳤으면(끝낼 때 비움) 홈으로
   if (!ob) return <Navigate to={S.loggedIn ? '/' : '/login'} replace />
-  const steps = ob.mode === 'taste' ? (['mode', 'taste', 'nick'] as const) : (['mode', 'nick'] as const)
-  const i = (steps as readonly string[]).indexOf(ob.step), n = steps.length
+  // 예전: const steps = ob.mode === 'taste' ? (['mode', 'taste', 'nick'] as const) : (['mode', 'nick'] as const)
+  const steps = ['taste', 'nick'] as const
+  // 첫 설정은 store.ts에서 'mode' 단계로 시작하므로, 숨긴 동안에는 그 단계를 스타일 단계로 본다
+  const step = ob.step === 'mode' ? 'taste' : ob.step
+  const i = (steps as readonly string[]).indexOf(step), n = steps.length
   const set = updateOnboarding
-  const ok = ob.step !== 'taste' || ob.styles.length > 0
+  const ok = step !== 'taste' || ob.styles.length > 0
   const next = () => {
-    if (ob.step !== 'nick') return set({ step: steps[i + 1] })
+    if (step !== 'nick') return set({ step: steps[i + 1] })
     const v = ob.nick.trim()
     if (v.length < 2) return setErr('닉네임은 2자 이상이에요')
     finishOnboarding(v, ob.mode, ob.styles)
@@ -36,6 +41,7 @@ export default function Onboard() {
       <div className="ob-top">{i ? <button className="backrow" onClick={() => set({ step: steps[i - 1] })}><Back />이전</button> : <span />}<p className="ob-step">{i + 1} / {n}</p></div>
       <div className="ob-bar"><i style={{ width: `${((i + 1) / n) * 100}%` }} /></div>
       <div className="ob-main">
+        {/* 추천 방식 단계: 잠시 숨김 (11/27)
         {ob.step === 'mode' && (
           <>
             <h2>어떤 코디를<br />추천받을까요?</h2>
@@ -47,14 +53,14 @@ export default function Onboard() {
               ))}
             </div>
           </>
-        )}
-        {ob.step === 'taste' && (
+        )} */}
+        {step === 'taste' && (
           <>
             <h2>좋아하는 스타일을<br />골라 주세요</h2><p className="sub">3개까지 고를 수 있어요</p>
             <StyleGrid picked={ob.styles} onChange={(f) => set({ styles: f(ob.styles) })} />
           </>
         )}
-        {ob.step === 'nick' && (
+        {step === 'nick' && (
           <>
             <h2>닉네임을<br />정해 주세요</h2><p className="sub">커뮤니티에 올린 코디에 이 이름이 보여요</p>
             <label className="ob-field"><input maxLength={12} value={ob.nick} aria-label="닉네임" onChange={(e) => set({ nick: e.target.value })} /><em>{err}</em></label>
@@ -62,8 +68,8 @@ export default function Onboard() {
         )}
       </div>
       <div className="ob-acts">
-        <button className="btn solid full" disabled={!ok} onClick={next}>{ob.step === 'nick' ? '시작하기' : '다음'}</button>
-        {ob.step === 'mode' && <p className="note">나중에 설정에서 바꿀 수 있어요</p>}
+        <button className="btn solid full" disabled={!ok} onClick={next}>{step === 'nick' ? '시작하기' : '다음'}</button>
+        {step === 'taste' && <p className="note">나중에 설정에서 바꿀 수 있어요</p>}
       </div>
     </section>
   )

@@ -6,7 +6,7 @@ import { errorText } from '../api/error'
 import { Back } from '../components/Icons'
 import { StyleGrid } from '../components/StyleGrid'
 import { toLogin } from '../nav'
-import { S, clearMe, euro, setClosetComparison, setDefaultScope, setPreferenceMode, setPreferenceStyles, setRecentDays, useApp } from '../store'
+import { S, clearMe, euro, setClosetComparison, setDefaultScope, /* setPreferenceMode, */ setPreferenceStyles, setRecentDays, useApp } from '../store'
 import { closeAll, openSheet, toast } from '../ui'
 
 /** 좋아하는 스타일 창을 연다 (추천 방식을 '취향대로'로 바꿀 때, '좋아하는 스타일'을 누를 때). after: 저장한 뒤 할 일.
@@ -35,7 +35,8 @@ export default function Settings() {
   const nav = useNavigate()
   const [loggingOut, setLoggingOut] = useState(false) // 로그아웃 요청 중인지 (버튼 연타 막기)
   const [noti, setNoti] = useState(true), [cnoti, setCnoti] = useState(true)
-  const setMode = (m: 'taste' | 'trend') => { setPreferenceMode(m); toast(m === 'taste' ? '내 취향대로 추천할게요' : '요즘 유행대로 추천할게요') }
+  // 추천 방식(취향대로·유행대로) 바꾸기: 아래 줄을 숨겨 둔 동안 쓰지 않는다. 다시 쓸 때 이 줄과 import의 setPreferenceMode를 되살린다
+  // const setMode = (m: 'taste' | 'trend') => { setPreferenceMode(m); toast(m === 'taste' ? '내 취향대로 추천할게요' : '요즘 유행대로 추천할게요') }
   return (
     <section className="screen on" id="s-settings">
       <button className="backrow" onClick={() => nav('/my')}><Back />MY</button>
@@ -48,11 +49,14 @@ export default function Settings() {
         <div className="sec"><h3>추천</h3>
           <div className="setrow"><div><p>최근 입은 옷 빼기 기준</p><p className="sub2">이 기간 안에 입은 옷은 추천에서 빼요</p></div>
             <div className="chips2">{[3, 7, 14].map((n) => <button key={n} className={n === S.RECENT ? 'on' : ''} onClick={() => { setRecentDays(n); toast(`최근 ${n}일 안에 입은 옷은 추천에서 뺄게요`) }}>{n}일</button>)}</div></div>
+          {/* 추천 방식 줄: 화면에서 잠시 숨김 (11/27). 다시 보이게 하려면 주석을 풀고 위의 setMode도 되살린다
           <div className="setrow"><div><p>추천 방식</p><p className="sub2">오늘의 코디를 고르는 기준이에요</p></div>
             <div className="chips2">{([['taste', '취향대로'], ['trend', '유행대로']] as const).map(([k, l]) => (
               <button key={k} className={S.pref.mode === k ? 'on' : ''} style={{ whiteSpace: 'nowrap' }} onClick={() => { if (k === 'taste' && !S.pref.styles.length) styleSheet(() => setMode('taste')); else setMode(k) }}>{l}</button>
             ))}</div></div>
-          {S.pref.mode === 'taste' && <button className="setrow setlink" onClick={() => styleSheet(() => toast('좋아하는 스타일을 바꿨어요'))}><p>좋아하는 스타일</p><span>{S.pref.styles.join('·')}</span></button>}
+          */}
+          {/* 좋아하는 스타일: 추천 방식을 숨긴 뒤(11/27)로는 첫 설정에서 늘 고르므로, 방식과 상관없이 늘 바꿀 수 있게 보여 준다 */}
+          <button className="setrow setlink" onClick={() => styleSheet(() => toast('좋아하는 스타일을 바꿨어요'))}><p>좋아하는 스타일</p><span>{S.pref.styles.join('·') || '고르지 않음'}</span></button>
         </div>
         <div className="sec"><h3>커뮤니티</h3>
           <div className="setrow"><div><p>내 글 공개 범위</p><p className="sub2">새로 올리는 글에 적용돼요</p></div>

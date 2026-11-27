@@ -359,7 +359,8 @@ export function acceptServerSession(nick: string, firstGoogleLogin: boolean) {
 }
 export function finishOnboarding(nick: string, mode: 'taste' | 'trend', styles: string[]) {
   S.me.nick = nick; S.pref.mode = mode
-  if (mode === 'taste') S.pref.styles = [...styles]
+  // 첫 설정에서 추천 방식 단계를 숨긴 뒤(11/27)로는 방식이 기본값(유행대로)이어도 스타일을 고르므로, 고른 스타일이 있으면 늘 저장한다
+  if (styles.length) S.pref.styles = [...styles]
   S.onboarded = true; S.ob = null; emit()
 }
 export function updateOnboarding(patch: Partial<NonNullable<typeof S.ob>>) {
