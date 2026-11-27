@@ -76,24 +76,22 @@ export function showIn(el: HTMLElement | null) {
   scr.scrollTop += (r.top - b.top) - (scr.clientHeight - r.height) / 2
 }
 
-/** slideIn이 움직이는 시간(ms). 사용자가 내려가는 모습은 보되 기다린다고 느끼지 않을 만큼 짧게 잡았다 */
+/** slideToEnd가 움직이는 시간(ms). 사용자가 내려가는 모습은 보되 기다린다고 느끼지 않을 만큼 짧게 잡았다 */
 const SLIDE_MS = 220
 /**
- * 화면(.screen) 안에서만 스크롤해서 el이 다 보이게 "슉" 내려 준다 (폰 틀 자체는 움직이지 않게).
- * - el의 아래 끝이 화면 아래에 닿을 만큼만 움직인다. el이 화면보다 길면 el의 위 끝을 화면 위에 맞춘다.
- * - 이미 다 보이면 움직이지 않는다.
+ * el이 들어 있는 화면(.screen)을 맨 아래까지 "슉" 내려 준다 (폰 틀 자체는 움직이지 않게).
+ * - 늘 화면 맨 아래까지 내린다. 예전(slideIn)에는 el의 아래 끝이 화면 아래에 닿을 만큼만 내려서,
+ *   하단 탭이 보이는 채로 멈추면 맨 아래 버튼('이 코디 저장하기' 등)이 탭에 가렸다 (11/27 버그).
+ *   맨 아래에 닿으면 하단 탭이 다시 나타나지만(Layout.tsx), 화면 아래에 탭 높이만큼 여백(.screen의 padding-bottom)이 있어 가리지 않는다.
+ * - 이미 맨 아래면 움직이지 않는다.
  * - 브라우저 기본 부드러운 스크롤(behavior: 'smooth')은 기기마다 속도가 다르고 끝에서 느려져서,
  *   SLIDE_MS 동안 같은 빠르기로 직접 움직인다.
  * - 기기 설정에서 '동작 줄이기'를 켠 사용자에게는 애니메이션 없이 바로 옮긴다.
  */
-export function slideIn(el: HTMLElement | null) {
-  const scr = el?.closest('.screen'); if (!el || !scr) return
-  const r = el.getBoundingClientRect(), b = scr.getBoundingClientRect()
-  const gap = 16 // 화면 끝에 딱 붙지 않게 남기는 여백
-  // 아래로 더 내려야 하는 거리. el이 화면보다 길면 위 끝이 화면 위로 넘어가지 않게 그만큼만 내린다
-  const dist = Math.min(r.bottom + gap - b.bottom, r.top - gap - b.top)
+export function slideToEnd(el: HTMLElement | null) {
+  const scr = el?.closest('.screen'); if (!scr) return
+  const from = scr.scrollTop, to = scr.scrollHeight - scr.clientHeight, dist = to - from
   if (dist <= 0) return
-  const from = scr.scrollTop, to = from + dist
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { scr.scrollTop = to; return }
   const start = performance.now()
   const step = (now: number) => {
