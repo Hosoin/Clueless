@@ -18,6 +18,10 @@ export function withComments<T extends Post>(p: T): T {
 /** 처음 상태의 내 정보와 추천 취향. 앱을 켤 때와 로그아웃할 때(clearMe) 같은 값으로 시작하려고 함수로 둔다 */
 const newMe = () => ({ ...ME, photo: null as string | null }) // photo: 프로필 사진 (없으면 닉네임 첫 글자)
 const newPref = () => ({ mode: 'trend' as 'trend' | 'taste', styles: [] as string[] })
+/** 처음 상태의 팔로우·좋아요·저장한 글. 위와 같은 이유로 함수로 둔다 (로그아웃하면 clearMe가 이 값으로 되돌린다) */
+const newFollowing = () => new Set(['mina.closet', 'hyun.wear'])
+const newLiked = () => new Set<number>()
+const newSavedPosts = () => new Set([4])
 
 /** 앱 전체 상태 (메모리에만 있어서 새로고침하면 seed.ts의 처음 상태로 돌아간다). 바꾼 뒤에는 emit()을 부른다 */
 export const S = {
@@ -34,9 +38,9 @@ export const S = {
   RECENT: 3, // 이 날수 안에 입은 옷은 추천에서 뺌
   defScope: '전체 공개', // 새 글의 기본 공개 범위 (설정)
   cmpOn: true, // 커뮤니티 글에 내 옷장 비교 표시
-  followingSet: new Set(['mina.closet', 'hyun.wear']), // 팔로우하는 사람 아이디
-  liked: new Set<number>(), // 좋아요를 누른 글 id
-  savedPosts: new Set([4]), // 저장한 글 id
+  followingSet: newFollowing(), // 팔로우하는 사람 아이디
+  liked: newLiked(), // 좋아요를 누른 글 id
+  savedPosts: newSavedPosts(), // 저장한 글 id
   // 홈
   oi: 0, // 지금 보여 주는 추천 코디 번호 (S.outfits의 순서)
   pos: { t: 0, m: 0, j: 0, o: 0, b: 0 } as Record<RowKey, number>, // 줄마다 고른 옷의 순서 (lists()의 각 줄 기준)
@@ -242,11 +246,18 @@ export function tidyRows() {
 /**
  * 로그아웃한 뒤 앱에 남은 내 정보를 처음 상태로 비운다 (docs/API_CONVENTION.md 4장).
  * 비우지 않으면 다음 사람이 로그인 화면을 거쳐 들어와도 앞 사람의 닉네임·프로필 사진·첫 설정 결과가 그대로 보인다.
- * 첫 설정 여부(onboarded)도 풀어서, 다시 로그인하면 첫 설정부터 한다. 서버 세션과 CSRF 토큰은 api/auth.ts의 logout이 정리한다
+ * 첫 설정 여부(onboarded)도 풀어서, 다시 로그인하면 첫 설정부터 한다. 서버 세션과 CSRF 토큰은 api/auth.ts의 logout이 정리한다.
+ * 팔로우·좋아요·저장한 글과 댓글의 '내가 눌렀는지(liked)'·'내가 썼는지(me)' 표시도 비운다. 전에는 남아 있어서
+ * 다음 사람에게 앞 사람이 누른 하트가 켜져 있고, 앞 사람이 쓴 댓글에 '삭제' 버튼이 보였다 (코드 리뷰 11/27 3번).
+ * 글과 댓글의 좋아요 수(likes)와 앞 사람이 쓴 댓글 자체는 그대로 둔다. 서버가 있으면 다른 사람에게도 남는 값이라서다
  */
 export function clearMe() {
   S.me = newMe(); S.pref = newPref()
   S.loggedIn = false; S.onboarded = false; S.ob = null; S.loginBack = '/'
+  S.followingSet = newFollowing(); S.liked = newLiked(); S.savedPosts = newSavedPosts()
+  // 댓글과 답글을 모두 돌며 내 표시를 푼다 (답글도 Comment라 같은 함수로 내려간다)
+  const unmark = (c: Comment) => { c.liked = false; c.me = false; c.replies.forEach(unmark) }
+  S.posts.forEach((p) => p.cmList?.forEach(unmark))
 }
 /** 커뮤니티 따라 입기 등: 지정한 옷으로 줄을 맞춤. 줄에 없는 옷(추천에서 뺀 옷)은 건너뜀 */
 export function setCombo(ids: number[]) {
