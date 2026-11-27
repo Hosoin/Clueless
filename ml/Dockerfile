@@ -25,7 +25,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY --chown=app ml ./ml
 
-# 사전학습 모델(FashionCLIP·u2netp)을 고정한 버전으로 미리 받아 둔다: 시작이 빨라지고, 실행 중 외부 다운로드가 없다
+# 사전학습 모델(FashionCLIP·u2net)을 고정한 버전으로 미리 받아 둔다: 시작이 빨라지고, 실행 중 외부 다운로드가 없다
 # FashionCLIP은 safetensors 가중치·설정만 (같은 모델의 TF·Flax·bin 형식까지 받으면 1.8GB)
 RUN uv run --no-sync python -c "\
 from huggingface_hub import snapshot_download; \
