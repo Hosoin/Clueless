@@ -114,4 +114,25 @@ with tempfile.TemporaryDirectory() as d:
         assert classes[2] == "아우터" and torch.allclose(loaded(x), head(x)), hidden
     assert load_probe(Path(d) / "없음.pt") is None
 
+# 서비스 이미지에는 dev 의존성(pyarrow·httpx)이 없다: 그래도 API 모듈을 불러올 수 있어야 한다 (도커 첫 실행에서 실제로 죽었던 버그)
+import subprocess  # noqa: E402
+import sys  # noqa: E402
+
+code = "import sys; sys.modules.update({m: None for m in ('pyarrow', 'pyarrow.parquet', 'httpx')}); import ml.api"
+r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+assert r.returncode == 0, r.stderr[-800:]
+# 배경 제거 실패 감지: 옷 덩어리는 상자를 채우고, 프린트 조각만 흩어지면 거의 비어 있다
+from ml.background import mask_fill  # noqa: E402
+
+solid = np.zeros((100, 100), bool)
+solid[20:80, 30:70] = True
+solid[45:55, 45:55] = False  # 구멍은 채워서 센다
+scattered = np.zeros((100, 100), bool)
+for y, x in ((5, 5), (5, 90), (90, 5), (90, 90), (50, 50)):
+    scattered[y : y + 5, x : x + 5] = True
+assert mask_fill(solid) == 1.0
+assert mask_fill(scattered) < 0.05
+assert mask_fill(np.zeros((10, 10), bool)) == 0.0
+
 print("ok")
+

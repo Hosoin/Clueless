@@ -1,10 +1,11 @@
 // 커뮤니티: 피드 (담당: C)
 import { Cmt, Heart } from '../components/Icons'
 import { Face } from '../components/Face'
-import { writeSheet } from '../components/WriteSheet'
+import { writeSheet } from '../sheets'
 import { openPost } from '../nav'
 import { S, emit, owned, useApp } from '../store'
 
+/** 커뮤니티 화면: 인기·최신·팔로잉 탭, 챌린지 참여 글만 보기, 2열 피드 */
 export default function Community() {
   useApp()
   let list = S.posts.filter((p) => !S.chOnly || p.ch)
@@ -35,7 +36,7 @@ export default function Community() {
                 <span className="acts"><span><Heart on={S.liked.has(p.id)} />{p.likes}</span><span><Cmt />{p.cmts}</span></span>
               </button>
             )
-          }) : <div className="empty" style={{ gridColumn: '1/-1' }}>{S.cmTab === '팔로잉' ? '팔로우한 사람의 글이 아직 없어요' : '아직 글이 없어요'}</div>}
+          }) : <div className="empty span-all">{S.cmTab === '팔로잉' ? '팔로우한 사람의 글이 아직 없어요' : '아직 글이 없어요'}</div>}
         </div>
       </div>
     </section>

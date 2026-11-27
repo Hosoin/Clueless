@@ -1,19 +1,18 @@
-// 코디 올리기 / 글 수정 (입은 기록과 커뮤니티에서 같이 씀)
+// 코디 올리기 / 글 수정 창의 내용 (입은 기록과 커뮤니티에서 같이 씀). 여는 함수는 src/sheets.tsx의 writeSheet
 import { useState } from 'react'
-import type { Hist, Post } from '../data/types'
+import type { Hist, Item, Post } from '../data/types'
+import { Thumbs } from './Ph'
 import { S, byId, dayLabel, emit, hexOf } from '../store'
-import { go, toLogin } from '../nav'
-import { closeAll, openSheet, toast } from '../ui'
+import { go } from '../nav'
+import { closeAll, toast } from '../ui'
 
-export function writeSheet(h?: Hist | null, edit?: Post) {
-  if (!S.loggedIn) { toast('로그인하면 코디를 올릴 수 있어요'); return toLogin('/community') }
-  if (!edit && !S.history.length) return toast('먼저 입은 코디가 있어야 올릴 수 있어요')
-  openSheet(() => <Write h={h} edit={edit} />)
-}
+/** 기록의 옷 중 옷장에 있는 옷만. 서버(API) 데이터가 어긋나 기록에만 남은 옷 id가 있어도 화면이 멈추지 않게 건너뛴다 */
+const wornItems = (x: Hist) => x.ids.map((id) => byId(id)).filter((it): it is Item => !!it)
+/** 입은 기록의 옷 이름을 ' + '로 이은 글자 (글 제목·본문을 비워 두면 이것을 씀) */
+const names = (x: Hist) => wornItems(x).map((it) => it.name).join(' + ')
 
-const names = (x: Hist) => x.ids.map((id) => byId(id)!.name).join(' + ')
-
-function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
+/** 코디 올리기·글 수정 창의 내용. 창을 여는 함수 writeSheet는 src/sheets.tsx에 있다 (코드 리뷰 29번) */
+export function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
   const [pick, setPick] = useState<Hist | null>(edit ? null : h || S.history[0])
   const [cap, setCap] = useState(edit ? edit.body : '')
   const [ch, setCh] = useState(edit ? edit.ch : false)
@@ -21,10 +20,18 @@ function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
   const ok = () => {
     const text = cap.trim()
     if (edit) { edit.body = text || edit.body; edit.t = (text || edit.t).slice(0, 26); edit.scope = scope; edit.ch = ch; closeAll(); toast('글을 고쳤어요'); return emit() }
-    const first = byId(pick!.ids[0])!
+    const ps = pick ? wornItems(pick) : []
+    if (!ps.length) return toast('올릴 옷을 찾지 못했어요. 다른 코디를 골라 주세요')
+    // 사진 없는 글은 올리지 않는다: 코디의 옷이 모두 사진이 있어야 한다.
+    // 글 사진은 첫 번째 옷의 사진이라, 비어 있으면 커뮤니티·MY·글 보기에서 그림이 깨진다 (코드 리뷰 16번).
+    // 지워져서 찾을 수 없는 옷도 사진이 없는 것으로 본다.
+    if (!pick!.ids.every((id) => byId(id)?.img)) return toast('사진이 없는 옷이 있는 코디는 올릴 수 없어요')
+    const first = ps[0]
+    // 새 글은 댓글 없이(cmList: []) 시작한다. 전에는 withComments가 내 글이라고 예시 댓글(MY_CMTS)을 채워서,
+    // '방금' 올린 글에 남이 '2일 전'에 쓴 댓글이 달려 있고 댓글 수(cmts)는 0으로 보였다 (코드 리뷰 11/27 7번)
     S.posts.unshift({ id: ++S.pid, mine: true, user: S.me.handle, img: first.img || '', pos: '50% 50%', min: 0, ago: '방금', ch, scope, likes: 0, cmts: 0,
       t: (text || names(pick!)).slice(0, 26), body: text || names(pick!),
-      wear: pick!.ids.map((id) => { const it = byId(id)!; return [it.name, hexOf(it), id, 'same'] }) })
+      wear: ps.map((it) => [it.name, hexOf(it), it.id, 'same']), cmList: [] })
     closeAll(); S.myTab = 'posts'; go('/my'); toast('올렸어요. MY에서 고치거나 지울 수 있어요')
   }
   return (
@@ -34,7 +41,7 @@ function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
         <div className="pick">
           {S.history.map((x, i) => (
             <button key={i} className={x === pick ? 'on' : ''} onClick={() => setPick(x)}>
-              <span className="thumbs">{x.ids.map((id) => <span className="ph" key={id}>{byId(id)?.img && <img src={byId(id)!.img} alt="" />}</span>)}</span>
+              <Thumbs ids={x.ids} />
               <span><p>{names(x)}</p><p className="d">{dayLabel(x.ago)}</p></span>
             </button>
           ))}

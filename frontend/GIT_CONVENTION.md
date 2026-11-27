@@ -5,9 +5,11 @@
 ## 1. 브랜치 구조
 
 ```
-main        ← 운영 (전체 팀 공용)
+main          ← 운영 (전체 팀 공용)
   ↑ PR (Create a merge commit)
-frontend    ← 스테이징 (개발 서버 자동 배포)
+frontend      ← 스테이징 (개발 서버 자동 배포)
+  ↑ PR (Create a merge commit)
+frontend-dev  ← 개발 통합 (작업 브랜치의 PR이 쌓이는 곳, 팀장이 승인)
   ↑ PR (Squash and merge)
 FE/feat/*, FE/fix/*, FE/docs/* ...   ← 작업 브랜치
 ```
@@ -15,8 +17,9 @@ FE/feat/*, FE/fix/*, FE/docs/* ...   ← 작업 브랜치
 | 브랜치 | 역할 | 직접 커밋 |
 | --- | --- | --- |
 | `main` | 운영. 스테이징에서 테스트가 끝난 변경만 반영합니다 | 금지 |
-| `frontend` | 스테이징. 개발 서버에 배포되고 여기서 테스트합니다 | 금지 |
-| 작업 브랜치 | 기능 하나 또는 수정 하나를 작업하는 브랜치 | 가능 |
+| `frontend` | 스테이징. 개발 서버에 배포되고 여기서 테스트합니다. `frontend-dev`에 PR이 어느 정도 쌓이면 `frontend-dev → frontend` PR로 올립니다 | 금지 |
+| `frontend-dev` | 개발 통합. 작업 브랜치의 PR을 팀장이 승인해 머지하는 곳입니다 | 금지 |
+| 작업 브랜치 | 기능 하나 또는 수정 하나를 작업하는 브랜치. `frontend-dev`에서 따서 작업합니다 | 가능 |
 
 ### 작업 브랜치 이름
 
@@ -27,21 +30,21 @@ FE/feat/*, FE/fix/*, FE/docs/* ...   ← 작업 브랜치
 - `FE/docs/git-convention`
 
 - `FE`는 대문자로 씁니다.
-- 장수 브랜치(`main`, `frontend`)에는 이 규칙을 적용하지 않습니다.
+- 장수 브랜치(`main`, `frontend`, `frontend-dev`)에는 이 규칙을 적용하지 않습니다.
 
 ## 2. 작업 순서
 
 ```bash
-git switch frontend
+git switch frontend-dev
 git pull
 git switch -c FE/feat/my-work
 
 # 작업하고 커밋
 git push -u origin FE/feat/my-work
-# GitHub에서 base를 frontend로 해서 PR 생성
+# GitHub에서 base를 frontend-dev로 해서 PR 생성
 ```
 
-- 작업 중 `frontend`가 앞서 나가면 `git merge frontend`로 최신 상태를 반영한 뒤 PR을 올립니다.
+- 작업 중 `frontend-dev`가 앞서 나가면 `git merge frontend-dev`로 최신 상태를 반영한 뒤 PR을 올립니다.
 - 머지가 끝난 작업 브랜치는 삭제합니다.
 
 ## 3. 커밋 규칙
@@ -130,14 +133,16 @@ refactor(closet): 필터 로직을 훅으로 분리
 
 - 하나의 커밋에는 하나의 논리적 변경만 담습니다.
 - 빌드나 린트가 깨진 상태로 커밋하지 않습니다. (`npm run lint`, `npm run build`)
-- 작업 중간 저장용 커밋(`wip`, `temp`)을 남겨도 되지만, `frontend`로 머지할 때 squash로 합쳐지므로 PR 제목을 위 형식으로 씁니다.
+- 작업 중간 저장용 커밋(`wip`, `temp`)을 남겨도 되지만, `frontend-dev`로 머지할 때 squash로 합쳐지므로 PR 제목을 `[FE] ` 뒤에 위 형식으로 씁니다.
 
 ## 4. PR 규칙
 
 - PR 하나에는 하나의 목적만 담고, 하루 안에 리뷰할 수 있는 크기로 올립니다.
-- PR 제목은 커밋 규칙과 같은 형식으로 씁니다. (예: `feat(upload): 후보 아래에 직접 선택 추가`)
+- PR 제목은 맨 앞에 `[FE]`를 붙이고 커밋 규칙과 같은 형식으로 씁니다. 브랜치 이름 앞의 `FE/`와 같은 목적으로, PR 목록에서 프론트엔드 PR임을 바로 알아보게 합니다. (예: `[FE] feat(upload): 후보 아래에 직접 선택 추가`)
+- `[FE]`는 대괄호와 대문자로 씁니다. 장수 브랜치 사이의 PR(`frontend-dev → frontend`, `frontend → main`)에도 똑같이 붙입니다.
 - 본문에는 변경 사항, 테스트 방법을 적고, 화면이 바뀌면 스크린샷이나 영상을 붙입니다.
 - 리뷰어 1명 이상의 승인을 받아야 머지할 수 있습니다. 본인의 PR은 본인이 승인하지 않습니다.
+- `frontend-dev`로 올리는 작업 브랜치 PR은 팀장이 승인합니다.
 - 리뷰어는 PR 브랜치를 실행해 화면이 정상인지 확인한 뒤 승인합니다.
 - CI(lint, build)가 통과해야 머지할 수 있습니다.
 
@@ -145,23 +150,26 @@ refactor(closet): 필터 로직을 훅으로 분리
 
 | 방향 | 방식 | 이유 |
 | --- | --- | --- |
-| 작업 브랜치 → `frontend` | **Squash and merge** | 작업 중 생긴 임시 커밋이 정리되고, 기능 하나가 커밋 하나로 남아 되돌리기 쉽습니다 |
-| `frontend` → `main` | **Create a merge commit** | 장수 브랜치끼리는 해시를 유지해야 다음 PR에 같은 커밋이 중복으로 잡히지 않습니다 |
+| 작업 브랜치 → `frontend-dev` | **Squash and merge** | 작업 중 생긴 임시 커밋이 정리되고, 기능 하나가 커밋 하나로 남아 되돌리기 쉽습니다 |
+| `frontend-dev` → `frontend` | **Create a merge commit** | 장수 브랜치끼리는 해시를 유지해야 다음 PR에 같은 커밋이 중복으로 잡히지 않습니다 |
+| `frontend` → `main` | **Create a merge commit** | 위와 같은 이유입니다 |
 
-- Squash로 머지하면 PR 제목이 최종 커밋 메시지가 되므로 제목 형식을 지킵니다.
-- 장수 브랜치(`frontend`, `main`) 사이에서는 squash나 rebase를 쓰지 않습니다.
+- Squash로 머지하면 PR 제목이 최종 커밋 메시지가 되므로 제목 형식을 지킵니다. 다만 커밋 메시지는 `<type>(<scope>): <subject>` 형식을 유지해야 하므로, 머지 화면에서 제목 앞의 `[FE] `는 지우고 머지합니다.
+- 장수 브랜치(`frontend-dev`, `frontend`, `main`) 사이에서는 squash나 rebase를 쓰지 않습니다.
 
 ## 6. 배포와 테스트
 
+- 작업 브랜치 PR은 `frontend-dev`로 올리고, 팀장이 확인해 승인하면 머지합니다.
+- `frontend-dev`에 PR이 어느 정도 쌓이면 `frontend-dev → frontend` PR을 올립니다.
 - `frontend`에 머지되면 개발 서버에 배포됩니다.
 - 개발 서버에서 충분히 테스트한 뒤 `frontend → main` PR을 올립니다.
-- `frontend`를 `main`으로 올리면 그 시점까지 머지된 변경이 모두 함께 올라갑니다.
+- 올리는 순간까지 머지된 변경이 모두 함께 올라갑니다.
 - 문제가 있는 기능은 해당 squash 커밋을 revert하는 PR로 되돌립니다.
 
 ### 긴급 수정(hotfix)
 
 - `main`에서 바로 고쳐야 할 때는 `main`에서 `FE/fix/*` 브랜치를 따서 `main`으로 PR합니다.
-- 반영한 뒤에는 `main`을 `frontend`로 다시 머지해서 두 브랜치가 갈라지지 않게 합니다.
+- 반영한 뒤에는 `main`을 `frontend`로, 그다음 `frontend`를 `frontend-dev`로 다시 머지해서 브랜치들이 갈라지지 않게 합니다. 이때도 PR을 거칩니다.
 
 ## 7. 브랜치 보호 설정
 
@@ -170,6 +178,7 @@ GitHub Ruleset으로 설정합니다. (Settings → Rules → Rulesets)
 | 브랜치 | 상태 | 규칙 |
 | --- | --- | --- |
 | `frontend` | 적용 중 | PR 필수, 승인 1명 이상, CI(`check`) 통과 필수, force push·삭제 금지 |
+| `frontend-dev` | 적용 예정 | `frontend`와 같은 규칙을 GitHub Ruleset에 추가해야 합니다. 설정 전까지는 직접 푸시하지 않고 항상 PR로 반영합니다 |
 | `main` | 미적용 | 백엔드, ML 팀과 공용이라 팀 간 합의 후 적용합니다 |
 
 - `frontend`는 팀장만 규칙을 우회할 수 있습니다. (Ruleset의 Bypass list)

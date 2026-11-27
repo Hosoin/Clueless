@@ -31,17 +31,24 @@
 3. 백엔드: 응답(옷 id 목록, 점수, 근거)에 이미지 URL을 붙여 앱에 전달, 추천 기록 저장 (`model_version` 포함)
 4. 앱 → 백엔드: 좋아요·싫어요·입을래요 → 평가 저장 (추천 id와 연결)
 
+## 이름 기준 (앱 화면 = 공식)
+
+API의 모든 이름은 **프론트 `frontend/src/data/seed.ts`와 같아요**: 종류(`CATS` 5개, 덧입기 포함), 세부 종류(`SUBS`), 색(`COLORS` 18개), 무늬(`PATTERNS`), 스타일(`STYLES`).
+- 분석 응답은 이 이름으로 나오고, 추천 요청도 이 이름으로 보내면 됩니다 (ML 내부 학습 이름과의 변환은 `ml/ml/vocab.py`).
+- 모델이 구분하지 못하는 프론트 세부 종류(맨투맨·와이드 팬츠·카고 팬츠·레깅스·점퍼·셔츠/니트 원피스·뷔스티에)는 가까운 것으로 제안하고, 사용자가 확인 카드에서 고릅니다.
+- `seed.ts` 목록이 바뀌면 `ml/ml/vocab.py`도 같이 고쳐야 합니다.
+
 ## 3. 데이터 저장 (백엔드 테이블 명세서 1안: `user_info`, `closet_items`)
 
 **`POST /v1/garments/analyze` 응답 → `closet_items`**
 
 | ML 응답 | 저장 위치 |
 | --- | --- |
-| `category.name` (상의·하의·아우터·원피스) | `category` 기본값 (사용자 확인 후 확정) |
+| `category.name` (상의·덧입기·하의·아우터·원피스) | `category` 기본값 (사용자 확인 후 확정) |
 | `color_name.name` | `color` 기본값 |
 | `style.tags` (1~2개, 강한 순) | `styles` 기본값 (사용자가 고치거나 비울 수 있음) |
-| `subcategory.name` (티셔츠·셔츠·청바지·반바지 …) | `subcategory` 기본값. 사용자가 `category`를 바꾸면 비우고 다시 고르게 함 |
-| `print.name` (무지·레터링·그래픽·체크 …) | `meta_json`에 보관. 표시 이름 예: "화이트 레터링 반팔 티셔츠" (색 + 프린트 + 소매 + 세부 종류) |
+| `subcategory.name` (티셔츠·후드·데님·스커트·카디건 …) | `subcategory` 기본값. 사용자가 `category`를 바꾸면 비우고 다시 고르게 함 |
+| `print.name` (무지·스트라이프·체크·도트·플라워·프린트) | `meta_json`에 보관. 앱 `pattern` 기본값으로 쓸 수 있음 (closet_items에는 무늬 칸이 없음) |
 | `crop_png_base64` | Blob에 저장 → `image_blob`(파일 키). `meta_json`에는 넣지 않음 |
 | **나머지 응답 전체** (`crop_png_base64`만 뺀 것) | `meta_json` 그대로. 아래 칸이 들어 있어야 추천이 다 됨 |
 
@@ -69,9 +76,13 @@
 | `items[].id` | `closet_items.id` (숫자 그대로 가능, 응답 id는 문자열) |
 | `items[].category`, `subcategory`, `tags`, `styles` | `closet_items` 같은 이름 칸 |
 | `items[].sleeve` | `meta_json.sleeve.name` (없으면 생략) |
+| `items[].color` | `closet_items.color` (대표색) |
+| `items[].colors` | `meta_json.colors` (분석 응답의 색과 면적 비율. 수동 등록 옷은 생략 → 대표색 하나로 계산) |
 | `items[].embedding` | `meta_json.embedding` (없으면 null) |
 | `style` | 사용자가 추천 화면에서 고른 스타일 (없으면 생략) |
 | `style_weights` | `style`이 없을 때 `user_info.preferred_styles`를 같은 비중으로 (예: `{"스트리트": 0.5, "캐주얼": 0.5}`) |
+
+- **색 궁합:** 옷마다 면적 15% 이상인 색끼리 규칙표(무채색·같은 계열 +, 보색 충돌 −)로 점수를 내서 `score_parts.color`(0.5 = 중립)에 반영합니다. 흰색·민트 셔츠처럼 여러 색인 옷은 민트 부분의 궁합도 면적만큼 따집니다. 보조색을 다른 옷과 맞추면 "민트 포인트 색을 맞췄어요." 근거가 붙습니다. 규칙표는 초안이라 가중치를 낮게(0.3) 시작합니다.
 
 - 원본 사진은 보관하지 않고 크롭(배경 제거본)만 보관하면 얼굴 등 개인정보가 줄어듭니다.
 
@@ -109,7 +120,7 @@ config/       MlProperties (@ConfigurationProperties("ml"))
     restart: always
 ```
 
-- 가중치: `gh release download ml-weights-v0.1`, `ml-weights-v0.2`로 공개분을 받고, `sleeve_probe.pt`·`color_probe.pt`·`style_probe.pt`·`subcat_probe.pt`·`print_probe.pt`는 가진 팀원이 VM의 `ml/weights/`로 복사
+- 가중치: `gh release download ml-weights-v0.1`, `ml-weights-v0.2`로 공개분을 받고, `sleeve_probe.pt`·`color_probe.pt`·`style_probe.pt`·`subcat_probe.pt`·`print_probe.pt`·`garment4_mlp_real.pt`·`color_probe_real.pt`는 가진 팀원이 VM의 `ml/weights/`로 복사
 - 도커 없이 VM에 직접 설치하는 방법(예비용)은 [`ml/deploy/README.md`](../../ml/deploy/README.md)
 
 **개발용 (내 컴퓨터):**

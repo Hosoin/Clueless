@@ -14,15 +14,21 @@ from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
 from ml.analyze import CLIP_REVISION, pick_device
+from ml.background import (
+    MIN_MASK_FILL,
+    BackgroundRemover,
+    crop_with_fallback,
+    mask_fill,
+)
 from ml.background import MODEL as BG_MODEL
-from ml.background import BackgroundRemover
 from ml.colors import suggest_colors
 from ml.settings import WEIGHTS_DIR
 
-# 4분류: MLP(512→256→4, test 정확도 0.974)가 기본. 아직 받지 않았으면 예전 Linear(0.969)로 돈다
-PROBE = next((p for p in (WEIGHTS_DIR / "garment4_mlp_both.pt", WEIGHTS_DIR / "garment4_probe_both.pt") if p.exists()), WEIGHTS_DIR / "garment4_mlp_both.pt")
+# 4분류: 실사진을 섞은 MLP(팀 내부 공유, train_real_mix) > 공개 MLP(512→256→4, test 0.974) > 예전 Linear(0.969) 순으로 있는 것을 쓴다
+PROBE = next((p for p in (WEIGHTS_DIR / n for n in ("garment4_mlp_real.pt", "garment4_mlp_both.pt", "garment4_probe_both.pt")) if p.exists()), WEIGHTS_DIR / "garment4_mlp_both.pt")
 SLEEVE_PROBE = WEIGHTS_DIR / "sleeve_probe.pt"  # 없으면 소매 기장은 결과에서 빠진다
-COLOR_PROBE = WEIGHTS_DIR / "color_probe.pt"  # 없으면 색 이름은 규칙(k-means + 팔레트)만 쓴다
+# 대표색: 팀 라벨을 섞은 것(train_real_mix)이 있으면 우선. 둘 다 없으면 규칙(k-means + 팔레트)만 쓴다
+COLOR_PROBE = next((p for p in (WEIGHTS_DIR / "color_probe_real.pt", WEIGHTS_DIR / "color_probe.pt") if p.exists()), WEIGHTS_DIR / "color_probe.pt")
 STYLE_PROBE = WEIGHTS_DIR / "style_probe.pt"  # 없으면 스타일 점수는 결과에서 빠진다 (AI-Hub 학습분, 팀 내부 공유)
 SLEEVE_CATEGORIES = {"상의", "아우터", "원피스"}  # 하의에는 소매가 없다
 # 스타일 6개. K-Fashion 23개 스타일을 묶어 5개를 학습하고(train_style), 캐주얼은 K-Fashion에 없어 max(미니멀, 클래식)으로 계산
@@ -129,12 +135,16 @@ class GarmentClassifier:
     def analyze(self, image: Image.Image) -> tuple[dict, Image.Image, np.ndarray]:
         """반환: (확인 카드용 결과, 흰 배경 정사각 크롭, 512차원 임베딩). CLI와 API가 같이 쓴다."""
         image = image.convert("RGB")
-        mask, crop = self.remover(image)
+        rgb = np.array(image)
+        mask = self.remover.mask(image)
+        used, crop = crop_with_fallback(rgb, mask)  # 배경 제거 실패면 원본 전체 (조각 대신)
         emb = self.embed(crop)
         mask_ratio = float(mask.mean())
-        colors = [{**c, "ratio": round(c["ratio"], 2)} for c in suggest_colors(np.array(image), mask)]
+        colors = [{**c, "ratio": round(c["ratio"], 2)} for c in suggest_colors(rgb, used)]
         result = self._card(emb, colors)
-        result.update(mask_ratio=round(mask_ratio, 3), retake=mask_ratio < MIN_MASK_RATIO)  # 옷이 너무 작게 찍힘(또는 배경 제거 실패)
+        fill = mask_fill(mask)
+        # 옷이 너무 작게 찍힘, 또는 배경 제거 실패(옷은 지워지고 프린트 조각만 남음)
+        result.update(mask_ratio=round(mask_ratio, 3), mask_fill=round(fill, 3), retake=mask_ratio < MIN_MASK_RATIO or fill < MIN_MASK_FILL)
         return result, crop, emb
 
     def _card(self, emb: np.ndarray, colors: list[dict]) -> dict:

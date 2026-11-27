@@ -83,7 +83,7 @@ h1 i{font-style:italic}
 .challenge{background:var(--ink)}
 .challenge .e{color:#CFC9C0}
 .uav.me,.urow .uav.me,.avatar{background:var(--ink);color:var(--ivory)}
-.post .m,.tag,.up,.s.pink,.card .s.pink,.mrow .s{color:var(--ink)}
+.post .m,.up,.s.pink,.card .s.pink,.mrow .s{color:var(--ink)}
 
 /* 캘린더 */
 .cday .th.plan,.callegend i.lp{outline-color:var(--ink)}
@@ -133,6 +133,18 @@ h1 i{font-style:italic}
 #s-home .astage{flex:1;height:auto!important;min-height:0;margin-top:14px;border-color:var(--line);background:var(--paper)}
 #s-home .arows{margin-top:8px;border-top:1px solid var(--line)}
 #s-home .arow{padding:2px 0}
+/* 아바타 보기의 줄 이름 칸: '아우터 빼기'가 한 줄에 들어가게 넓힘 (디자인 2-3) */
+#s-home .arow .k{width:70px;display:flex;align-items:center;gap:4px}
+/* 스타일 칩 줄: 'STYLE · 원하는 스타일로 추천받기' 아래 가로로 넘기는 칩 (디자인 2-1·2-2) */
+.hstyle-k{margin:14px 0 0;font-size:11px;letter-spacing:.08em;color:var(--soft)}
+#s-home .scroller.hstyle{margin-top:8px}
+/* 아바타로 보기 버튼: 사람 아이콘 + 글자 */
+.avbtn{display:flex;align-items:center;justify-content:center;gap:7px}
+.avbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.3}
+/* My Avatar 제목 줄: 제목 34px, 오른쪽 '닫기' (디자인 2-3) */
+#s-home .avhead{align-items:center}
+#s-home .avhead h1{font-size:34px}
+.avsub{margin:6px 0 0;font-size:12px;line-height:1.45;color:var(--soft)}
 
 /* 프로필 사진 */
 .avatar,.uav{overflow:hidden}
@@ -145,12 +157,37 @@ h1 i{font-style:italic}
 
 /* 옷 등록: 정확도 높은 순 상세 후보 3개 (옷 이름이 길면 두 줄까지) */
 .tile .ph{width:100%;border:none}
-.cands{display:flex;flex-direction:column;gap:4px;margin-top:2px}
-.cand{display:flex;justify-content:space-between;align-items:center;gap:4px;min-height:34px;padding:4px 7px;line-height:1.3;border:1px solid var(--line);background:var(--paper);font-size:12px;color:var(--ink);text-align:left}
-.cand span{font-size:10px;color:var(--soft);letter-spacing:.02em}
-.cand.on{border-color:var(--ink);background:var(--ink);color:var(--ivory)}
-.cand.on span{color:#CFC9C0}
-.cand b{font-weight:400;font-size:11px;word-break:keep-all}
-.cand span{flex-shrink:0}
-.cand.manual{justify-content:center;border-style:dashed;color:var(--soft)}
-.cand.manual.on{border-style:solid;color:var(--ivory)}
+/* 옷 등록 한 벌씩 확인 창 (Upload.tsx의 Confirm). Figma 3. 옷 등록 ④~⑥ */
+.one-top{display:flex;justify-content:space-between;align-items:baseline}
+.one-top b{font-size:13px}
+.one-top span{font-size:12px;color:var(--soft)}
+.one-head{display:flex;gap:16px;align-items:center;margin:18px 0 16px}
+.one-head h3{margin:0 0 6px}
+.one-head p{margin:0;line-height:1.5}
+.one-ph{width:84px;height:84px;flex-shrink:0;background:var(--ph);overflow:hidden}
+.one-ph img{width:100%;height:100%;object-fit:cover}
+.one-wait{position:relative;height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.one-wait .spin{position:relative;inset:auto;margin-bottom:12px}
+.one-wait p{margin:0}
+/* 이전·다음 옷 버튼은 창이 길어 스크롤해도 늘 아래에 보이게 붙여 둔다 (.sheet의 아래 여백 34px만큼 내려서 바닥에 닿게) */
+.one-btns{position:sticky;bottom:-34px;margin:6px -24px -34px;padding:12px 24px 34px;background:var(--paper);border-top:1px solid var(--line)}
+
+/* 옷 크게 보기 · 별명 (Ph.tsx lightbox, editAlias) */
+.lb h3 + .sub{margin:2px 0 10px}             /* 별명 아래 원래 이름 */
+.alias-edit{margin-left:10px;min-height:0;padding:0}
+.alias-field{margin-top:16px}
+
+/* 여러 화면에서 같이 쓰는 여백·배치 (두 곳 이상 반복되던 인라인 style을 옮김, 코드 리뷰 26번).
+   인라인 style은 다른 규칙보다 늘 우선했으므로, 옮긴 뒤에도 화면이 그대로이도록 !important로 같은 우선순위를 준다 */
+.mt0{margin-top:0!important}
+.mt8{margin-top:8px!important}
+.mt16{margin-top:16px!important}
+.mt18{margin-top:18px!important}
+.pt4{padding-top:4px!important}
+.span-all{grid-column:1/-1!important} /* 격자 한 줄을 다 차지 (빈 목록 안내 등) */
+.btn.cta{margin-top:16px!important;padding:0 18px!important} /* 빈 화면 안내 아래 버튼 (코디 올리기, 커뮤니티 보기 등) */
+.screen.boot{display:flex!important} /* 앱 시작 때 로그인 확인을 기다리는 로고 화면 */
+/* 로그인 화면 약관 글자: 누를 수 있는 버튼이지만 예전 밑줄 글자(<u>)와 똑같이 보이게 버튼 기본 모양을 지운다 (코드 리뷰 33번) */
+.lg-terms button{margin:0;padding:0;border:0;background:none;font:inherit;color:inherit;line-height:inherit;text-decoration:underline;text-underline-offset:2px;vertical-align:baseline}
+/* 창이 열리면 창 자체에 포커스를 두는데(Overlays.tsx), 창 테두리에 포커스 표시는 그리지 않는다. 창 안 버튼의 표시는 그대로 */
+.sheet:focus,.modal:focus{outline:none}

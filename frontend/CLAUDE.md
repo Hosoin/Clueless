@@ -4,21 +4,23 @@
 
 - 앱: Clueless. 내 옷장의 옷으로 오늘의 코디를 추천하고, 입은 기록을 남기고, 커뮤니티에서 코디를 공유하는 모바일 앱입니다.
 - 스택: Vite + React + TypeScript, Capacitor (웹과 폰 앱을 같은 코드로 만듭니다)
-- 단계: 프로토타입. 백엔드 없이 `src/data/seed.ts`의 가짜 데이터로 동작합니다.
+- 단계: 프로토타입. 로그인(`src/api/`)만 백엔드와 연결되어 있고, 나머지 데이터는 `src/data/seed.ts`의 가짜 데이터로 동작합니다.
 - 폴더 구조와 실행 명령어는 @README.md 를, 저장소 전체 구조는 루트 `README.md`를 참고합니다.
 
 ## 브랜치와 작업 흐름
 
 | 브랜치 | 역할 |
 | --- | --- |
-| `FE/feat/*`, `FE/fix/*` 등 | 작업 브랜치. 이름 앞에 `FE/`를 붙입니다. `frontend`에서 따서 작업하고 PR로 합칩니다 |
+| `FE/feat/*`, `FE/fix/*` 등 | 작업 브랜치. 이름 앞에 `FE/`를 붙입니다. `frontend-dev`에서 따서 작업하고 `frontend-dev`로 PR을 올립니다 |
+| `frontend-dev` | 개발 통합 브랜치. 작업 브랜치 PR을 팀장이 승인해 머지합니다 |
 | `frontend` | 스테이징 브랜치. 개발 서버에 배포되며 여기서 테스트합니다 |
 | `main` | 스테이징에서 테스트가 통과한 변경만 PR로 반영합니다 |
 
-흐름: `frontend`에서 작업 브랜치 생성 → 작업 → `frontend`로 PR → 개발 서버에서 테스트 → `main`으로 PR
+흐름: `frontend-dev`에서 작업 브랜치 생성 → 작업 → `frontend-dev`로 PR(팀장 승인) → PR이 쌓이면 `frontend`로 PR → 개발 서버에서 테스트 → `main`으로 PR
 
-- `frontend`와 `main`에는 직접 커밋하지 않고 항상 PR로 반영합니다.
+- `frontend-dev`, `frontend`, `main`에는 직접 커밋하지 않고 항상 PR로 반영합니다.
 - 브랜치 이름, 커밋, PR, 머지 방식은 @GIT_CONVENTION.md 를 따릅니다.
+- PR 제목은 맨 앞에 `[FE]`를 붙입니다. (예: `[FE] feat(upload): 후보 아래에 직접 선택 추가`)
 - 푸시, PR 생성, 머지는 사용자가 요청했을 때만 합니다.
 
 ## 작업 원칙
@@ -47,9 +49,10 @@
 
 | 화면 문구 | 코드 | 설명 |
 | --- | --- | --- |
-| 옷 | `Item` | 옷 한 벌. `cat`(종류), `sub`(세부 종류), `color`, `pattern`을 가짐 |
+| 옷 | `Item` | 옷 한 벌. `cat`(종류), `sub`(세부 종류), `color`, `material`(재질)을 가짐. 무늬는 다루지 않음 |
 | 종류 | `Category`, `CATS` | 상의·덧입기·하의·아우터·원피스 |
 | 세부 종류 | `Item.sub`, `SUBS` | 티셔츠·셔츠·니트·코트 등 |
+| 재질 | `Item.material`, `MATERIALS` | 면·니트·데님 등. 옷 등록에서 AI가 고른 값을 저장함 (고르는 칸은 2026-11-26부터 숨김) |
 | 덧입기 | `cat: '덧입기'`, 줄 키 `m` | 상의 위에 겹쳐 입는 옷 |
 | 아우터 | 줄 키 `j`(재킷), `o`(코트·패딩) | 화면에서는 둘 다 '아우터'로 보임 |
 | 코디 | `Look` | 상의·덧입기·재킷·코트·하의 칸에 옷 id를 넣은 조합 |
@@ -57,13 +60,14 @@
 | 저장한 코디 | `Saved` | `Look` + 저장한 날 |
 | 입은 기록 | `Hist` | 며칠 전(`ago`)에 입은 옷 id 목록 |
 | 입을 계획 | `Plan` | 날짜(`date`)에 입을 옷 id 목록 |
-| 최근 입은 옷 | `isPast`, `S.RECENT` | 어제부터 3일 안에 입은 옷. 추천에서 뺌 |
+| 최근 입은 옷 | `isPast`, `S.RECENT` | 어제부터 `S.RECENT`일(기본 3일, 설정에서 3·7·14일) 안에 입은 옷. 추천에서 뺌 |
 | 오래 안 입은 옷 | `forgotten` | 90일 넘게 안 입었거나 한 번도 안 입은 옷 |
 | 추천에서 뺀 옷 | `Item.ex` | 사용자가 추천 제외를 켠 옷 |
 | 유행 | `Trend`, `TRENDS`, `trendOf` | 트렌드 키워드와 옷의 `tags`를 비교 |
 | 글 | `Post` | 커뮤니티에 올린 코디 글 |
 | 따라 입기 | `setCombo` | 커뮤니티 글의 옷 조합을 홈 화면 줄에 맞춤 |
 | 첫 설정 | `Onboard`, `S.ob` | 추천 방식(유행·취향), 스타일, 닉네임 고르기 |
+| 별명 | `Item.alias`, `displayName` | 사용자가 옷에 붙인 이름. 옷장 화면에서만 원래 이름 대신 보여 줌 |
 
 ## 재사용할 것
 
@@ -72,20 +76,23 @@
 | 위치 | 이름 | 용도 |
 | --- | --- | --- |
 | `src/store.ts` | `useApp`, `emit`, `S` | 상태 읽기, 바꾼 뒤 다시 그리기 |
-| | `byId`, `hexOf`, `swatchBg` | 옷 찾기, 옷 색, 무늬 배경 |
-| | `worn`, `wornNote`, `dayLabel`, `wornDate` | "어제 입음" 같은 날짜 문구 |
-| | `eun`, `iga` | 받침에 맞는 조사(은/는, 이/가). `을(를)` 같은 표기를 쓰지 않습니다 |
+| | `byId`, `hexOf` | 옷 찾기, 옷 색 |
+| | `worn`, `wornNote`, `dayLabel` | "어제 입음" 같은 날짜 문구 |
+| | `eun`, `iga`, `eulreul`, `euro` | 받침에 맞는 조사(은/는, 이/가, 을/를, 으로/로). `을(를)` 같은 표기를 쓰지 않습니다 |
 | | `matchText`, `fit` | 코디가 어울리는지 판단 |
 | | `wearToday`, `saveLook`, `deleteItem` | 입기, 코디 저장, 옷 삭제 (연결된 기록까지 정리) |
+| | `displayName` | 옷장에서 보여 줄 옷 이름 (별명이 있으면 별명) |
 | `src/ui.tsx` | `toast`, `openSheet`, `openModal`, `closeModal`, `closeAll` | 알림, 아래 창, 가운데 창 |
 | | `askPermission` | 사진·카메라 접근 권한 묻기 |
 | | `showIn` | 화면 안에서만 스크롤해 요소를 가운데로 |
 | `src/nav.ts` | `go`, `toLogin`, `openPost` | 창 안의 버튼 등 컴포넌트 밖에서 화면 이동 |
-| `src/components/` | `Ph`, `lightbox` | 옷 사진 칸, 사진 크게 보기 |
-| | `Face` | 프로필 동그라미 |
+| `src/components/` | `Ph`, `lightbox` (`lightbox.tsx`) | 옷 사진 칸, 사진 크게 보기 |
+| | `PhPair`, `Thumbs` (`Ph.tsx`) | 코디 썸네일 줄(`.pair`), 작은 썸네일 묶음(`.thumbs`) |
+| | `Face` | 프로필 동그라미. `photo`를 주면 저장 전 사진을 미리 보여 줌 |
+| | `StyleGrid` | 좋아하는 스타일 고르기 격자 (3개까지) |
 | | `Icons.tsx` | 선 아이콘 (`Arrow`, `Heart`, `Back`, `Plus` 등) |
-| | `writeSheet` | 코디 올리기·글 수정 창 |
-| `src/data/seed.ts` | `COLORS`, `PATTERNS`, `CATS`, `SUBS`, `TRENDS`, `STYLES` | 색·무늬·종류·스타일 목록 |
+| `src/sheets.tsx` | `writeSheet` | 코디 올리기·글 수정 창 열기 (창 내용은 `components/WriteSheet.tsx`의 `Write`) |
+| `src/data/seed.ts` | `COLORS`, `MATERIALS`, `CATS`, `SUBS`, `TRENDS`, `STYLES` | 색·재질·종류·스타일 목록 |
 
 ## 스타일링
 
@@ -103,7 +110,7 @@
 - `HashRouter`(`src/main.tsx`)와 `base: './'`(`vite.config.ts`)는 Capacitor 앱과 배포에서 화면 이동·파일 경로를 맞추려고 쓴 것이라 바꾸지 않습니다.
 - 이미지는 `/`로 시작하는 절대 경로 대신 `import`(또는 `seed.ts`의 `photo`, `cpic`)로 불러옵니다.
 - 카메라는 https(또는 localhost)에서만 동작합니다. 폰에서 확인할 때는 `npm run dev:phone`을 씁니다.
-- API 연동 방식은 백엔드 팀과 정하는 중입니다. 정해지기 전에는 `fetch` 코드나 API 주소를 추가하지 않습니다.
+- API 연동 방식은 백엔드 팀과 정하는 중입니다. 지금은 로그인(`src/api/`)만 연결되어 있고, 정해지기 전에는 로그인 외의 `fetch` 코드나 API 주소를 추가하지 않습니다. (`docs/API_CONVENTION.md`)
 
 ## 확인 방법
 
@@ -121,7 +128,8 @@
 | 화면(페이지) 파일 | `PascalCase.tsx`, 화면 하나 = 파일 하나, `export default` | `pages/Closet.tsx`, `pages/Onboard.tsx` |
 | 공통 컴포넌트 파일 | `PascalCase.tsx`, 이름 있는 export | `components/Layout.tsx`, `components/WriteSheet.tsx` |
 | 컴포넌트 이름 | 파일명과 같은 `PascalCase` | `Layout`, `TabIcon` |
-| 컴포넌트가 아닌 모듈 | 소문자 `camelCase.ts(x)` | `store.ts`, `nav.ts`, `ui.tsx`, `data/seed.ts` |
+| 컴포넌트가 아닌 모듈 | 소문자 `camelCase.ts(x)` | `store.ts`, `nav.ts`, `ui.tsx`, `sheets.tsx`, `components/lightbox.tsx`, `data/seed.ts` |
+| 컴포넌트와 함수를 한 파일에서 같이 내보내지 않기 | 창 내용(컴포넌트)과 창 여는 함수는 다른 파일에 둔다 | `components/WriteSheet.tsx`(`Write`) + `sheets.tsx`(`writeSheet`) |
 | 타입 | `PascalCase`, `type` 사용 | `Item`, `Outfit`, `Category` |
 | 함수·변수 | `camelCase`, 함수는 동사로 시작 | `openPost`, `toLogin`, `setNav` |
 | 불리언 | `is`·`has`·`on` 등으로 시작하는 이름 | `isNew`, `loggedIn`, `toastOn` |

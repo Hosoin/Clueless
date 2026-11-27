@@ -4,8 +4,10 @@
    uv run python -m ml.eval_team prepare ~/Downloads/팀원사진
    - 아이폰 HEIC → JPG 변환(맥 sips), 위치(GPS) 등 EXIF 제거, 회전 바로잡기, 긴 변 2048로 축소
    - data/raw/team_photos/ 에 저장하고 labels.csv 에 파일명을 미리 채워 둔다 (정답 칸은 비어 있음)
-2) 정답 채우기: data/raw/team_photos/labels.csv 를 엑셀·구글시트로 열어 category·sleeve·color 입력
+2) 정답 채우기: data/raw/team_photos/labels.csv 를 엑셀·구글시트로 열어 입력 (category만 필수, 나머지는 아는 것만, 빈칸은 채점에서 뺌)
    category: 상의/하의/아우터/원피스, sleeve: 민소매/반팔/7부/긴팔 (하의는 비움), color: 팔레트 이름 (README 참고)
+   subcategory: 티셔츠/셔츠/블라우스/니트/후드티/민소매/슬랙스/청바지/트레이닝 바지/반바지/치마/재킷/코트/가디건/조끼/패딩/원피스/점프수트
+   print: 무지/레터링/그래픽/체크/스트라이프/플로럴/도트/기타무늬, styles: 미니멀/클래식/스트리트/캐주얼/페미닌/스포티 중 맞는 것 모두 (쉼표로)
 3) 평가: uv run python -m ml.eval_team
    → 화면 요약 + out/team_eval.json (요약) + out/team_eval_rows.csv (사진마다 정답·예측·확률, 시트로 열어 보기)
 
@@ -25,12 +27,13 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from ml.colors import PALETTE
 
 DEFAULT_DIR = Path("data/raw/team_photos")
-FIELDS = ["file", "category", "sleeve", "color", "owner", "memo"]
+FIELDS = ["file", "category", "sleeve", "color", "subcategory", "print", "styles", "owner", "memo"]
 CATEGORIES = {"상의", "하의", "아우터", "원피스"}
 SLEEVES = {"민소매", "반팔", "7부", "긴팔"}
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 CLOSE_COLORS = {frozenset(p) for p in [("아이보리", "화이트"), ("아이보리", "베이지"), ("네이비", "블랙"), ("블루", "네이비"), ("스카이블루", "블루")]}
 MAX_SIDE = 2048
+FIELDS_SCORED = ("category", "subcategory", "sleeve", "color", "print", "styles")  # styles는 붙은 태그 중 하나라도 정답이면 맞음
 
 
 def open_image(path: Path) -> Image.Image:
@@ -70,7 +73,7 @@ def prepare(src: Path, out_dir: Path) -> None:
         except (UnidentifiedImageError, OSError, subprocess.CalledProcessError) as e:
             failed.append(f"{p.name}: {e}")
             continue
-        rows.append({"file": dst.name, "category": "", "sleeve": "", "color": "", "owner": "", "memo": ""})
+        rows.append({k: "" for k in FIELDS} | {"file": dst.name})
         added.append(dst.name)
     with open(label_path, "w", newline="", encoding="utf-8-sig") as f:  # utf-8-sig: 엑셀에서 한글이 안 깨지게
         w = csv.DictWriter(f, fieldnames=FIELDS)
@@ -79,11 +82,17 @@ def prepare(src: Path, out_dir: Path) -> None:
     print(f"정리한 사진 {len(added)}장 → {out_dir} (위치 정보 제거, JPG)")
     for e in failed:
         print("  못 연 사진:", e)
-    print(f"다음: {label_path} 를 열어 category·sleeve·color 를 채운 뒤  uv run python -m ml.eval_team")
+    print(f"다음: {label_path} 를 열어 정답(category 필수, 나머지는 아는 것만)을 채운 뒤  uv run python -m ml.eval_team")
+
+
+def split_styles(text: str) -> list[str]:
+    return [t for t in text.replace(",", " ").split() if t]
 
 
 def check_labels(labels: list[dict]) -> list[str]:
     """평가 전에 오타·빈칸을 잡는다 (정답이 틀리면 정확도가 엉뚱하게 나옴)."""
+    from ml.garment import PRINTS, STYLES, SUBCATS
+
     problems = []
     for i, r in enumerate(labels, start=2):  # 2행부터 (1행은 머리글)
         c, s, col = (r.get(k, "").strip() for k in ("category", "sleeve", "color"))
@@ -93,6 +102,14 @@ def check_labels(labels: list[dict]) -> list[str]:
             problems.append(f"{i}행 {r['file']}: sleeve '{s}' (민소매/반팔/7부/긴팔 또는 비움)")
         if col and col not in PALETTE:
             problems.append(f"{i}행 {r['file']}: color '{col}' (팔레트: {', '.join(PALETTE)})")
+        sub, pr = r.get("subcategory", "").strip(), r.get("print", "").strip()
+        if sub and sub not in SUBCATS:
+            problems.append(f"{i}행 {r['file']}: subcategory '{sub}' ({'/'.join(SUBCATS)})")
+        if pr and pr not in PRINTS:
+            problems.append(f"{i}행 {r['file']}: print '{pr}' ({'/'.join(PRINTS)})")
+        bad = [t for t in split_styles(r.get("styles", "")) if t not in STYLES]
+        if bad:
+            problems.append(f"{i}행 {r['file']}: styles {bad} ({'/'.join(STYLES)}, 쉼표로 여러 개)")
     return problems
 
 
@@ -130,22 +147,29 @@ def run(photo_dir: Path) -> None:
     for lab in filled:
         res, _, _ = clf.analyze(Image.open(photo_dir / lab["file"]))
         sleeve, color = res["sleeve"] or {}, res["color_name"] or {}
+        sub, pr, st = res.get("subcategory") or {}, res.get("print") or {}, res.get("style") or {}
         r = {
             "file": lab["file"], "owner": lab.get("owner", ""),
             "true_category": lab["category"].strip(), "pred_category": res["category"]["name"], "prob_category": res["category"]["prob"], "review_category": res["needs_review"],
             "true_sleeve": lab.get("sleeve", "").strip(), "pred_sleeve": sleeve.get("name", ""), "prob_sleeve": sleeve.get("prob", ""), "review_sleeve": sleeve.get("needs_review", False),
             "true_color": lab.get("color", "").strip(), "pred_color": color.get("name", ""), "prob_color": color.get("prob", ""), "review_color": color.get("needs_review", False),
+            "true_subcategory": lab.get("subcategory", "").strip(), "pred_subcategory": sub.get("name", ""), "prob_subcategory": sub.get("prob", ""), "review_subcategory": sub.get("needs_review", False),
+            "true_print": lab.get("print", "").strip(), "pred_print": pr.get("name", ""), "prob_print": pr.get("prob", ""), "review_print": False,
+            "true_styles": ",".join(split_styles(lab.get("styles", ""))), "pred_styles": ",".join(st.get("tags", [])), "review_styles": False,
             "retake": res["retake"],
         }
         r["ok_category"] = r["pred_category"] == r["true_category"]
         r["ok_sleeve"] = r["pred_sleeve"] == r["true_sleeve"]
         r["ok_color"] = r["pred_color"] == r["true_color"] or frozenset((r["pred_color"], r["true_color"])) in CLOSE_COLORS
+        r["ok_subcategory"] = r["pred_subcategory"] == r["true_subcategory"]
+        r["ok_print"] = r["pred_print"] == r["true_print"]
+        r["ok_styles"] = bool(set(r["pred_styles"].split(",")) & set(r["true_styles"].split(",")) - {""})  # 붙은 태그 중 하나라도 정답
         rows.append(r)
 
-    report = {f: summarize(rows, f) for f in ("category", "sleeve", "color")}
+    report = {f: summarize(rows, f) for f in FIELDS_SCORED}
     report["retake_rate"] = round(sum(r["retake"] for r in rows) / len(rows), 3)
-    report["wrong"] = [{k: r[k] for k in ("file", "true_category", "pred_category", "true_sleeve", "pred_sleeve", "true_color", "pred_color")}
-                       for r in rows if not (r["ok_category"] and (not r["true_sleeve"] or r["ok_sleeve"]) and (not r["true_color"] or r["ok_color"]))]
+    report["wrong"] = [{"file": r["file"], **{f"{w}_{f}": r[f"{w}_{f}"] for f in FIELDS_SCORED for w in ("true", "pred") if not r[f"ok_{f}"] and r[f"true_{f}"]}}
+                       for r in rows if any(r[f"true_{f}"] and not r[f"ok_{f}"] for f in FIELDS_SCORED)]
     Path("out").mkdir(exist_ok=True)
     Path("out/team_eval.json").write_text(json.dumps(report, ensure_ascii=False, indent=2))
     with open("out/team_eval_rows.csv", "w", newline="", encoding="utf-8-sig") as f:
@@ -154,9 +178,9 @@ def run(photo_dir: Path) -> None:
         w.writerows(rows)
 
     print(f"사진 {len(rows)}장")
-    for field in ("category", "sleeve", "color"):
+    for field in FIELDS_SCORED:
         if m := report[field]:
-            print(f"  {field:9} 정확도 {m['accuracy']:.3f} ({m['n']}장) | 확인 필요가 오답을 잡은 비율 {m['review_catches_wrong']} | 헛경보 {m['review_false_alarm']}")
+            print(f"  {field:11} 정확도 {m['accuracy']:.3f} ({m['n']}장) | 확인 필요가 오답을 잡은 비율 {m['review_catches_wrong']} | 헛경보 {m['review_false_alarm']}")
     print(f"  다시 찍기 비율 {report['retake_rate']}, 틀린 사진 {len(report['wrong'])}장")
     print("  → out/team_eval.json (요약), out/team_eval_rows.csv (사진마다, 시트로 열어 보기)")
 

@@ -1,3 +1,4 @@
+// 화면 주소(Route) ↔ 화면 연결표. 모든 화면은 Layout(폰 틀·하단 탭) 안에 들어간다.
 import { Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
 import Home from './pages/Home'

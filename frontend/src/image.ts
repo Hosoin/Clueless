@@ -4,11 +4,19 @@
 // 가로·세로를 모두 1024px로 맞추려고, 사진 전체를 비율 그대로 정사각형 안에 넣고 남는 곳은 흰 여백으로 채운다.
 // 자르지 않는 이유: 코트 밑단이나 소매 끝이 잘리면 옷 종류 분석이 틀릴 수 있어서다.
 // 다시 그려서 저장하므로 사진에 붙은 위치(GPS)·기기 정보(EXIF)도 함께 빠진다.
+// 프로필 사진(My.tsx)도 같은 함수로 줄인다. 이때는 256px이고, 동그라미에 맞게 여백 대신 가운데를 잘라 낸다(fit = 'cover').
 
 /** 만들 사진의 가로·세로 길이(px). 서버와 정한 값이 바뀌면 여기만 고친다 */
 export const MAX_SIDE = 1024
 /** JPEG 품질 (0~1). 0.85는 눈으로 차이가 거의 없으면서 용량이 크게 주는 값 */
 export const JPEG_QUALITY = 0.85
+/** 프로필 사진의 가로·세로 길이(px). 화면에는 56px 동그라미로 보여서, 선명한 화면(3배)에서도 충분한 값 */
+export const PROFILE_SIDE = 256
+
+/** 정사각형에 맞추는 방법.
+ *  - 'contain'(기본, 옷 사진): 자르지 않고 전체를 넣고 남는 곳은 흰 여백
+ *  - 'cover'(프로필 사진): 정사각형을 꽉 채우고 넘치는 가장자리는 가운데 기준으로 잘라 냄. 동그라미 안에 흰 띠가 생기지 않게 */
+export type Fit = 'contain' | 'cover'
 
 /**
  * 사진을 읽어 그릴 수 있는 형태로 연다.
@@ -41,14 +49,17 @@ async function decode(file: Blob): Promise<{ src: CanvasImageSource; w: number; 
  * - maxSide보다 작은 사진은 키워서 맞춘다. 사진마다 옷이 차지하는 크기가 비슷해야 분석이 고르게 되기 때문이다
  * - 입력: 앨범에서 고른 파일이나 카메라로 찍은 Blob
  * - 결과: 1024×1024 JPEG Blob (서버로 보낼 것)
+ * - fit을 'cover'로 주면 여백 대신 짧은 변이 maxSide가 되게 맞추고 넘치는 가장자리를 가운데 기준으로 자른다
+ *   (예: 4000×3000 → 341×256으로 줄여 좌우를 42px씩 잘라 256×256. 프로필 사진에 씀)
  * - 브라우저가 열 수 없는 형식이면(예: 데스크톱 Chrome의 HEIC) 원본을 그대로 돌려준다.
  *   옷 등록 흐름이 멈추지 않게 하려는 것이고, 이 경우 화면에도 사진이 안 보일 수 있다
  */
-export async function resizeImage(file: Blob, maxSide = MAX_SIDE, quality = JPEG_QUALITY): Promise<Blob> {
+export async function resizeImage(file: Blob, maxSide = MAX_SIDE, quality = JPEG_QUALITY, fit: Fit = 'contain'): Promise<Blob> {
   let img: Awaited<ReturnType<typeof decode>>
   try { img = await decode(file) } catch { return file }
   try {
-    const scale = maxSide / Math.max(img.w, img.h) // 긴 변이 정사각형에 꼭 맞는 배율
+    // contain: 긴 변이 정사각형에 꼭 맞는 배율 / cover: 짧은 변이 꼭 맞는 배율(긴 변은 넘쳐서 잘림)
+    const scale = maxSide / (fit === 'cover' ? Math.min(img.w, img.h) : Math.max(img.w, img.h))
     const w = Math.max(1, Math.round(img.w * scale)), h = Math.max(1, Math.round(img.h * scale))
     const c = document.createElement('canvas'); c.width = c.height = maxSide
     const ctx = c.getContext('2d')
@@ -56,7 +67,8 @@ export async function resizeImage(file: Blob, maxSide = MAX_SIDE, quality = JPEG
     // 흰 바탕을 먼저 깐다: 짧은 변 쪽 여백이 되고, 투명한 PNG가 JPEG로 저장될 때 배경이 검게 되는 것도 막는다
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, maxSide, maxSide)
     ctx.imageSmoothingQuality = 'high' // 크게 줄일 때 계단 현상을 줄임
-    ctx.drawImage(img.src, Math.round((maxSide - w) / 2), Math.round((maxSide - h) / 2), w, h) // 가운데에 둠
+    // 가운데에 둠. cover에서는 (maxSide - w)가 음수라서 넘치는 부분이 캔버스 밖으로 나가 양쪽이 똑같이 잘린다
+    ctx.drawImage(img.src, Math.round((maxSide - w) / 2), Math.round((maxSide - h) / 2), w, h)
     const out = await new Promise<Blob | null>((ok) => c.toBlob(ok, 'image/jpeg', quality))
     return out ?? file // 저장에 실패하면(메모리 부족 등) 원본으로
   } finally {

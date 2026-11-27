@@ -15,6 +15,7 @@ import com.clueless.closet.repository.UserRepository;
 import com.clueless.closet.repository.UserRepository.UserProfile;
 import com.clueless.closet.service.ClosetOidcUser;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -42,6 +43,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.convention.TestBean;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.json.JsonCompareMode;
@@ -257,6 +259,21 @@ class ClosetOidcBindingTests {
         assertThat(response.getContentAsString()).isEmpty();
         assertThat(response.getRedirectedUrl()).isNull();
         assertThat(session.getAttribute(SECURITY_CONTEXT)).isNull();
+    }
+
+    @Nested
+    @TestPropertySource(properties = "FRONTEND_LOGIN_SUCCESS_URL=https://dev.example.com/")
+    class ConfiguredSuccessUrl {
+
+        @Test
+        void redirectsToConfiguredUrlInsteadOfTheRequestParameter() throws Exception {
+            when(users.findOrCreateId("google", SUBJECT, NAME, EMAIL)).thenReturn(USER_ID);
+
+            var response = callback(new MockHttpSession(), "valid");
+
+            assertThat(response.getStatus()).isEqualTo(302);
+            assertThat(response.getHeader(HttpHeaders.LOCATION)).isEqualTo("https://dev.example.com/");
+        }
     }
 
     private MockHttpServletResponse callback(MockHttpSession session, String code) throws Exception {
