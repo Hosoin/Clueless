@@ -196,29 +196,30 @@ ssh -i <키 파일 경로> <사용자 이름>@20.41.112.42
 
 ### ② 코드 받기
 
-프론트는 VM의 홈 폴더에 받아 둔 저장소 폴더 **`~/Clueless`**(저장소 루트)에서 배포합니다.
+프론트는 VM의 홈 폴더에 받아 둔 저장소 폴더 ~/clueless-frontend/Clueless(저장소 루트)에서 배포합니다.
 
-**처음 배포하는 경우** (VM에 `~/Clueless` 폴더가 없을 때만):
+**처음 배포하는 경우** (VM에 `~/clueless-frontend/Clueless` 폴더가 없을 때만):
 
 ```bash
-git clone -b frontend https://github.com/Hosoin/Clueless.git ~/Clueless
+git clone -b frontend https://github.com/Hosoin/Clueless.git ~/clueless-frontend/Clueless
 ```
 
 **두 번째부터** (폴더가 이미 있을 때):
 
 ```bash
-cd ~/Clueless
+cd ~/clueless-frontend/Clueless
+git branch
 git pull
 ```
 
 - `git pull`이 끝나고 `Already up to date.`가 나오면 이미 최신입니다. 새 변경이 있으면 바뀐 파일 목록이 나옵니다.
 - 이 폴더는 **배포 전용**입니다. 여기서 파일을 고치지 마세요. 고치면 다음 `git pull`이 실패합니다.
-- 다른 팀(백엔드·ML)도 같은 VM을 쓰므로, 프론트 배포는 꼭 이 폴더(`~/Clueless`)에서 합니다. 다른 팀의 폴더에서는 명령을 치지 않습니다.
+- 다른 팀(백엔드·ML)도 같은 VM을 쓰므로, 프론트 배포는 꼭 이 폴더(~/clueless-frontend/Clueless)에서 합니다. 다른 팀의 폴더에서는 명령을 치지 않습니다.
 
 ### ③ 패키징하기 (이미지 만들기)
 
 ```bash
-cd ~/Clueless
+cd ~/clueless-frontend/Clueless
 docker build --build-arg VITE_CLOSET_LOGIN_URL=https://api-closet-service.p-e.kr -t clueless-frontend:latest ./frontend
 ```
 
@@ -287,7 +288,7 @@ curl -I http://localhost
 익숙해지면 VM에 접속한 뒤 아래만 차례로 실행하면 됩니다.
 
 ```bash
-cd ~/Clueless
+cd ~/clueless-frontend/Clueless
 git pull
 docker build --build-arg VITE_CLOSET_LOGIN_URL=https://api-closet-service.p-e.kr -t clueless-frontend:latest ./frontend
 docker images clueless-frontend
@@ -361,11 +362,11 @@ docker run --rm -p 5173:80 -e API_UPSTREAM=http://host.docker.internal:8081 clue
 
 **프론트 배포 순서**
 
-명령과 확인 방법은 위의 [배포하기 (VM에 올리기, 따라 하기)](#배포하기-vm에-올리기-따라-하기)에 있습니다. 요약하면 VM의 배포 전용 폴더(`~/Clueless`, 저장소 루트)에서 `frontend` 브랜치를 `git pull` → `docker build --build-arg VITE_CLOSET_LOGIN_URL=...` → `docker run --network clueless-closet-dev_default -p 80:80` 순서입니다.
+명령과 확인 방법은 위의 [배포하기 (VM에 올리기, 따라 하기)](#배포하기-vm에-올리기-따라-하기)에 있습니다. 요약하면 VM의 배포 전용 폴더(`~/clueless-frontend/Clueless`, 저장소 루트)에서 `frontend` 브랜치를 `git pull` → `docker build --build-arg VITE_CLOSET_LOGIN_URL=...` → `docker run --network clueless-closet-dev_default -p 80:80` 순서입니다.
 
 - VM에는 Docker가 설치되어 있고 접속 계정이 `docker` 그룹에 들어 있어야 합니다. VM은 x86_64, 메모리 15GB라 VM 안에서 빌드해도 충분합니다.
 - 백엔드 네트워크는 BE가 백엔드를 띄울 때 만들어집니다. 프론트가 직접 만들지 않습니다. BE가 compose를 내렸다 올려 네트워크가 새로 생기면 프론트도 ⑤를 다시 합니다.
-- 다른 팀도 같은 VM과 계정을 쓰므로 프론트는 `~/Clueless`에서만 배포합니다. 이 폴더에서 누가 다른 브랜치로 `git switch`를 하면 배포되는 프론트 소스가 바뀌므로, `frontend` 브랜치에 그대로 둡니다.
+- 다른 팀도 같은 VM과 계정을 쓰므로 프론트는 `~/clueless-frontend/Clueless`에서만 배포합니다. 이 폴더에서 누가 다른 브랜치로 `git switch`를 하면 배포되는 프론트 소스가 바뀌므로, `frontend` 브랜치에 그대로 둡니다.
 - VM에는 **`frontend` 브랜치**(스테이징)를 배포합니다. `frontend-dev`에 머지된 변경은 `frontend-dev → frontend` PR이 머지된 뒤에 VM에 반영됩니다.
 - 빌드를 여러 번 하면 이전 이미지가 쌓입니다. 가끔 `docker image prune -f`로 정리합니다.
 - Azure NSG 인바운드에서 **80(TCP)만** 허용합니다. 8081(백엔드), 8000(ML), 5432(DB)는 외부에 열지 않습니다.
