@@ -17,8 +17,8 @@ import { CATS, COLORS, /* MATERIALS, */ SUBS, photo } from '../data/seed'
 import type { Category } from '../data/types'
 import { resizeImage } from '../image'
 import { go } from '../nav'
-import { S, addItems, emit, present, registerModuleReset, resetClosetFilters, useApp } from '../store'
-import { askPermission, closeAll, openSheet, toast } from '../ui'
+import { S, addItems, emit, euro, present, registerModuleReset, resetClosetFilters, useApp } from '../store'
+import { askPermission, closeAll, closeModal, openModal, openSheet, toast } from '../ui'
 
 /**
  * AI가 사진 한 장을 보고 고른 값 (1순위). 확인 창이 이 값이 선택된 채로 열린다.
@@ -303,15 +303,45 @@ function scanColor(b: Tile, done: () => void) {
   im.src = b.img
 }
 let scanning = false
+/** 색 고르기 창에서 지금 눌러 둔 색 이름 ('이 색으로 할게요'를 누르기 전까지는 옷에 넣지 않는다) */
+let colorPick: string | null = null
 registerModuleReset(() => {
   batchSeq++; pauseAnalysis()
   batch.forEach((tile) => { if (tile.img?.startsWith('blob:')) URL.revokeObjectURL(tile.img) })
-  batch = []; cur = 0; autoOpened = false; onScreen = false; scanning = false
+  batch = []; cur = 0; autoOpened = false; onScreen = false; scanning = false; colorPick = null
 })
 /** 확인 창을 i번째 사진에서 연다. 창 안의 이전·다음 옷 버튼은 cur만 바꾸고 같은 창을 다시 그린다 */
 function openConfirm(i: number) {
   cur = Math.max(0, Math.min(i, batch.length - 1))
   openSheet(() => <Confirm />, true)
+}
+/**
+ * 색 고르기 창 (Figma v4 3-18). 앱의 18색(COLORS)을 3칸 표로 보여 주고, 하나를 눌러 둔 뒤 '이 색으로 할게요'로 바꾼다.
+ * - 지금 옷의 색이 처음에 눌려 있다. '취소'나 창 밖을 누르면 아무것도 바꾸지 않는다
+ * - 색을 바꾸면 사진에서 뽑은 색(hex)은 지우고, 이름(name)도 비워서 옷장에 넣을 때 "색 세부 종류"로 새로 만든다 (종류를 바꿀 때와 같은 규칙)
+ */
+function openColorTable(b: Tile) {
+  colorPick = b.color
+  openModal(() => (
+    <>
+      <h3>색 고르기</h3>
+      <p className="sub">이 옷의 색과 가장 가까운 이름을 골라 주세요</p>
+      <div className="ctable">
+        {Object.keys(COLORS).map((c) => (
+          <button key={c} className={`ccell ${colorPick === c ? 'on' : ''}`} aria-pressed={colorPick === c} onClick={() => { colorPick = c; emit() }}>
+            <i style={{ background: COLORS[c] }} />{c}
+          </button>
+        ))}
+      </div>
+      <div className="row2 mt18">
+        <button className="btn" onClick={closeModal}>취소</button>
+        <button className="btn solid" onClick={() => {
+          if (colorPick && (colorPick !== b.color || b.hex)) { b.color = colorPick; b.hex = null; b.name = null; toast(`색을 ${colorPick}${euro(colorPick)} 바꿨어요`) }
+          closeModal(); emit()
+        }}>이 색으로 할게요</button>
+      </div>
+    </>
+  ))
 }
 /**
  * 한 벌씩 확인 창 (Figma 3. 옷 등록 ④~⑥). AI가 고른 종류·세부 종류·색·재질이 선택된 채로 열리고, 틀린 것만 눌러 바꾼다.
@@ -347,10 +377,14 @@ function Confirm() {
             </>
           )}
           <h4>색</h4>
-          <div className="scan"><span className="sw" style={{ background: b.hex || (b.color ? COLORS[b.color] : 'transparent') }} />
-            <p>{b.hex ? <>사진에서 뽑은 색이에요. 가장 가까운 이름은 <b>{b.color}</b></> : '같은 아이보리도 옷마다 달라요. 사진에서 색을 그대로 뽑을 수 있어요'}</p>
-            <button className="btn" disabled={scanning} onClick={() => { scanning = true; emit(); scanColor(b, () => { scanning = false; b.name = null; emit() }) }}>{scanning ? '뽑는 중' : '사진에서 색 뽑기'}</button></div>
-          <div className="opts">{Object.keys(COLORS).map((c) => <button key={c} className={`opt ${b.color === c && !b.hex ? 'on' : ''}`} onClick={() => { if (b.color !== c || b.hex) b.name = null; b.color = c; b.hex = null; emit() }}><i style={{ background: COLORS[c] }} />{c}</button>)}</div>
+          {/* Figma v4 3-9: 뽑은(또는 고른) 색과 이름만 보여 주고, 다른 색은 '색 바꾸기'로 18색 표 창을 열어 고른다 (11/27).
+              18색 동그라미를 늘어놓던 줄은 이 창으로 옮겼다 */}
+          <div className="scan">
+            <span className="sw" style={{ background: b.hex || (b.color ? COLORS[b.color] : 'transparent') }} />
+            <p>{b.hex ? <>사진에서 뽑은 색이에요<br />가장 가까운 이름은 <b>{b.color}</b></> : b.color ? <>고른 색이에요<br /><b>{b.color}</b></> : '색을 골라 주세요'}</p>
+          </div>
+          <button className="btn full mt8" onClick={() => openColorTable(b)}>색 바꾸기</button>
+          <button className="link scanlink" disabled={scanning} onClick={() => { scanning = true; emit(); scanColor(b, () => { scanning = false; b.name = null; emit() }) }}>{scanning ? '색을 뽑는 중이에요' : '사진에서 색 다시 뽑기'}</button>
           {/* 재질 칸: 화면에서 잠시 숨김 (2026-11-26). 다시 보이게 하려면 아래 주석을 풀고, 위 import의 MATERIALS도 되살린다.
               AI가 고른 재질 값(b.material)은 그대로 옷에 저장된다
           <h4>재질</h4>
