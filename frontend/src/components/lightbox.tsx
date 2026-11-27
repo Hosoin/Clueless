@@ -1,7 +1,7 @@
 // 옷 크게 보기 창과 그 안에서 여는 창(별명 붙이기, 옷 삭제 확인).
 // 창을 여는 함수만 있는 파일이다. 옷 사진 칸 컴포넌트(Ph.tsx)와 한 파일에 있으면 개발 중 화면 자동 갱신이 잘 안 돼서 나눴다 (코드 리뷰 29번)
 import type { Item } from '../data/types'
-import { deleteItem, displayName, hexOf, iga, setAlias, setExcluded, worn } from '../store'
+import { deleteItem, displayName, emit, hexOf, iga, keepSel, worn } from '../store'
 import { closeAll, openModal, toast } from '../ui'
 
 /** 사진 크게 보기 */
@@ -27,7 +27,9 @@ export function lightbox(it: Item) {
       {it.credit && <p className="credit">사진 {it.credit} · Unsplash</p>}
       <div className="row2">
         <button className="btn" onClick={() => {
-          setExcluded(it, !it.ex); closeAll()
+          // 추천에서 빼거나 되돌리면 홈 줄 목록이 바뀐다. keepSel로 감싸 홈에서 고른 다른 옷은 그대로 두고,
+          // 빈 겹옷 줄은 끈다(하얀 '옷이 없어요' 칸 방지. keepSel 안의 tidyRows)
+          keepSel(() => { it.ex = !it.ex }); closeAll()
           toast(it.ex ? '이 옷은 추천에 넣지 않을게요. 옷장의 추천 제외에서 되돌릴 수 있어요' : '다시 추천에 넣을게요')
         }}>{it.ex ? '다시 추천받기' : '추천에서 빼기'}</button>
         <button className="btn solid" onClick={closeAll}>닫기</button>
@@ -54,8 +56,8 @@ function editAlias(it: Item) {
         <button className="btn" onClick={() => lightbox(it)}>취소</button>
         <button className="btn solid" onClick={() => {
           const v = draft.trim()
-          setAlias(it, v)
-          toast(v ? '별명을 저장했어요' : '원래 이름으로 돌아왔어요'); lightbox(it)
+          it.alias = v || null
+          toast(v ? '별명을 저장했어요' : '원래 이름으로 돌아왔어요'); emit(); lightbox(it)
         }}>저장</button>
       </div>
     </>

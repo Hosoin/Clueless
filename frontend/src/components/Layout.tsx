@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { fetchMe, takeGoogleLoginReturn } from '../api/auth'
 import { errorText } from '../api/error'
-import { S, WEATHER, acceptServerSession, emit, rollDay, setLoginBack, useApp } from '../store'
+import { S, WEATHER, emit, useApp } from '../store'
 import { closeAll, toast } from '../ui'
 import { Overlays } from './Overlays'
 import { setNav } from '../nav'
@@ -40,12 +40,6 @@ export function Layout() {
   // 창 안의 버튼처럼 컴포넌트 밖에서 쓰는 go()에 화면 이동 함수를 넘긴다. 그리는 중이 아니라 그린 뒤에 넘긴다 (코드 리뷰 23번).
   // useLayoutEffect라서 화면들의 useEffect보다 먼저 실행돼, 화면이 처음 뜰 때 부르는 go()도 이미 동작한다
   useLayoutEffect(() => { setNav(nav) }, [nav])
-  useEffect(() => {
-    const timer = window.setInterval(rollDay, 60_000)
-    const onVisible = () => { if (document.visibilityState === 'visible') rollDay() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
-  }, [])
   const loginOn = pathname === '/login' || pathname === '/onboard'
   const tab = tabOf(pathname)
   const started = useRef(false)
@@ -57,17 +51,18 @@ export function Layout() {
   useEffect(() => { // 앱을 처음 열면 서버에 로그인했는지 물어보고(GET /api/auth/me) 그 결과로 어디로 갈지 정한다
     if (started.current) return
     started.current = true
-    const goLogin = () => { if (pathname !== '/login') { setLoginBack('/'); nav('/login', { replace: true }) } }
+    const goLogin = () => { if (pathname !== '/login') { S.loginBack = '/'; nav('/login', { replace: true }) } }
     // 방금 Google 로그인 버튼을 누르고 돌아온 것인지 (표시는 읽자마자 지워지므로 /me 결과와 상관없이 먼저 읽는다)
     const justLoggedIn = takeGoogleLoginReturn()
     fetchMe().then((me) => {
       if (!me) return goLogin() // 401: 로그인 안 됨 → 로그인 화면
+      S.loggedIn = true
       // 서버의 닉네임을 쓴다. 닉네임이 없으면(null) Google 이름, 그것도 없으면 빈칸으로 둔다.
       // 예전에는 비어 있으면 기존 값을 남겨서, 가짜 데이터의 닉네임('옷장탐험가')이 내 이름처럼 보였다
-      const nick = me.nickName ?? me.userName ?? ''
-      acceptServerSession(nick, justLoggedIn)
+      S.me.nick = me.nickName ?? me.userName ?? ''
       if (justLoggedIn) {
         // Google 로그인에 막 성공함 → 첫 설정. 새로 열린 앱에는 첫 설정 진행 정보가 없어서 여기서 만든다
+        if (!S.ob) S.ob = { step: 'mode', mode: S.pref.mode, styles: [...S.pref.styles], nick: S.me.nick }
         if (pathname !== '/onboard') nav('/onboard', { replace: true })
       } else if (pathname === '/login' || pathname === '/onboard') {
         // 이미 로그인된 상태로 앱을 열었음 → 홈. (첫 설정 주소를 새로고침한 경우도 여기)

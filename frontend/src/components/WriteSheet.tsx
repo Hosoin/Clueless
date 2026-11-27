@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import type { Hist, Item, Post } from '../data/types'
 import { Thumbs } from './Ph'
-import { S, byId, createPost, dayLabel, hexOf, setMyTab, updatePost } from '../store'
+import { S, byId, dayLabel, emit, hexOf } from '../store'
 import { go } from '../nav'
 import { closeAll, toast } from '../ui'
 
@@ -19,7 +19,7 @@ export function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
   const [scope, setScope] = useState(edit ? edit.scope || S.defScope : S.defScope)
   const ok = () => {
     const text = cap.trim()
-    if (edit) { const body = text || edit.body; updatePost(edit.id, { body, t: body.slice(0, 26), scope, ch }); closeAll(); toast('글을 수정했어요'); return }
+    if (edit) { edit.body = text || edit.body; edit.t = (text || edit.t).slice(0, 26); edit.scope = scope; edit.ch = ch; closeAll(); toast('글을 고쳤어요'); return emit() }
     const ps = pick ? wornItems(pick) : []
     if (!ps.length) return toast('올릴 옷을 찾지 못했어요. 다른 코디를 골라 주세요')
     // 사진 없는 글은 올리지 않는다: 코디의 옷이 모두 사진이 있어야 한다.
@@ -29,20 +29,20 @@ export function Write({ h, edit }: { h?: Hist | null; edit?: Post }) {
     const first = ps[0]
     // 새 글은 댓글 없이(cmList: []) 시작한다. 전에는 withComments가 내 글이라고 예시 댓글(MY_CMTS)을 채워서,
     // '방금' 올린 글에 남이 '2일 전'에 쓴 댓글이 달려 있고 댓글 수(cmts)는 0으로 보였다 (코드 리뷰 11/27 7번)
-    createPost({ mine: true, user: S.me.handle, img: first.img || '', pos: '50% 50%', min: 0, ago: '방금', ch, scope, likes: 0, cmts: 0,
+    S.posts.unshift({ id: ++S.pid, mine: true, user: S.me.handle, img: first.img || '', pos: '50% 50%', min: 0, ago: '방금', ch, scope, likes: 0, cmts: 0,
       t: (text || names(pick!)).slice(0, 26), body: text || names(pick!),
       wear: ps.map((it) => [it.name, hexOf(it), it.id, 'same']), cmList: [] })
-    closeAll(); setMyTab('posts'); go('/my'); toast('올렸어요. MY에서 고치거나 지울 수 있어요')
+    closeAll(); S.myTab = 'posts'; go('/my'); toast('올렸어요. MY에서 고치거나 지울 수 있어요')
   }
   return (
     <>
       <h3>{edit ? '글 수정' : '코디 올리기'}</h3><p>{edit ? '설명과 공개 범위를 바꿀 수 있어요' : '입은 기록에서 올릴 코디를 골라 주세요'}</p>
       {!edit && (
         <div className="pick">
-          {S.history.filter((x) => x.visible !== false).map((x, i) => (
+          {S.history.map((x, i) => (
             <button key={i} className={x === pick ? 'on' : ''} onClick={() => setPick(x)}>
               <Thumbs ids={x.ids} />
-              <span><p>{names(x)}</p><p className="d">{dayLabel(x.date)}</p></span>
+              <span><p>{names(x)}</p><p className="d">{dayLabel(x.ago)}</p></span>
             </button>
           ))}
         </div>

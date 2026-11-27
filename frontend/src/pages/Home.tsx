@@ -8,9 +8,9 @@ import { Ph, PhPair } from '../components/Ph'
 import { COLORS, STYLES, TRENDS } from '../data/seed'
 import type { Item, Look } from '../data/types'
 import {
-  EXTRA, K, NAME, S, TEMP, applyOutfit, beginHomeSpin, byId, comboKey, current, emit, finishHomeSpin, firstFresh, fit, frameHomeSpin, hexOf,
-  isExtra, isPast, isSavedLook, isWornToday, enableExtra, restoreHomeSelection, selectItem, setFresh, setHomeView, layersFor, lists, matchText, present, registerModuleReset, rowKey, saveLook, showsOutfit, stepFit, useApp,
-  wearComboToday, wearList, wearToday, worn, wornKey, wornNote, iga, eun, euro, type Combo, type RowKey,
+  EXTRA, K, NAME, S, TEMP, applyOutfit, byId, comboKey, current, emit, firstFresh, fit, hexOf,
+  isExtra, isPast, isSavedLook, isWornToday, keepSel, layersFor, lists, matchText, present, rowKey, saveLook, showsOutfit, stepFit, useApp,
+  wearList, wearToday, worn, wornKey, wornNote, iga, eun, euro, type Combo, type RowKey,
 } from '../store'
 import { closeAll, openSheet, showIn, toast } from '../ui'
 
@@ -37,7 +37,7 @@ const styleReason = (name: string) => {
 
 /** 지금 맞춘 코디를 오늘 입은 옷으로 남기고, 같은 코디면 버튼을 '정했어요'로 바꿔 둔다 */
 function chooseToday(c: Combo) {
-  wearComboToday(wearList(c), comboKey(c)); toast('오늘 코디로 정했어요. 캘린더에 남겨요')
+  wearToday(wearList(c)); S.chosenKey = comboKey(c); toast('오늘 코디로 정했어요. 캘린더에 남겨요'); emit()
 }
 
 export default function Home() {
@@ -46,7 +46,7 @@ export default function Home() {
   const foldRef = useRef<HTMLDivElement>(null)
   // 돌리는 중에 다른 탭으로 가면 타이머를 멈추고 바로 추천 코디에 맞춰 둔다 (나간 뒤에도 emit()이 계속 불리지 않게)
   useEffect(() => () => finishSpin(), []) // finishSpin은 돌릴 때마다 바뀌므로 나가는 시점의 것을 부름
-  // 선택한 옷은 줄 순서가 아니라 고유 ID로 유지한다.
+  // 줄 위치(S.pos)는 그리기 전에 store.ts의 emit()이 줄 길이에 맞춰 둔다 (그리는 중에 상태를 바꾸지 않음)
   const L = lists()
   // same: 지금 줄이 마지막으로 맞춘 추천 코디 그대로인지. 뺀 옷이 든 코디도 맞춘 그대로면 같은 코디로 본다 (store.ts showsOutfit)
   const c = current(), o = S.outfits[S.oi], same = showsOutfit(c), rows = rowsOf(c)
@@ -61,7 +61,7 @@ export default function Home() {
   const isAvatar = S.view === 'avatar'
   // 추천 이유: 돌리는 중 → 안내, 추천 코디 그대로 → (스타일을 골랐으면 스타일 문구, 아니면 추천 이유), 직접 바꿨으면 → 어울림 판단
   const why = S.spinning ? '옷장을 돌려 오늘의 코디를 찾는 중이에요' : same ? (pickedStyle ? styleReason(pickedStyle) : o.reason) : m.t
-  const setView = (v: typeof S.view) => { setHomeView(v); scrRef.current?.scrollTo(0, 0) }
+  const setView = (v: typeof S.view) => { S.view = v; scrRef.current?.scrollTo(0, 0); emit() }
   // 룩북과 아바타 보기에서 같이 쓰는 '이 코디로 입을래요' 버튼.
   // 돌아가는 중(S.spinning)에도 막는다. 안 막으면 지나가던 아무 코디나 오늘 입은 기록과 chosenKey에 남고,
   // 돌기가 끝나 줄이 추천 코디로 바뀐 뒤에도 캘린더에는 틀린 코디가 그대로 남는다 (코드 리뷰 11/27 1번)
@@ -95,7 +95,7 @@ export default function Home() {
   // 중간에 줄을 바꾸면 멈춘 자리가 추천 코디가 아닐 수 있다 (코드 리뷰 11/27 1번)
   const piece = (k: RowKey, big = false) => (
     <Piece key={k} k={k} item={c[k]} big={big} canStep={L[k].length > 1 && !S.spinning} rolling={S.spinKeys.has(k)}
-      off={isExtra(k) ? () => enableExtra(k, false) : undefined} />
+      off={isExtra(k) ? () => keepSel(() => { S.on[k] = false }) : undefined} />
   )
 
   return (
@@ -136,7 +136,7 @@ export default function Home() {
             <div className="arows">
               {rows.map(([k, label]) => (
                 <div className="arow" key={k}>
-                  <p className="k">{label}{isExtra(k) && <button className="link xs" onClick={() => enableExtra(k, false)}>빼기</button>}</p>
+                  <p className="k">{label}{isExtra(k) && <button className="link xs" onClick={() => keepSel(() => { S.on[k] = false })}>빼기</button>}</p>
                   <button className="n pickname" onClick={() => openPicker(k)}>{c[k] ? c[k]!.name : '없음'} <span>고르기</span></button>
                   <button className="arrow" aria-label={`이전 ${label}`} disabled={L[k].length <= 1} onClick={() => stepFit(k, -1)}><Arrow dir={-1} /></button>
                   <button className="arrow" aria-label={`다음 ${label}`} disabled={L[k].length <= 1} onClick={() => stepFit(k, 1)}><Arrow dir={1} /></button>
@@ -148,7 +148,7 @@ export default function Home() {
         <div className="why">
           <p>{why}</p>
           {/* 겹쳐 입기·아래 토글도 줄 구성을 바꾸므로 돌아가는 중에는 막는다 (코드 리뷰 11/27 1번) */}
-          {next && <button className="link" disabled={S.spinning} onClick={() => { const first = L[next][0]; if (first) selectItem(next, first.id) }}>+ 겹쳐 입기</button>}
+          {next && <button className="link" disabled={S.spinning} onClick={() => keepSel(() => { S.on[next] = true; S.pos[next] = 0 })}>+ 겹쳐 입기</button>}
         </div>
         {isAvatar ? (
           // 아바타 보기에서는 입기 버튼 하나만 (디자인 2-3)
@@ -178,7 +178,7 @@ export default function Home() {
             : tr ? <>참고한 유행 <b>{tr.k}</b> · Google 트렌드 {tr.why}</> : '참고한 유행 없음 · 오래 안 입은 옷 위주로 골랐어요'}
         </div>
         <p className="note">{note}</p>
-        <div className="toggles"><button className="tg" aria-pressed={S.fresh} disabled={S.spinning} onClick={() => setFresh(!S.fresh)}>최근 입은 옷 빼고 추천</button></div>
+        <div className="toggles"><button className="tg" aria-pressed={S.fresh} disabled={S.spinning} onClick={() => keepSel(() => { S.fresh = !S.fresh })}>최근 입은 옷 빼고 추천</button></div>
       </div>
       <Trend />
       </>}
@@ -257,40 +257,37 @@ let finishSpin = () => {}
 /* 추천 코디로 맞추기: 줄마다 옷이 빠르게 돌다가 위에서부터 차례로 추천 코디에 멈춤 */
 function spinTo(i: number) {
   if (S.spinning) return
-  const start = { ...S.pick }, onStart = { ...S.on }
+  const start = { ...S.pos }, onStart = { ...S.on }
   applyOutfit(i)
-  const target = { ...S.pick }, onTarget = { ...S.on }
-  restoreHomeSelection(start, onStart)
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return finishHomeSpin(target, onTarget)
-  // 도는 동안에는 줄 구성(겹 수)을 그대로 두고, 멈춘 뒤 한 번만 바꿈
+  const target = { ...S.pos }, onTarget = { ...S.on }
+  Object.assign(S.pos, start)
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { Object.assign(S.pos, target); return emit() }
+  Object.assign(S.on, onStart) // 도는 동안에는 줄 구성(겹 수)을 그대로 두고, 멈춘 뒤 한 번만 바꿈
   const L = lists()
   const stop: Record<RowKey, number> = { t: 6, m: 7, j: 8, o: 9, b: 10 } // 줄마다 멈추는 차례 (전체 약 1초)
-  beginHomeSpin(onStart)
+  S.spinning = true
   // 화면을 나갈 때 Home의 useEffect 정리에서 불림. 다시 그리기는 하지 않는다 (홈이 이미 사라지는 중이고, 돌아오면 이 상태로 그려짐)
   finishSpin = () => {
     clearTimeout(spinTimer); spinTimer = 0
-    finishHomeSpin(target, onTarget)
+    Object.assign(S.pos, target); Object.assign(S.on, onTarget); S.spinning = false; S.spinKeys.clear()
     finishSpin = () => {}
   }
-  const spinIndex = Object.fromEntries(K.map((k) => [k, Math.max(0, L[k].findIndex((it) => it.id === start[k]))])) as Record<RowKey, number>
   let tick = 0
   const run = () => {
     tick++
     let done = true
-    const frame = { ...S.pick }, active: RowKey[] = []
     for (const k of K) {
       const n = L[k].length; if (!n) continue
       if (tick < stop[k] && n > 1) {
-        done = false; active.push(k)
-        spinIndex[k] = (spinIndex[k] + 1) % n
+        done = false; S.spinKeys.add(k)
+        S.pos[k] = (S.pos[k] + 1) % n
         // 도는 동안 줄 수가 바뀌지 않게 원피스는 건너뛴다. 원피스가 연달아 있어도 모두 건너뛰고,
         // 전부 원피스여도 끝없이 돌지 않게 한 바퀴(n칸)까지만 본다 (코드 리뷰 22번)
-        if (k === 't') for (let s = 0; s < n && L.t[spinIndex.t].cat === '원피스'; s++) spinIndex.t = (spinIndex.t + 1) % n
-        frame[k] = L[k][spinIndex[k]]?.id ?? null
-      } else frame[k] = target[k]
+        if (k === 't') for (let s = 0; s < n && L.t[S.pos.t].cat === '원피스'; s++) S.pos.t = (S.pos.t + 1) % n
+      } else { S.pos[k] = target[k]; S.spinKeys.delete(k) }
     }
-    if (done) { finishHomeSpin(target, onTarget); spinTimer = 0; finishSpin = () => {}; return }
-    frameHomeSpin(frame, active)
+    if (done) { Object.assign(S.on, onTarget); S.spinning = false; S.spinKeys.clear(); spinTimer = 0; finishSpin = () => {}; emit(); return }
+    emit()
     spinTimer = window.setTimeout(run, 45 + tick * 8)
   }
   run()
@@ -321,11 +318,12 @@ function Picker({ k }: { k: RowKey }) {
         <button className={pkSort === 'fit' ? 'on' : ''} onClick={() => { pkSort = 'fit'; re() }}>잘 어울리는 순</button><span />
         <button className={pkSort === 'old' ? 'on' : ''} onClick={() => { pkSort = 'old'; re() }}>오래 안 입은 순</button>
       </div>
-      {isExtra(k) && <button className="btn full" style={{ margin: '10px 0 0' }} onClick={() => { closeAll(); enableExtra(k, false) }}>{label} 빼기</button>}
+      {isExtra(k) && <button className="btn full" style={{ margin: '10px 0 0' }} onClick={() => { closeAll(); keepSel(() => { S.on[k] = false }) }}>{label} 빼기</button>}
       <div className="grid3 pkg">
         {list.length ? list.map(({ it, f }) => (
           <button key={it.id} className={`pki ${c[k]?.id === it.id ? 'on' : ''}`} onClick={() => {
-            selectItem(k, it.id)
+            S.pos[k] = lists()[k].findIndex((x) => x.id === it.id)
+            if (isExtra(k)) S.on[k] = true
             closeAll()
           }}>
             <Ph item={it} as="span" />
@@ -339,11 +337,6 @@ function Picker({ k }: { k: RowKey }) {
 
 /* ---------- 홈 아래 트렌드 ---------- */
 let tSel = 0, tUp = true, tResult = false
-registerModuleReset(() => {
-  if (spinTimer) clearTimeout(spinTimer)
-  spinTimer = 0; finishSpin = () => {}
-  pickedStyle = null; pkColor = null; pkSort = 'fit'; tSel = 0; tUp = true; tResult = false
-})
 
 /** 트렌드 코디("이 ○○로 코디 받기")에 함께 붙일 옷 하나를 고른다.
  *  입력: prefer = 원래 짝지어 둔 옷 id, cat = 필요한 종류(상의·하의·아우터)

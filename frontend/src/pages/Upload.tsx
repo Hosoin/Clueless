@@ -17,7 +17,7 @@ import { CATS, COLORS, /* MATERIALS, */ SUBS, photo } from '../data/seed'
 import type { Category } from '../data/types'
 import { resizeImage } from '../image'
 import { go } from '../nav'
-import { S, addItems, emit, present, registerModuleReset, resetClosetFilters, useApp } from '../store'
+import { S, emit, keepSel, present, useApp } from '../store'
 import { askPermission, closeAll, openSheet, toast } from '../ui'
 
 /**
@@ -137,8 +137,8 @@ const isSet = (b: Tile) => b.done && !!b.cat && !!b.color
  */
 function putInCloset() {
   const take = batch.filter(isSet)
-  // 홈의 선택은 ID 기반이므로 새 옷을 맨 앞에 넣어도 기존 선택이 유지된다
-  addItems(take.map((b) => ({
+  // 옷장 맨 앞에 끼워 넣으면 홈의 줄 순서가 밀리므로 keepSel로 감싸 홈에서 고른 옷이 바뀌지 않게 한다
+  keepSel(() => take.forEach((b) => S.items.unshift({
     id: b.id, name: b.name || `${b.color} ${b.sub || b.cat}`, cat: b.cat!, sub: b.sub, color: b.color!, hex: b.hex, material: b.material,
     rec: 0, tags: [], lastWorn: null, img: b.img || undefined, isNew: true, added: Date.now(),
   })))
@@ -148,7 +148,7 @@ function putInCloset() {
   toast(`${take.length}벌을 옷장에 넣었어요`)
   // 옷장에서 '내 옷'을 최근 넣은 순으로, 종류 탭은 '전체', 색 필터는 '모든 색'으로 보여 줘야 새 옷이 맨 앞에 다 보인다.
   // 탭·필터를 그대로 두면 '하의' 탭이나 '블랙' 필터가 켜진 채 열려 방금 넣은 옷이 안 보였다
-  resetClosetFilters()
+  S.cView = 'items'; S.cSort = 0; S.cTab = '전체'; S.cColor = null
   go('/closet')
 }
 
@@ -303,11 +303,6 @@ function scanColor(b: Tile, done: () => void) {
   im.src = b.img
 }
 let scanning = false
-registerModuleReset(() => {
-  batchSeq++; pauseAnalysis()
-  batch.forEach((tile) => { if (tile.img?.startsWith('blob:')) URL.revokeObjectURL(tile.img) })
-  batch = []; cur = 0; autoOpened = false; onScreen = false; scanning = false
-})
 /** 확인 창을 i번째 사진에서 연다. 창 안의 이전·다음 옷 버튼은 cur만 바꾸고 같은 창을 다시 그린다 */
 function openConfirm(i: number) {
   cur = Math.max(0, Math.min(i, batch.length - 1))

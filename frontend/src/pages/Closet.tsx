@@ -5,7 +5,7 @@ import { Plus } from '../components/Icons'
 import { Ph } from '../components/Ph'
 import { CATS, COLORS } from '../data/seed'
 import type { Item } from '../data/types'
-import { S, displayName, setClosetColor, setClosetSort, setClosetTab, setClosetView, setExcluded, useApp, worn, wornKey } from '../store'
+import { S, displayName, emit, keepSel, useApp, worn, wornKey } from '../store'
 import { toast } from '../ui'
 
 /** 정렬 버튼 (S.cSort는 이 순서의 번호) */
@@ -27,7 +27,7 @@ export default function Closet() {
   // 고른 종류의 옷이 다 없어져 탭이 사라졌으면 '전체'를 보여 준다. 그리는 중에는 S를 바꾸지 않고 보여 줄 탭만 따로 계산하고,
   // S.cTab은 그린 뒤 effect에서 맞춘다 (코드 리뷰 23번)
   const tab = S.cTab !== '전체' && !(cats as string[]).includes(S.cTab) ? '전체' : S.cTab
-  useEffect(() => { if (S.cTab !== tab) setClosetTab(tab) }, [tab])
+  useEffect(() => { if (S.cTab !== tab) { S.cTab = tab; emit() } }, [tab])
   const have = [...new Set(items.map((i) => i.color))]
   let list = items.filter((i) => inTab(i, tab) && (!S.cColor || i.color === S.cColor))
   if (S.cSort === 0) list = [...list].sort((a, b) => b.added - a.added)
@@ -40,6 +40,7 @@ export default function Closet() {
     : S.cSort === 1 ? `${LONG}일 넘게 안 입은 옷 ${list.length}벌`
     : S.cSort === 2 ? `최근 ${LONG}일 안에 입은 옷 ${list.length}벌`
     : `총 ${list.length}벌`
+  const set = (f: () => void) => { f(); emit() }
   const ex = items.filter((i) => i.ex)
 
   return (
@@ -47,19 +48,19 @@ export default function Closet() {
       <div className="head"><div className="h1row"><h1>My <i>Wardrobe</i></h1><button className="addplus" aria-label="옷 등록" onClick={() => nav('/upload')}><Plus /></button></div></div>
       <div className="pad">
         <div className="seg" id="c-seg">
-          <button className={S.cView === 'items' ? 'on' : ''} onClick={() => setClosetView('items')}>내 옷</button>
-          <button className={S.cView === 'ex' ? 'on' : ''} onClick={() => setClosetView('ex')}>추천 제외</button>
+          <button className={S.cView === 'items' ? 'on' : ''} onClick={() => set(() => (S.cView = 'items'))}>내 옷</button>
+          <button className={S.cView === 'ex' ? 'on' : ''} onClick={() => set(() => (S.cView = 'ex'))}>추천 제외</button>
         </div>
         {S.cView === 'items' ? (
           <div>
-            <div className="tabs">{['전체', ...cats].map((t) => <button key={t} className={t === tab ? 'on' : ''} onClick={() => setClosetTab(t)}>{t}</button>)}</div>
+            <div className="tabs">{['전체', ...cats].map((t) => <button key={t} className={t === tab ? 'on' : ''} onClick={() => set(() => (S.cTab = t))}>{t}</button>)}</div>
             <div className="sorts" aria-label="정렬">
-              {SORTS.map((s, i) => <Fragment key={s}>{i > 0 && <span />}<button className={i === S.cSort ? 'on' : ''} aria-pressed={i === S.cSort} onClick={() => setClosetSort(i)}>{s}</button></Fragment>)}
+              {SORTS.map((s, i) => <Fragment key={s}>{i > 0 && <span />}<button className={i === S.cSort ? 'on' : ''} aria-pressed={i === S.cSort} onClick={() => set(() => (S.cSort = i))}>{s}</button></Fragment>)}
             </div>
             {S.cSort === 3 && <p className="note">AI가 오늘의 코디에 많이 넣어 준 옷부터 보여 줘요. 커뮤니티 좋아요와는 관계없어요</p>}
             <div className="scroller" aria-label="색으로 거르기">
-              <button className={`pill ${S.cColor ? '' : 'on'}`} onClick={() => setClosetColor(null)}>모든 색</button>
-              {have.map((c) => <button key={c} className={`pill ${S.cColor === c ? 'on' : ''}`} onClick={() => setClosetColor(c)}><i style={{ background: pillColor(c) }} />{c}</button>)}
+              <button className={`pill ${S.cColor ? '' : 'on'}`} onClick={() => set(() => (S.cColor = null))}>모든 색</button>
+              {have.map((c) => <button key={c} className={`pill ${S.cColor === c ? 'on' : ''}`} onClick={() => set(() => (S.cColor = c))}><i style={{ background: pillColor(c) }} />{c}</button>)}
             </div>
             {/* 개수 안내는 제목 밑이 아니라 지금 보는 목록 바로 위에 둠 */}
             <p className="ccount" id="c-count">{count}</p>
@@ -83,7 +84,7 @@ export default function Closet() {
                 <div className="erow" key={i.id}>
                   <Ph item={i} as="span" />
                   <p>{displayName(i)}<span>{i.cat} · {worn(i)}</span></p>
-                  <button className="btn" onClick={() => { setExcluded(i, false); toast('다시 추천에 넣을게요') }}>다시 추천받기</button>
+                  <button className="btn" onClick={() => { keepSel(() => { i.ex = false }); toast('다시 추천에 넣을게요') }}>다시 추천받기</button>
                 </div>
               )) : <div className="empty">추천에서 뺀 옷이 없어요<br />옷 사진을 누르고 "추천에서 빼기"를 고르면 여기에 모여요</div>}
             </div>

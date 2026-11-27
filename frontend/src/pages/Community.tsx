@@ -3,7 +3,7 @@ import { Cmt, Heart } from '../components/Icons'
 import { Face } from '../components/Face'
 import { writeSheet } from '../sheets'
 import { openPost } from '../nav'
-import { S, owned, setCommunityTab, toggleChallenge, useApp } from '../store'
+import { S, emit, owned, useApp } from '../store'
 
 /** 커뮤니티 화면: 인기·최신·팔로잉 탭, 챌린지 참여 글만 보기, 2열 피드 */
 export default function Community() {
@@ -16,10 +16,10 @@ export default function Community() {
     <section className="screen on" id="s-com">
       <div className="head">
         <div className="h1row"><h1>Commu<i>nity</i></h1><button className="btn sm" id="cm-write" onClick={() => writeSheet()}>코디 올리기</button></div>
-        <div className="tabs">{['인기', '최신', '팔로잉'].map((t) => <button key={t} className={t === S.cmTab ? 'on' : ''} onClick={() => setCommunityTab(t)}>{t}</button>)}</div>
+        <div className="tabs">{['인기', '최신', '팔로잉'].map((t) => <button key={t} className={t === S.cmTab ? 'on' : ''} onClick={() => { S.cmTab = t; emit() }}>{t}</button>)}</div>
       </div>
       <div className="pad">
-        <button className={`challenge ${S.chOnly ? 'on' : ''}`} onClick={toggleChallenge}>
+        <button className={`challenge ${S.chOnly ? 'on' : ''}`} onClick={() => { S.chOnly = !S.chOnly; emit() }}>
           <div><p className="e">이번 주 챌린지</p><p className="t">1년 안 입은 옷 꺼내 입기</p></div>
           <p className="c">{S.chOnly ? '참여한 글만 보는 중' : '312명 참여'}</p>
         </button>
