@@ -2,6 +2,7 @@
 package com.clueless.closet.service.impl;
 
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -13,6 +14,7 @@ import tools.jackson.databind.JsonNode;
 
 import com.clueless.closet.repository.ClosetItemRepository;
 import com.clueless.closet.repository.ClosetItemRepository.EditField;
+import com.clueless.closet.service.ClosetColor;
 import com.clueless.closet.service.ClosetItemService;
 
 @Service
@@ -26,21 +28,59 @@ public class ClosetItemServiceImpl implements ClosetItemService {
     }
 
     @Override
+    public ItemList list(long userId, String category, String color, String recommendYn) {
+        var standardColor = ClosetColor.fromLabel(color);
+        if ((category != null && !CATEGORIES.contains(category))
+                || (color != null && (standardColor == null || !color.equals(standardColor.label())))
+                || (recommendYn != null && !validRecommendYn(recommendYn))) {
+            throw badRequest();
+        }
+        var summaries = items.findList(userId, category, standardColor == null ? List.of() : standardColor.storedLabels(),
+                        recommendYn).stream()
+                .map(row -> new ItemSummary(Long.toString(row.id()), row.name(), previewUrl(row.id(), row.hasImage())))
+                .toList();
+        return new ItemList(summaries.size(), summaries);
+    }
+
+    @Override
+    public ItemDetail detail(long userId, long itemId) {
+        var row = items.findDetail(userId, itemId).orElseThrow(ClosetItemServiceImpl::notFound);
+        return new ItemDetail(Long.toString(row.id()), row.name(), row.category(), row.subcategory(), row.color(), row.colorHex(),
+                row.styles(), row.tags(), row.memo(), row.recommendYn(), previewUrl(row.id(), row.hasImage()));
+    }
+
+    private static String previewUrl(long id, boolean hasImage) {
+        return hasImage ? "/api/closet/preview?id=" + id : null;
+    }
+
+    @Override
+    public void delete(long userId, long itemId) {
+        if (!items.hide(userId, itemId)) {
+            throw notFound();
+        }
+    }
+
+    @Override
     @Transactional
     public void confirm(long userId, long itemId, JsonNode input) {
-        var edits = validatedEdits(input);
+        var edits = validatedEdits(input, true);
         var draft = items.lockDraft(userId, itemId).orElseThrow(ClosetItemServiceImpl::notFound);
         String category = (String) edits.getOrDefault(EditField.CATEGORY, draft.category());
-        String color = (String) edits.getOrDefault(EditField.COLOR, draft.color());
-        if (category == null || !CATEGORIES.contains(category) || !validLabel(color)) {
+        if (category == null || !CATEGORIES.contains(category)) {
             throw badRequest();
+        }
+        if (!edits.containsKey(EditField.COLOR)) {
+            String color = requiredColor(draft.color());
+            if (!color.equals(draft.color())) {
+                edits.put(EditField.COLOR, color);
+            }
         }
         write(userId, itemId, true, edits);
     }
 
     @Override
     public void update(long userId, long itemId, JsonNode input) {
-        write(userId, itemId, false, validatedEdits(input));
+        write(userId, itemId, false, validatedEdits(input, false));
     }
 
     private void write(long userId, long itemId, boolean confirm, Map<EditField, Object> edits) {
@@ -49,7 +89,7 @@ public class ClosetItemServiceImpl implements ClosetItemService {
         }
     }
 
-    private static Map<EditField, Object> validatedEdits(JsonNode input) {
+    private static Map<EditField, Object> validatedEdits(JsonNode input, boolean confirm) {
         if (input == null || !input.isObject()) {
             throw badRequest();
         }
@@ -72,7 +112,7 @@ public class ClosetItemServiceImpl implements ClosetItemService {
                     edits.put(EditField.CATEGORY, category);
                 }
                 case "sub_category" -> edits.put(EditField.SUBCATEGORY, node.isNull() ? null : label(node));
-                case "color" -> edits.put(EditField.COLOR, label(node));
+                case "color" -> edits.put(EditField.COLOR, requiredColor(text(node)));
                 case "styles" -> edits.put(EditField.STYLES, labels(node));
                 case "tags" -> edits.put(EditField.TAGS, labels(node));
                 case "memo" -> edits.put(EditField.MEMO, text(node));
@@ -83,10 +123,29 @@ public class ClosetItemServiceImpl implements ClosetItemService {
                     }
                     edits.put(EditField.COLOR_HEX, hex);
                 }
+                case "recommend_yn" -> {
+                    String value = text(node);
+                    if (confirm || !validRecommendYn(value)) {
+                        throw badRequest();
+                    }
+                    edits.put(EditField.RECOMMEND_YN, value);
+                }
                 default -> throw badRequest();
             }
         }
         return edits;
+    }
+
+    private static String requiredColor(String value) {
+        var color = ClosetColor.fromLabel(value);
+        if (color == null) {
+            throw badRequest();
+        }
+        return color.label();
+    }
+
+    private static boolean validRecommendYn(String value) {
+        return value.equals("Y") || value.equals("N");
     }
 
     private static String[] labels(JsonNode node) {

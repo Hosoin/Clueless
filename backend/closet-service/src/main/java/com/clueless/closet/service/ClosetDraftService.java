@@ -54,8 +54,10 @@ public class ClosetDraftService {
             throw badAnalysis();
         }
         String subcategory = prediction(analysis.path("subcategory"));
-        String color = prediction(analysis.path("color_name"));
-        String hex = swatch(analysis.path("colors"), color);
+        String rawColor = prediction(analysis.path("color_name"));
+        String hex = swatch(analysis.path("colors"), rawColor);
+        var standardColor = ClosetColor.fromLabel(rawColor);
+        String color = standardColor == null ? null : standardColor.label();
         List<String> styles = styles(analysis.path("style"));
         String print = prediction(analysis.path("print"));
         String sleeve = prediction(analysis.path("sleeve"));

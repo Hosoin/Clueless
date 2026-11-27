@@ -2,6 +2,7 @@ package com.clueless.closet.repository;
 
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -68,7 +69,7 @@ public class ClosetItemRepository {
     }
 
     public enum EditField {
-        NAME, CATEGORY, SUBCATEGORY, COLOR, STYLES, TAGS, MEMO, COLOR_HEX;
+        NAME, CATEGORY, SUBCATEGORY, COLOR, STYLES, TAGS, MEMO, COLOR_HEX, RECOMMEND_YN;
 
         private int sqlType() {
             return this == STYLES || this == TAGS ? Types.ARRAY : Types.VARCHAR;
@@ -80,6 +81,61 @@ public class ClosetItemRepository {
     }
 
     public record DraftValues(String category, String color) { }
+
+    public List<ListValues> findList(long userId, String category, List<String> colorLabels, String recommendYn) {
+        String sql = """
+                SELECT id, name, NULLIF(btrim(image_blob), '') IS NOT NULL AS has_image
+                FROM public.closet_items
+                WHERE user_id = :userId AND status = 'CONFIRMED' AND disp_yn = 'Y'
+                """;
+        var params = new HashMap<String, Object>();
+        params.put("userId", userId);
+        if (category != null) {
+            sql += " AND category = :category";
+            params.put("category", category);
+        }
+        if (!colorLabels.isEmpty()) {
+            // Match legacy aliases without changing stored colors, swatches, or metadata.
+            sql += " AND btrim(color) IN (:colorLabels)";
+            params.put("colorLabels", colorLabels);
+        }
+        if (recommendYn != null) {
+            sql += " AND recommend_yn = :recommendYn";
+            params.put("recommendYn", recommendYn);
+        }
+        return jdbc.sql(sql + " ORDER BY created_at DESC, id DESC").params(params)
+                .query((rs, row) -> new ListValues(rs.getLong("id"), rs.getString("name"), rs.getBoolean("has_image")))
+                .list();
+    }
+
+    public record ListValues(long id, String name, boolean hasImage) { }
+
+    public Optional<DetailValues> findDetail(long userId, long itemId) {
+        return jdbc.sql("""
+                SELECT id, name, category, subcategory, color, color_hex, styles, tags, memo, recommend_yn,
+                       NULLIF(btrim(image_blob), '') IS NOT NULL AS has_image
+                FROM public.closet_items
+                WHERE user_id = ? AND id = ? AND status = 'CONFIRMED' AND disp_yn = 'Y'
+                """)
+                .params(userId, itemId)
+                .query((rs, row) -> new DetailValues(rs.getLong("id"), rs.getString("name"), rs.getString("category"),
+                        rs.getString("subcategory"), rs.getString("color"), rs.getString("color_hex"),
+                        (String[]) rs.getArray("styles").getArray(), (String[]) rs.getArray("tags").getArray(),
+                        rs.getString("memo"), rs.getString("recommend_yn"), rs.getBoolean("has_image")))
+                .optional();
+    }
+
+    public boolean hide(long userId, long itemId) {
+        return jdbc.sql("""
+                UPDATE public.closet_items SET disp_yn = 'N', updated_at = clock_timestamp()
+                WHERE user_id = ? AND id = ? AND status = 'CONFIRMED' AND disp_yn = 'Y'
+                """)
+                .params(userId, itemId)
+                .update() == 1;
+    }
+
+    public record DetailValues(long id, String name, String category, String subcategory, String color, String colorHex,
+            String[] styles, String[] tags, String memo, String recommendYn, boolean hasImage) { }
 
     public Optional<String> findImageBlob(long userId, long itemId) {
         return jdbc.sql("""
