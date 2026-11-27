@@ -4,7 +4,7 @@
 
 - 앱: Clueless. 내 옷장의 옷으로 오늘의 코디를 추천하고, 입은 기록을 남기고, 커뮤니티에서 코디를 공유하는 모바일 앱입니다.
 - 스택: Vite + React + TypeScript, Capacitor (웹과 폰 앱을 같은 코드로 만듭니다)
-- 단계: 프로토타입. 로그인(`src/api/`)만 백엔드와 연결되어 있고, 나머지 데이터는 `src/data/seed.ts`의 가짜 데이터로 동작합니다.
+- 단계: 프로토타입. 로그인(`src/api/auth.ts`)만 백엔드와 연결되어 있고, 나머지 데이터는 `src/data/seed.ts`의 가짜 데이터로 동작합니다. 옷 사진 분석(`src/api/items.ts`)은 옷 등록 화면(`Upload.tsx`)에 연결했고, 확정 저장은 아직입니다. `VITE_MOCK_CLOSET=true`면 분석도 가짜 데이터로 동작합니다.
 - 폴더 구조와 실행 명령어는 @README.md 를, 저장소 전체 구조는 루트 `README.md`를 참고합니다.
 
 ## 브랜치와 작업 흐름
@@ -115,7 +115,7 @@
 - `HashRouter`(`src/main.tsx`)와 `base: './'`(`vite.config.ts`)는 Capacitor 앱과 배포에서 화면 이동·파일 경로를 맞추려고 쓴 것이라 바꾸지 않습니다.
 - 이미지는 `/`로 시작하는 절대 경로 대신 `import`(또는 `seed.ts`의 `photo`, `cpic`)로 불러옵니다.
 - 카메라는 https(또는 localhost)에서만 동작합니다. 폰에서 확인할 때는 `npm run dev:phone`을 씁니다.
-- API 연동 방식은 백엔드 팀과 정하는 중입니다. 지금은 로그인(`src/api/`)만 연결되어 있고, 정해지기 전에는 로그인 외의 `fetch` 코드나 API 주소를 추가하지 않습니다. (`docs/API_CONVENTION.md`)
+- API 연동 방식은 백엔드 팀과 정하는 중입니다. 지금은 로그인(`src/api/auth.ts`)과 옷 사진 분석 요청(`src/api/items.ts`)만 있습니다. 그 밖의 `fetch` 코드나 API 주소는 BE 명세를 받고 사용자가 연동을 요청한 API만 추가합니다. `fetch`는 화면에서 직접 부르지 않고 `src/api/`의 함수로만 부릅니다. (`docs/API_CONVENTION.md`)
 
 ## 확인 방법
 

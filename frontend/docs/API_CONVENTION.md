@@ -17,7 +17,7 @@
 | --- | --- |
 | 화면 데이터 | `seed.ts` → `store.ts`의 `S` (메모리). 새로고침하면 처음 상태로 돌아감 |
 | BE | 두 서비스(`closet-service`, `recommendation-service`)가 `GET /test`를 응답. `closet-service`에는 Google 로그인과 세션 인증(`/api/auth/me`, `/api/auth/logout`)이 구현되어 있음. 옷 사진 분석·확정·수정·사진 보기 API도 있음(아래 표, [`backend/README.md`](../../backend/README.md)). 옷 상세·목록 조회·삭제와 추천 API는 아직 없음 |
-| 프론트 `src/api/` | 로그인 부분만 있음: `client.ts`(공통 요청), `auth.ts`(로그인 확인·로그아웃·Google 로그인 주소), `error.ts`. 옷·추천 등은 아직 없음 |
+| 프론트 `src/api/` | 로그인과 옷 사진 분석만 있음: `client.ts`(공통 요청, 가짜 데이터 스위치 `MOCK`·`mock`), `auth.ts`(로그인 확인·로그아웃·Google 로그인 주소), `items.ts`(옷 사진 분석 `analyzeItemPhoto`), `error.ts`. 옷 확정·수정과 추천 등은 아직 없음 |
 
 그래서 이 문서의 방식은 두 가지를 동시에 만족해야 합니다.
 
@@ -30,7 +30,7 @@ API가 하나씩 열리면 해당 부분만 가짜 데이터에서 실제 호출
 
 | 서비스 | 포트 | 담당 (BE 문서 기준) | 지금 있는 API | 다음 |
 | --- | --- | --- | --- | --- |
-| `closet-service` | 8081 | 옷장·의류 관련 API, 로그인·사용자 | `GET /test` (UTF-8 일반 텍스트), `GET /oauth2/authorization/google`, `GET /api/auth/me`, `POST /api/auth/logout` ([4장](#4-로그인과-인증-세션-쿠키)). 옷: `POST /api/closet/analyze`(multipart `image` 파일 1개), `POST /api/closet/items/{id}/confirm`, `PATCH /api/closet/items/{id}`, `GET /api/closet/preview?id=` ([`backend/README.md`](../../backend/README.md), [5장](#5-이미지와-파일)). 프론트는 아직 연결 안 함 | 옷 상세·목록 조회·삭제 API 없음 (BE 미구현) |
+| `closet-service` | 8081 | 옷장·의류 관련 API, 로그인·사용자 | `GET /test` (UTF-8 일반 텍스트), `GET /oauth2/authorization/google`, `GET /api/auth/me`, `POST /api/auth/logout` ([4장](#4-로그인과-인증-세션-쿠키)). 옷: `POST /api/closet/analyze`(multipart `image` 파일 1개), `POST /api/closet/items/{id}/confirm`, `PATCH /api/closet/items/{id}`, `GET /api/closet/preview?id=` ([`backend/README.md`](../../backend/README.md), [5장](#5-이미지와-파일)). 프론트는 분석만 연결함 | 옷 상세·목록 조회·삭제 API 없음 (BE 미구현) |
 | `recommendation-service` | 8082 | 추천 관련 API | `GET /test` (UTF-8 일반 텍스트) | 업무 API 계약 미확정 |
 
 - 서비스가 **둘로 나뉘어 있고 포트가 다릅니다.** 게이트웨이(하나의 주소로 합쳐 주는 곳)가 BE 문서에 없으므로, 프론트는 서비스마다 주소를 따로 가진다고 가정합니다. 게이트웨이가 생기면 주소 환경 변수 하나로 합칩니다.
@@ -44,7 +44,7 @@ API가 하나씩 열리면 해당 부분만 가짜 데이터에서 실제 호출
 | 프론트 데이터 (용어 사전) | 타입 | 담당 서비스 | API 연결 | 지금 데이터 |
 | --- | --- | --- | --- | --- |
 | 옷 (`Item`): 조회, 등록, 삭제, 추천 제외 | `Item` | `closet-service` | 등록(분석·확정)과 수정(`PATCH`)만 API 있음. 조회·삭제 API는 없고, 추천 제외를 저장할 칸도 없음 | 가짜 데이터 |
-| 옷 사진 분석(AI가 고른 값)과 확정 저장 (`Upload`) | `Item`, `Category` | `closet-service` (BE가 ML을 부름) | API 있음([5장](#5-이미지와-파일)), 프론트 미연결 | 화면 안의 가짜 분석 결과 |
+| 옷 사진 분석(AI가 고른 값)과 확정 저장 (`Upload`) | `Item`, `Category` | `closet-service` (BE가 ML을 부름) | API 있음([5장](#5-이미지와-파일)). 프론트는 분석만 연결(`Upload` → `analyzeItemPhoto`), 확정 저장은 미연결 | `VITE_MOCK_CLOSET=true`면 `items.ts`의 가짜 분석 결과, 예시 사진은 화면 안의 가짜 결과 |
 | 추천 코디 (`Outfit`) | `Outfit` | `recommendation-service` | 계약 미확정 | `store.ts`의 규칙 + 가짜 데이터 |
 | 저장한 코디 (`Saved`) | `Saved` | 미정 | 담당 미정 | 가짜 데이터 |
 | 입은 기록 (`Hist`), 입을 계획 (`Plan`) | `Hist`, `Plan` | 미정 | 담당 미정 | 가짜 데이터 |
@@ -66,7 +66,7 @@ API 주소는 코드에 직접 적지 않고 Vite 환경 변수로 받습니다.
 | `VITE_CLOSET_LOGIN_URL` | 비움 | Google 로그인을 시작할 백엔드 주소(화면 이동용 전체 주소). 로그인은 화면 이동이라 프록시를 쓸 수 없어서 API 주소와 따로 정합니다. 비우면 `VITE_CLOSET_API_URL`, 그것도 비면 `http://localhost:8081`. 배포 빌드에서는 `<BE 배포 주소>`를 넣습니다 (`src/api/auth.ts`, Dockerfile의 `--build-arg`) |
 | `API_PROXY_TARGET` | `http://localhost:8081` | 개발 서버(`npm run dev`)가 `/api`를 넘길 백엔드 주소. `VITE_`로 시작하지 않아 빌드 결과에는 들어가지 않습니다 (`vite.config.ts`) |
 | `VITE_RECOMMENDATION_API_URL` | `http://localhost:8082` | (예정, 아직 코드가 읽지 않음) `recommendation-service` 주소. 끝에 `/`를 붙이지 않습니다 |
-| `VITE_MOCK_CLOSET` | `true` | (예정, 아직 코드가 읽지 않음) `true`면 `closet-service` 대신 `seed.ts`의 가짜 데이터를 씁니다 |
+| `VITE_MOCK_CLOSET` | `true` | `true`면 `closet-service` 대신 가짜 데이터를 씁니다. 지금은 옷 사진 분석(`src/api/items.ts`)만 읽습니다. 비우면 실제 서버를 부릅니다 (`src/api/client.ts`의 `MOCK`) |
 | `VITE_MOCK_RECOMMENDATION` | `true` | (예정, 아직 코드가 읽지 않음) `true`면 `recommendation-service` 대신 가짜 데이터를 씁니다 |
 
 - 포트(8081, 8082)는 BE 문서의 `application.yml` 값입니다. 개발·배포 서버 주소는 BE 확인 필요입니다.
@@ -135,7 +135,7 @@ src/api/
 
 서비스마다 `createRequest(주소)`로 요청 함수를 만들고, 가짜 데이터 스위치도 여기서 읽습니다.
 
-> 아래는 앞으로 만들 모양입니다. 지금 `src/api/client.ts`에는 로그인용 `closetFetch()`(세션 쿠키·CSRF 헤더를 붙이고 `Response`를 그대로 돌려줌)와 `CLOSET_URL`, `setCsrf`·`clearCsrf`·`hasCsrf`만 있고, `createRequest`, `closetRequest`, `recommendationRequest`, `MOCK`, `mock`, `ApiError.from`(`src/api/error.ts`)은 아직 없습니다.
+> 아래는 앞으로 만들 모양입니다. 지금 `src/api/client.ts`에는 로그인용 `closetFetch()`(세션 쿠키·CSRF 헤더를 붙이고 `Response`를 그대로 돌려줌)와 `CLOSET_URL`, `setCsrf`·`clearCsrf`·`hasCsrf`, 가짜 데이터 스위치 `MOCK`(지금은 `closet`만)과 `mock`만 있고, `createRequest`, `closetRequest`, `recommendationRequest`, `ApiError.from`(`src/api/error.ts`)은 아직 없습니다.
 
 ```ts
 // src/api/client.ts
@@ -337,11 +337,18 @@ BE(`closet-service`)가 이미 구현한 방식이 기준입니다. **Google 소
 - **올리기 전에 사진을 줄입니다.** 지금은 1024×1024px JPEG(남는 곳은 흰 여백)로 줄여서 보냅니다(`src/image.ts`). BE는 JPEG·PNG·WebP를 최대 10 MiB까지 받습니다.
 - **사진 방향을 바로잡습니다.** 폰 사진은 EXIF 정보 때문에 눕거나 뒤집혀 보일 수 있습니다. (`src/image.ts`가 사진의 회전 정보를 반영해 다시 그립니다)
 - **미리보기는 내 기기의 사진으로 바로 보여 줍니다.** `URL.createObjectURL`로 만든 주소를 쓰고, 서버 응답을 기다리지 않습니다. 쓰고 나면 `URL.revokeObjectURL`로 정리합니다.
-- **여러 장이면 장마다 상태를 가집니다.** BE는 사진을 한 장씩 받습니다. 올리는 중, 분석 중, 완료, 다시 찍기(`retake: true`), 실패(400·413·415·422·502·503·504)를 사진마다 보여 주고, 한 장이 실패해도 나머지는 계속합니다. 실패한 사진에는 다시 시도 버튼을 둡니다.
+- **여러 장이면 장마다 상태를 가집니다.** BE는 사진을 한 장씩 받습니다. 올리는 중, 분석 중, 완료, 다시 찍기(`retake: true`), 실패(400·413·415·422·502·503·504)를 사진마다 보여 주고, 한 장이 실패해도 나머지는 계속합니다. 실패는 사용자가 할 수 있는 일로 나눠 버튼을 고릅니다(`api/items.ts`의 `analyzeFailKind`).
+
+  | 나눔 | 상태 코드 | 화면 |
+  | --- | --- | --- |
+  | 다시 시도(`retry`) | 400, 403(토큰을 새로 받아 한 번 더 보낸 뒤에도), 502·503·504, 잘못된 응답 | '다시 시도'. 여러 장이면 '모두 다시 시도' |
+  | 연결 안 됨(`offline`) | 0 (서버에 닿지 못함·20초 시간 초과) | 남은 사진도 보내지 않고 멈춤. '모두 다시 시도' |
+  | 다른 사진 필요(`replace`) | 413, 415, 422 | 같은 사진으로는 다시 보내도 안 되므로 '다시 찍기'·'목록에서 빼기' |
+  | 로그인 필요(`login`) | 401 | 남은 사진도 보내지 않고 멈춤. '로그인하기' |
 - **분석은 한 번에 응답합니다.** BE는 ML 응답을 최대 10초 기다리고, 넘으면 `504`를 줍니다(`GarmentAnalysisClient`). 그래서 프론트의 분석 요청 시간 제한은 이보다 길게 두고, 그동안 "분석 중" 상태를 보여 줍니다.
 - **카메라 촬영은 환경마다 다릅니다.** 웹은 브라우저 카메라(https 필요)이고, Capacitor 앱은 `@capacitor/camera` 같은 플러그인이 필요합니다. 설치하게 되면 `LIBRARIES.md`도 함께 고칩니다. 권한 안내 창은 지금처럼 `ui.tsx`의 `askPermission`을 씁니다.
 - **취소했을 때 남는 데이터가 있습니다.** 분석만 하고 확정하지 않으면 DB의 DRAFT 행과 Blob의 크롭 사진이 남습니다. 정리는 BE가 맡는 것으로 제안하고 BE 확인 필요 표(22번)에 넣었습니다.
-- 가짜 데이터 상태(`VITE_MOCK_CLOSET=true`)에서는 `analyzeItemPhoto`가 화면 안의 가짜 분석 결과를 `mock()`으로 돌려주어 서버 없이도 같은 흐름을 볼 수 있습니다.
+- 가짜 데이터 상태(`VITE_MOCK_CLOSET=true`)에서는 `analyzeItemPhoto`가 `items.ts` 안의 가짜 분석 결과(보통·색 못 고름·다시 찍기가 차례로 나옴)를 `mock()`으로 돌려주어 서버 없이도 같은 흐름을 볼 수 있습니다. 실패 화면은 가짜 데이터를 끄고 서버를 끈 채 올려 보면 볼 수 있습니다.
 
 ## 6. 가짜 데이터에서 실제 API로 넘어가기
 
