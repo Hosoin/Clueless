@@ -7,11 +7,11 @@ MS AI School 팀 프로젝트의 MVP 개발을 위한 저장소입니다. 프런
 | 경로 | 역할 | 현재 상태 |
 | --- | --- | --- |
 | [`frontend/`](frontend/) | 사용자 화면 | Vite + React + TypeScript 구성 완료 |
-| [`backend/`](backend/) | API 및 서비스 로직 | Spring Boot 실행 기반 및 옷장 서비스 Google 로그인 구성 |
-| [`ml/`](ml/) | 데이터 처리, 모델 학습·평가 및 추론 | Python 사용 예정 |
-| [`docs/`](docs/) | 요구사항, 설계 및 협업 문서 | 문서 공간만 준비 |
+| [`backend/`](backend/) | API 및 서비스 로직 | Spring Boot 두 서비스(옷장·추천). 옷장 서비스에 Google 로그인과 옷 사진 분석·확정·수정 API 구성 |
+| [`ml/`](ml/) | 데이터 처리, 모델 학습·평가 및 추론 | Python(FastAPI) 옷 분석·코디 추천 API와 학습·평가 코드 |
+| [`docs/`](docs/) | 요구사항, 설계 및 협업 문서 | 백엔드용 ML API 연동 가이드([`docs/ml-api/`](docs/ml-api/README.md)) |
 
-실행 방법은 [`frontend/README.md`](frontend/README.md)와 [`backend/README.md`](backend/README.md)를 참고하세요.
+실행 방법은 [`frontend/README.md`](frontend/README.md), [`backend/README.md`](backend/README.md), [`ml/README.md`](ml/README.md)를 참고하세요.
 
 ## 파일 관리
 
