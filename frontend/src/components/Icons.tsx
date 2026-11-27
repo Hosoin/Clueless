@@ -21,6 +21,10 @@ export const Back = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M
 export const SpinIc = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3L20 9" /><path d="M20 4v5h-5" /><path d="M20 12a8 8 0 0 1-14 5.3L4 15" /><path d="M4 20v-5h5" /></svg>
 )
+/** 카메라. 옷 등록에서 다시 찍어야 하는 사진 표시 */
+export const CameraIc = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
+/** 한 바퀴 도는 화살표. 옷 등록에서 실패한 사진 다시 시도 */
+export const RetryIc = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 5v6h-6" /></svg>
 /** 더하기 */
 export const Plus = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v15M4.5 12h15" /></svg>
 /** 설정 톱니바퀴 */
