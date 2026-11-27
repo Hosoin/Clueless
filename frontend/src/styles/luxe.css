@@ -101,9 +101,6 @@ h1 i{font-style:italic}
 /* Figma v4 2-1: 위에서부터 아우터·덧입기·상의·하의 카드 줄 + 추천 이유 + 버튼을 흰 카드 하나에 담는다 */
 #h-fold{display:flex;flex-direction:column}
 .hmode{align-self:center;font-size:12px;padding:5px 10px;border:1px solid var(--ink);border-radius:999px;white-space:nowrap}
-.vseg{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:14px;padding:4px;border-radius:12px;background:var(--ph)}
-.vseg button{min-height:40px;border:none;border-radius:9px;background:none;font-size:13px;color:var(--muted)}
-.vseg button.on{background:var(--paper);color:var(--ink);font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .lookcard{margin-top:14px;padding:14px;border-radius:16px;background:var(--paper);display:flex;flex-direction:column;gap:10px}
 .lc-head{display:flex;justify-content:space-between;align-items:center}
 .lc-badge{font-size:12px;font-weight:500;color:var(--ivory);background:var(--ink);border-radius:999px;padding:5px 10px}
@@ -120,17 +117,19 @@ h1 i{font-style:italic}
 .lookcard .pc .cap span button{border:none;background:var(--ph);border-radius:6px;padding:2px 7px;font-size:11px;color:var(--ink);cursor:pointer}
 .lookcard .pc .pc-name{border:none;background:none;padding:0;text-align:left;font-size:15px;font-weight:500;color:var(--ink);line-height:1.35;cursor:pointer;word-break:keep-all}
 .lookcard.spinning .pc.rolling .cap{opacity:.5}
-.layerbtn{background:var(--ph);border-color:var(--ph)}
 #s-home .why{display:flex;flex-direction:column;gap:4px;margin:0;padding:12px 14px;border:none;border-radius:12px;background:var(--ph2)}
 #s-home .why .eyebrow{margin:0}
 #s-home .why p{margin:0;font-size:13px;line-height:1.55;font-weight:400;color:var(--muted)}
-#s-home .why .why-ref{color:var(--ink)}
+#s-home .why .why-main{color:var(--ink);font-weight:500}
+#s-home .hmore .why{margin-top:4px}
 #s-home .why p b{font-weight:500}
 .hdock2{flex-shrink:0;padding:4px 0 0;display:flex;flex-direction:column;gap:8px}
-.hdock2>.btn{min-height:52px;background:var(--ink);border-color:var(--ink);color:var(--ivory)}
-.hdock2>.btn:disabled{background:var(--muted);border-color:var(--muted)}
 .hdock2 .row2 .btn{min-height:46px;font-size:13px}
-.hdock2 .spinbtn{margin:0;display:flex;align-items:center;justify-content:center;gap:6px}
+/* 줄 바로 아래 '다음 추천 코디': 카드 폭 가득, 먹색.
+   proto.css의 '#h-fold .spinbtn{margin-top:10px}'(id라 우선순위가 높음)을 이겨야 위아래 간격이 카드 간격(gap)과 같아진다 */
+#h-fold .lookcard>.spinbtn{margin:0;min-height:52px;display:flex;align-items:center;justify-content:center;gap:6px}
+/* 카드 위 '+ 겹쳐 입기': 작은 글자 버튼 */
+.lc-head .layerlink{min-height:32px;padding:0;font-size:12px;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
 /* 아바타 칸: 예전에는 첫 화면 높이에 맞춰 늘렸지만, 카드 줄로 바뀌며 화면 높이를 고정하지 않아서 높이를 직접 준다 */
 #s-home .astage{flex:none;height:440px!important;min-height:0;margin-top:14px;border-color:var(--line);border-radius:16px;background:var(--paper);overflow:hidden}
 #s-home .arows{margin-top:8px;border-top:1px solid var(--line)}

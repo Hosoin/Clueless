@@ -1,10 +1,10 @@
 // 홈: 오늘의 코디를 돌려 맞추고, 아래로 내리면 트렌드 (담당: A)
 // - 제목 아래 스타일 칩(추천·미니멀·캐주얼…)으로 원하는 스타일을 고르면 추천 이유 문구가 그 스타일로 바뀐다
 // - Figma v4 2-1: 옷 줄을 위에서부터 아우터 → 덧입기 → 상의 → 하의 순서의 카드 줄로 보여 준다. 줄마다 좌우 화살표·밀기로 바꾸고, 사진을 누르면 고르기
-// - 아래 버튼: [이 코디로 입을래요] / [저장하기][다음 추천 코디]
-// - 위의 '사진으로 보기 / 아바타로 보기'로 같은 화면을 아바타 보기로 바꾼다 (S.view = 'avatar')
+// - 줄 아래 [다음 추천 코디], 맨 아래 [이 코디로 입을래요][아바타로 보기] (11/26 화면과 같은 버튼, 11/27 피드백). 겹쳐 입기는 카드 위 작은 글자 버튼
+// - [아바타로 보기]를 누르면 같은 화면이 'My Avatar' 보기로 바뀐다 (S.view = 'avatar'). 제목 옆 '닫기'로 돌아옴
 import { useEffect, useRef } from 'react'
-import { Arrow, SpinIc } from '../components/Icons'
+import { Arrow, SpinIc, TabIcon } from '../components/Icons'
 import { Ph, PhPair } from '../components/Ph'
 import { COLORS, STYLES, TRENDS } from '../data/seed'
 import type { Item, Look } from '../data/types'
@@ -75,26 +75,16 @@ export default function Home() {
   // 카드 줄: 겉옷이 위로 오게 ROW_ORDER 순서로 다시 놓는다. 줄 이름은 rowsOf가 정한 것(상의·원피스·덧입기·아우터·하의)을 쓴다
   const label = Object.fromEntries(rows) as Record<RowKey, string>
   const order = ROW_ORDER.filter((k) => k in label)
-  // 저장하기: 지금 줄의 코디를 저장한 코디로 남긴다. 줄 키를 코디 칸(Look) 이름으로 옮긴다
-  const look: Look = { top: c.t?.id ?? null, mid: c.m?.id ?? null, jacket: c.j?.id ?? null, outer: c.o?.id ?? null, bottom: c.b?.id ?? null }
-  const savedNow = isSavedLook(look)
   // 돌아가는 중에는 화살표·밀기·빼기를 막는다. 돌기는 시작할 때 잡아 둔 줄 위치·목록으로 멈출 자리를 정하므로,
   // 중간에 줄을 바꾸면 멈춘 자리가 추천 코디가 아닐 수 있다 (코드 리뷰 11/27 1번)
   const piece = (k: RowKey) => (
     <Piece key={k} k={k} label={label[k]} item={c[k]} canStep={L[k].length > 1 && !S.spinning} rolling={S.spinKeys.has(k)}
       off={isExtra(k) ? () => enableExtra(k, false) : undefined} />
   )
-  // 사진으로 보기 / 아바타로 보기 (Figma v4 2-1·2-3). 돌아가는 중에는 바꾸지 않는다
-  const viewSeg = (
-    <div className="vseg" role="group" aria-label="보기">
-      <button className={isAvatar ? '' : 'on'} aria-pressed={!isAvatar} disabled={S.spinning} onClick={() => setView('rows')}>사진으로 보기</button>
-      <button className={isAvatar ? 'on' : ''} aria-pressed={isAvatar} disabled={S.spinning} onClick={() => setView('avatar')}>아바타로 보기</button>
-    </div>
-  )
   // 추천 이유 칸 아래 줄: 어떤 기준으로 골랐는지 (취향 / 참고한 유행)
   const ref = S.pref.mode === 'taste'
     ? <>내 취향 <b>{S.pref.styles.join('·')}</b>에 맞춰 골랐어요</>
-    : tr ? <>참고한 유행 <b>{tr.k}</b> · Google 트렌드 {tr.why}</> : '참고한 유행 없음 · 오래 안 입은 옷 위주로 골랐어요'
+    : tr ? <>참고한 유행 <b>{tr.k}</b> · {tr.why}</> : '참고한 유행 없음 · 오래 안 입은 옷 위주로 골랐어요'
 
   return (
     <section className="screen on" id="s-home" ref={scrRef}>
@@ -102,10 +92,13 @@ export default function Home() {
         <div className="hhead">
           <div className="h1row">
             {isAvatar ? <h1>My <i>Avatar</i></h1> : <h1>Today’s <i>Look</i></h1>}
-            <span className="hmode">{S.pref.mode === 'taste' ? '내 취향대로' : '요즘 유행대로'}</span>
+            {/* 아바타 보기에서는 '닫기'로 사진 보기로 돌아간다 */}
+            {isAvatar && <button className="link" onClick={() => setView('rows')}>닫기</button>}
+            {/* 추천 방식 표시('요즘 유행대로'): 화면에서 잠시 숨김 (11/27). 설정의 추천 방식 줄과 함께 숨겼다
+            {!isAvatar && <span className="hmode">{S.pref.mode === 'taste' ? '내 취향대로' : '요즘 유행대로'}</span>} */}
           </div>
           {isAvatar ? <p className="avsub">홈에서 고른 코디를 입혀 봤어요. 여기서 바꾸면 홈 코디도 같이 바뀌어요</p> : <>
-            <p className="hstyle-k">STYLE · 원하는 스타일로 추천받기</p>
+            <p className="hstyle-k">STYLE · 트렌드 기반 원하는 스타일로 추천받기</p>
             {/* 스타일 칩: 첫 칸 '추천'은 스타일을 고르지 않은 기본 추천 */}
             <div className="scroller hstyle">
               {[null, ...STYLES.map(([n]) => n)].map((st) => (
@@ -114,31 +107,25 @@ export default function Home() {
               ))}
             </div>
           </>}
-          {viewSeg}
         </div>
         {!isAvatar ? (
           <div className={`lookcard ${S.spinning ? 'spinning' : ''}`}>
             <div className="lc-head">
               <span className="lc-badge">{S.spinning ? '맞추는 중' : same ? `추천 코디 ${S.oi + 1} / ${S.outfits.length}` : '직접 맞춘 코디'}</span>
+              {/* 겹쳐 입기: 줄을 하나 더하는 일이라 자주 누르지 않아서 카드 위에 작은 글자 버튼으로 둔다.
+                  줄 구성을 바꾸므로 돌아가는 중에는 막는다 (코드 리뷰 11/27 1번) */}
+              {next && <button className="link layerlink" disabled={S.spinning} onClick={() => { const first = L[next][0]; if (first) selectItem(next, first.id) }}>+ 겹쳐 입기</button>}
             </div>
             {order.map((k) => piece(k))}
-            {/* 겹쳐 입기·아래 토글도 줄 구성을 바꾸므로 돌아가는 중에는 막는다 (코드 리뷰 11/27 1번) */}
-            {next && <button className="btn full layerbtn" disabled={S.spinning} onClick={() => { const first = L[next][0]; if (first) selectItem(next, first.id) }}>+ 겹쳐 입기</button>}
-            <div className="why">
-              <p className="eyebrow">Why this look</p>
-              <p className="why-ref">{ref}</p>
-              <p>{why}</p>
-            </div>
+            {/* 줄 바로 아래: 다음 추천 코디 (예전 큰 '겹쳐 입기' 자리) */}
+            <button className="btn full spinbtn" id="h-spin" disabled={S.spinning} onClick={() => spinTo(same ? firstFresh(S.oi + 1) : S.oi)}>
+              <SpinIc /><span>{S.spinning ? '맞추는 중' : same ? '다음 추천 코디' : '추천 코디로 맞추기'}</span>
+            </button>
+            {/* 맨 아래: 11/26 화면과 같은 두 버튼 */}
             <div className="hdock2">
-              {wearBtn}
               <div className="row2">
-                <button className="btn" disabled={S.spinning || savedNow} onClick={() => {
-                  if (saveLook(look)) return toast('이미 저장한 코디예요')
-                  toast('저장했어요. 캘린더의 저장한 코디에서 볼 수 있어요'); emit()
-                }}>{savedNow ? '저장했어요' : '저장하기'}</button>
-                <button className="btn spinbtn" id="h-spin" disabled={S.spinning} onClick={() => spinTo(same ? firstFresh(S.oi + 1) : S.oi)}>
-                  <SpinIc /><span>{S.spinning ? '맞추는 중' : same ? '다음 추천 코디' : '추천 코디로 맞추기'}</span>
-                </button>
+                {wearBtn}
+                <button className="btn avbtn" disabled={S.spinning} onClick={() => setView('avatar')}><TabIcon name="my" />아바타로 보기</button>
               </div>
             </div>
           </div>
@@ -163,7 +150,14 @@ export default function Home() {
       {/* 아바타 보기는 한 화면짜리라 아래 안내와 트렌드는 사진 보기에서만 보여 준다 */}
       {!isAvatar && <>
       <div className="pad hmore">
-        {note && <p className="note mt0">{note}</p>}
+        {/* 이 코디를 고른 이유: 추천 이유 · 참고한 유행(또는 취향) · 최근 입은 옷·겹쳐 입기 안내를 한 칸에 모은다.
+            첫 화면에는 옷 줄과 버튼만 보이게 하려고 카드 아래(아래로 내려야 보이는 자리)에 둔다 (11/27 피드백) */}
+        <div className="why">
+          <p className="eyebrow">Why this look</p>
+          <p className="why-main">{why}</p>
+          <p>{ref}</p>
+          {note && <p>{note}</p>}
+        </div>
         <div className="toggles"><button className="tg" aria-pressed={S.fresh} disabled={S.spinning} onClick={() => setFresh(!S.fresh)}>최근 입은 옷 빼고 추천</button></div>
       </div>
       <Trend />
