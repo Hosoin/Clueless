@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_CLOSET_API_URL?: string
   /** Google 로그인을 시작할 백엔드 주소(화면 이동용 전체 주소). 비우면 VITE_CLOSET_API_URL, 그것도 비면 http://localhost:8081 (src/api/auth.ts) */
   readonly VITE_CLOSET_LOGIN_URL?: string
+  /** 'true'면 closet-service 대신 가짜 데이터를 쓴다. 지금은 옷 사진 분석만 읽는다 (src/api/client.ts의 MOCK) */
+  readonly VITE_MOCK_CLOSET?: string
 }
 
 interface ImportMeta {

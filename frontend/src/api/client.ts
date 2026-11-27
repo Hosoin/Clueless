@@ -9,6 +9,16 @@ import { ApiError } from './error'
  *  Google 로그인을 시작하는 주소는 이 값과 따로 정한다 (api/auth.ts의 GOOGLE_LOGIN_URL) */
 export const CLOSET_URL: string = import.meta.env.VITE_CLOSET_API_URL ?? ''
 
+/** 서비스별 가짜 데이터 스위치 (API_CONVENTION 2장·6장). true면 서버를 부르지 않고 요청 함수 안의 가짜 데이터를 돌려준다.
+ *  환경 변수는 이 파일에서만 읽는다. 지금 closet은 옷 사진 분석(api/items.ts)만 이 값을 본다.
+ *  'true'일 때만 켜지므로 값을 안 적으면 실제 서버를 부른다 */
+export const MOCK = {
+  closet: import.meta.env.VITE_MOCK_CLOSET === 'true',
+}
+
+/** 가짜 데이터도 바로 주지 않고 잠깐(ms) 기다렸다 준다. 서버 없이도 '확인 중' 같은 기다리는 화면을 볼 수 있게 */
+export const mock = <T>(value: T, ms = 300) => new Promise<T>((done) => setTimeout(() => done(value), ms))
+
 /** CSRF 토큰: 로그인 확인(/api/auth/me) 응답 헤더로 받아 메모리에만 둔다. 새로고침하면 /me에서 다시 받는다.
  *  헤더 이름은 백엔드가 응답으로 알려 주므로 코드에 적지 않는다. */
 let csrf: { header: string; token: string } | null = null
