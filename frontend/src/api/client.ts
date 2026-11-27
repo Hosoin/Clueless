@@ -19,15 +19,18 @@ export const hasCsrf = () => csrf !== null
  *  상태 코드(401 등)를 어떻게 다룰지는 부르는 쪽이 정한다. 서버에 닿지 못하면 ApiError(status 0)를 던진다. */
 export async function closetFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const isRead = (init.method ?? 'GET').toUpperCase() === 'GET'
+  // 부르는 쪽이 준 헤더를 Headers로 받아 그 위에 기본 헤더를 채운다. init.headers는 일반 객체뿐 아니라
+  // Headers 객체나 [이름, 값] 배열일 수도 있는데, 전에는 객체 펼치기(...init.headers)로 합쳐서
+  // Headers 객체의 헤더가 모두 사라지고 배열은 '0'·'1' 같은 이상한 헤더가 됐다 (코드 리뷰 11/27 9번).
+  // 부르는 쪽이 같은 헤더를 직접 줬으면 그 값을 쓴다 (전처럼 부르는 쪽이 우선)
+  const headers = new Headers(init.headers)
+  if (typeof init.body === 'string' && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  if (csrf && !isRead && !headers.has(csrf.header)) headers.set(csrf.header, csrf.token) // 값을 바꾸는 요청(POST 등)에만 CSRF 토큰
   try {
     return await fetch(`${CLOSET_URL}${path}`, {
       ...init,
       credentials: 'include', // 로그인 세션 쿠키를 같이 보낸다
-      headers: {
-        ...(typeof init.body === 'string' ? { 'Content-Type': 'application/json' } : {}),
-        ...(csrf && !isRead ? { [csrf.header]: csrf.token } : {}), // 값을 바꾸는 요청(POST 등)에만 CSRF 토큰
-        ...init.headers,
-      },
+      headers,
     })
   } catch {
     // 서버가 꺼져 있거나 네트워크가 끊김. 서버가 준 에러가 아니라서 status 0으로 따로 알린다
