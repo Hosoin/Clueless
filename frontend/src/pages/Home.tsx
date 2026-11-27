@@ -362,13 +362,18 @@ function Trend() {
   const title = mine.length ? (mine.length > 1 ? `내 옷장에 ${t.k}${iga(t.k)} ${mine.length}벌이나 있어요` : `내 옷장에 ${t.k}${iga(t.k)} 1벌 있어요`) : `내 옷장에 아직 ${t.k}${eun(t.k)} 없어요`
   const it = mine.find((x) => !isPast(x)) || mine[0] // 오늘 입은 옷은 빼지 않음 (위 pairFor 설명과 같은 이유)
   // 고른 옷의 종류에 따라 나머지 칸을 채운다. 숫자는 원래 짝지어 둔 옷(6 인디고 와이드 데님, 10 카멜 롱 코트,
-  // 1 아이보리 오버핏 니트, 3 블랙 오버핏 니트, 7 블랙 플리츠 스커트)이고, 없으면 pairFor가 남은 옷으로 바꾼다
-  const look = !it ? null
+  // 1 아이보리 오버핏 니트, 3 블랙 오버핏 니트, 7 블랙 플리츠 스커트, 15 화이트 하이넥 셔링 티, 16 차콜 와이드 슬랙스)이고,
+  // 없으면 pairFor가 남은 옷으로 바꾼다. 15·16은 홈 추천 코디(seed.ts)의 뷔스티에 조합과 같은 짝이다
+  const look: Look | null = !it ? null
     : it.cat === '상의' ? { top: it.id, bottom: pairFor(6, '하의'), outer: pairFor(10, '아우터') }
     : it.cat === '하의' ? { top: pairFor(1, '상의'), bottom: it.id, outer: pairFor(10, '아우터') }
     : it.cat === '아우터' ? { top: pairFor(3, '상의'), bottom: pairFor(7, '하의'), outer: it.id }
-    : { top: it.id, bottom: null, outer: pairFor(10, '아우터') } // 원피스·덧입기는 그 옷을 상의 칸에 두고 하의는 비움
-  const ps = look ? ([byId(look.top), byId(look.outer), byId(look.bottom)].filter(present)) : []
+    // 덧입기(뷔스티에·조끼 등)는 상의 위에 겹쳐 입는 옷이라 덧입기 칸(mid)에 두고, 속에 입을 상의와 하의를 채운다.
+    // 전에는 원피스와 같은 분기로 가서 상의 칸에 들어가고 하의가 비어, 입기·저장하면 덧입기가 상의로 남았다 (코드 리뷰 11/27 2번)
+    : it.cat === '덧입기' ? { top: pairFor(15, '상의'), mid: it.id, bottom: pairFor(16, '하의'), outer: pairFor(10, '아우터') }
+    : { top: it.id, bottom: null, outer: pairFor(10, '아우터') } // 원피스는 위아래가 한 벌이라 상의 칸에 두고 하의는 비움
+  // 썸네일·입기에 쓰는 옷 목록. 입는 순서(상의 → 덧입기 → 아우터 → 하의)로 둔다. mid를 빼면 덧입기가 화면에 안 보인다
+  const ps = look ? ([byId(look.top), byId(look.mid), byId(look.outer), byId(look.bottom)].filter(present)) : []
   const mm = matchText(ps)
   const pick = (i: number) => { tSel = i; tResult = false; emit() }
   // 트렌드 코디를 이미 보여 준 상태인지. 코디 받기를 막 눌렀을 때(false → true)만 그 위치로 스크롤하려고 둔다.
