@@ -73,8 +73,12 @@ uv run uvicorn ml.api:app --port 8000   # 요청·응답 명세: http://localhos
 uv run python -m ml.find_label_issues      # 4분류 라벨 검토 목록 → labels/review.csv, out/review.html
 uv run python -m ml.kfashion_stats         # K-Fashion 라벨 분포
 uv run python -m ml.style_guide            # 스타일별 특징 아이템·색 → out/style_guide.md (스타일 가이드 초안)
-for t in test_logic test_api test_outfits test_recommend test_eval_team; do uv run python -m tests.$t; done
+uv run python -m ml.select_clean <사진 폴더>  # 데이터셋용 선별: 배경 제거가 깨끗한 사진만 clean/ 크롭으로, 나머지는 unclean/ + 이유(report.csv)
+for t in test_logic test_api test_outfits test_recommend test_eval_team test_vocab; do uv run python -m tests.$t; done
 ```
+
+`select_clean` 기준 (fruits 실사진 643장 검토): 사람이 입은 사진(FashionCLIP 제로샷), 조각난 마스크, 여러 덩어리, 가장자리에 크게 걸림, 너무 작음·화면을 꽉 채움을 거른다.
+643장 → 깨끗 392장. 깨끗으로 고른 것 중 약 10%는 프린트만 크게 남은 근접 사진 등이라 `clean.jpg`를 한 번 훑어보고 빼면 된다.
 
 ### 팀원 사진으로 실제 정확도 재기 (3단계)
 
