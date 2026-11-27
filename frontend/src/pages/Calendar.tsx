@@ -1,5 +1,6 @@
 // 캘린더: 달력 + 저장한 코디 (담당: B)
 // - 달력에서 지난날을 누르면 그날 입은 코디를 보고 수정하기·삭제하기, 이 코디 저장하기를 할 수 있다
+// - 날짜를 누르면 아래의 그날 칸까지 화면이 자동으로 내려간다 (ui.tsx의 slideIn)
 // - 오늘·앞날을 누르면 입을 코디를 계획하고, 다른 코디로 바꾸기·삭제하기를 할 수 있다
 // - 예전 '입은 기록' 탭은 없앴다. 입은 기록은 날짜를 눌러 달력에서 바로 고치고 지운다 (11/25 Figma 수정안)
 import { useNavigate } from 'react-router'
@@ -10,7 +11,7 @@ import type { Hist, Look } from '../data/types'
 import {
   S, TODAY0, agoOf, byId, dayLabel, dkey, emit, hexOf, isRecent, isWornToday, lookIds, matchText, planOn, present, recalcWorn, rowKey, saveLook, useApp, wearToday, wornNote, wornOn,
 } from '../store'
-import { closeAll, closeModal, openModal, openSheet, toast } from '../ui'
+import { closeAll, closeModal, openModal, openSheet, slideIn, toast } from '../ui'
 
 /** 요일 머리글 (일요일부터) */
 const WD = ['일', '월', '화', '수', '목', '금', '토']
@@ -53,7 +54,8 @@ export default function Calendar() {
   )
 }
 
-/** 한 달 달력. 입은 날은 그날 코디 사진, 앞날의 계획은 점선 사진. 날을 누르면 아래(Day)에 그날을 보여 준다 */
+/** 한 달 달력. 입은 날은 그날 코디 사진, 앞날의 계획은 점선 사진.
+ *  날을 누르면 아래(Day)에 그날을 보여 주고, 그 칸이 다 보이도록 화면을 짧게 내려 준다(slideIn) */
 function Month() {
   const y = calMonth.getFullYear(), m = calMonth.getMonth()
   const first = new Date(y, m, 1), days = new Date(y, m + 1, 0).getDate()
@@ -73,7 +75,12 @@ function Month() {
           return (
             <button key={n} className={`cday ${agoOf(d) === 0 ? 'today' : ''} ${dkey(d) === dkey(calSel) ? 'sel' : ''}`}
               aria-label={`${m + 1}월 ${n}일${w ? ', 입은 코디 있음' : pl ? ', 입을 코디 있음' : ''}`}
-              onClick={() => { calSel = new Date(y, m, n); emit() }}>
+              onClick={() => {
+                calSel = new Date(y, m, n); emit()
+                // 아래의 그날 칸(Day)이 화면 밖이라 스크롤해야만 보인다는 피드백(11/27).
+                // emit()으로 새 날짜 내용이 그려진 다음 프레임에 그 칸까지 내려 준다
+                requestAnimationFrame(() => slideIn(document.querySelector<HTMLElement>('#s-cal .calday')))
+              }}>
               <span className="n">{n}</span>
               {w ? <span className="th">{thumbOf(w.ids)}</span> : pl ? <span className="th plan">{thumbOf(pl.ids)}</span> : null}
             </button>
