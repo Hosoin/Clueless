@@ -3,7 +3,7 @@
 // 이 파일에는 함수만 둔다. 화면에 그리는 컴포넌트(Overlays)는 components/Overlays.tsx에 있다 (컴포넌트와 함수를 한 파일에서 같이 내보내면
 // 개발 중 화면 자동 갱신이 잘 안 돼서 나눴다, 코드 리뷰 29번)
 import type { ReactNode } from 'react'
-import { emit } from './store'
+import { emit, registerModuleReset } from './store'
 
 /** 창 안에 그릴 내용을 돌려주는 함수. 창이 다시 그려질 때마다 불려서 최신 상태(S)를 보여 준다 */
 type Render = () => ReactNode
@@ -63,11 +63,11 @@ function popOverlay() {
 }
 
 /** 사용자가 뒤로가기를 눌렀을 때: 창이 열려 있으면 창만 닫는다 (주소는 쌓아 둔 칸이 빠진 것이라 그대로) */
-window.addEventListener('popstate', () => {
+export function handleOverlayPopState() {
   if (!inHist || pending) return // 창이 없거나, popOverlay가 스스로 칸을 뺀 경우는 무시
   inHist = false
   O.sheet = null; O.modal = null; emit()
-})
+}
 
 /** 화면 안에서만 스크롤해서 el을 가운데로 (폰 틀 자체는 움직이지 않게) */
 export function showIn(el: HTMLElement | null) {
@@ -108,6 +108,14 @@ export function slideIn(el: HTMLElement | null) {
    한 번 허용하면 다시 묻지 않음. (카메라는 https에서 브라우저가 직접 묻는다)
    Capacitor 앱으로 만들 때는 @capacitor/camera의 requestPermissions()로 바꾸면 폰 자체 권한 창이 뜬다 */
 const granted = new Set<string>() // 이번에 앱을 켠 동안 허용한 권한 (새로고침하면 다시 묻는다)
+export function resetUiState() {
+  if (O.toastH) clearTimeout(O.toastH)
+  if (pending) clearTimeout(pending)
+  O.toast = ''; O.toastOn = false; O.toastH = 0
+  O.sheet = null; O.sheetTall = false; O.modal = null; O.modalCls = ''
+  inHist = false; pending = 0; granted.clear()
+}
+registerModuleReset(resetUiState)
 /** 권한마다 창 제목과 기본 설명 */
 const PERM = {
   photos: { title: '사진과 파일에 접근하려고 해요', why: '옷 사진을 올리려면 사진 보관함과 파일에 접근해야 해요. 고른 사진만 올라가요.' },

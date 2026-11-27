@@ -4,7 +4,7 @@ import { Navigate, useNavigate } from 'react-router'
 import { Back } from '../components/Icons'
 import { StyleGrid } from '../components/StyleGrid'
 import { MODES } from '../data/seed'
-import { S, emit, useApp } from '../store'
+import { S, finishOnboarding, updateOnboarding, useApp } from '../store'
 
 /** 첫 설정 화면. 진행 상태는 S.ob에 두고, 마지막 단계에서 S.me·S.pref에 넣은 뒤 로그인 전에 보던 화면(S.loginBack)으로 */
 export default function Onboard() {
@@ -16,25 +16,24 @@ export default function Onboard() {
   if (!ob) return <Navigate to={S.loggedIn ? '/' : '/login'} replace />
   const steps = ob.mode === 'taste' ? (['mode', 'taste', 'nick'] as const) : (['mode', 'nick'] as const)
   const i = (steps as readonly string[]).indexOf(ob.step), n = steps.length
-  const set = (f: () => void) => { f(); emit() }
+  const set = updateOnboarding
   const ok = ob.step !== 'taste' || ob.styles.length > 0
   const next = () => {
-    if (ob.step !== 'nick') return set(() => (ob.step = steps[i + 1]))
+    if (ob.step !== 'nick') return set({ step: steps[i + 1] })
     const v = ob.nick.trim()
     if (v.length < 2) return setErr('닉네임은 2자 이상이에요')
-    S.me.nick = v; S.pref.mode = ob.mode; if (ob.mode === 'taste') S.pref.styles = [...ob.styles]; S.onboarded = true
-    S.ob = null // 진행 정보를 비워, 첫 설정 주소로 다시 와도 끝난 단계가 그대로 다시 그려지지 않게 한다 (위 Navigate가 홈으로 보냄)
+    finishOnboarding(v, ob.mode, ob.styles)
     // 첫 설정이 끝나면 로그인 전에 보던 화면(S.loginBack)으로 돌려보낸다. 기본값은 홈('/')이다.
     // 전에는 늘 홈으로 보내서, 글 화면에서 댓글을 쓰려다 로그인하면 첫 설정을 거친 뒤 그 글이 아니라 홈으로 갔다.
     // 로그아웃하면 onboarded가 풀리므로 다시 로그인할 때마다 같은 일이 생겼다 (코드 리뷰 11/27 5번).
     // Google 로그인은 앱이 새로 열려서 loginBack이 기본값('/')이라 전처럼 홈으로 간다.
     // "오늘의 코디를 골랐어요" 알림은 홈 화면에 바로 코디가 보여서 군더더기라 띄우지 않는다.
     // replace로 이동해 방문 기록에서 첫 설정을 지운다. 쌓아 두면 뒤로가기했을 때 끝낸 첫 설정 화면이 다시 나왔다
-    nav(S.loginBack, { replace: true }); emit()
+    nav(S.loginBack, { replace: true })
   }
   return (
     <section className="screen on" id="s-onboard">
-      <div className="ob-top">{i ? <button className="backrow" onClick={() => set(() => (ob.step = steps[i - 1]))}><Back />이전</button> : <span />}<p className="ob-step">{i + 1} / {n}</p></div>
+      <div className="ob-top">{i ? <button className="backrow" onClick={() => set({ step: steps[i - 1] })}><Back />이전</button> : <span />}<p className="ob-step">{i + 1} / {n}</p></div>
       <div className="ob-bar"><i style={{ width: `${((i + 1) / n) * 100}%` }} /></div>
       <div className="ob-main">
         {ob.step === 'mode' && (
@@ -42,7 +41,7 @@ export default function Onboard() {
             <h2>어떤 코디를<br />추천받을까요?</h2>
             <div className="ob-opts" role="radiogroup" aria-label="추천 방식">
               {(['trend', 'taste'] as const).map((k) => (
-                <button key={k} className={`ob-opt ${ob.mode === k ? 'on' : ''}`} role="radio" aria-checked={ob.mode === k} onClick={() => set(() => (ob.mode = k))}>
+                <button key={k} className={`ob-opt ${ob.mode === k ? 'on' : ''}`} role="radio" aria-checked={ob.mode === k} onClick={() => set({ mode: k })}>
                   <i className="ck" /><div><b>{MODES[k][0]}</b><span>{MODES[k][1]}</span>{k === 'taste' && <em>다음 단계에서 좋아하는 스타일을 골라요</em>}</div>
                 </button>
               ))}
@@ -52,13 +51,13 @@ export default function Onboard() {
         {ob.step === 'taste' && (
           <>
             <h2>좋아하는 스타일을<br />골라 주세요</h2><p className="sub">3개까지 고를 수 있어요</p>
-            <StyleGrid picked={ob.styles} onChange={(f) => set(() => (ob.styles = f(ob.styles)))} />
+            <StyleGrid picked={ob.styles} onChange={(f) => set({ styles: f(ob.styles) })} />
           </>
         )}
         {ob.step === 'nick' && (
           <>
             <h2>닉네임을<br />정해 주세요</h2><p className="sub">커뮤니티에 올린 코디에 이 이름이 보여요</p>
-            <label className="ob-field"><input maxLength={12} value={ob.nick} aria-label="닉네임" onChange={(e) => set(() => (ob.nick = e.target.value))} /><em>{err}</em></label>
+            <label className="ob-field"><input maxLength={12} value={ob.nick} aria-label="닉네임" onChange={(e) => set({ nick: e.target.value })} /><em>{err}</em></label>
           </>
         )}
       </div>
