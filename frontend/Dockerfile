@@ -19,6 +19,10 @@ COPY . .
 # 비워 두면(기본) 같은 출처의 /api로 요청하고, 아래 nginx가 백엔드로 전달한다.
 ARG VITE_CLOSET_API_URL=
 ENV VITE_CLOSET_API_URL=${VITE_CLOSET_API_URL}
+# Google 로그인을 시작할 백엔드 주소(화면 이동용). 비우면 http://localhost:8081로 가므로 배포 빌드에서는
+# docker build --build-arg VITE_CLOSET_LOGIN_URL=<BE 배포 주소> 로 넣는다. (src/api/auth.ts)
+ARG VITE_CLOSET_LOGIN_URL=
+ENV VITE_CLOSET_LOGIN_URL=${VITE_CLOSET_LOGIN_URL}
 RUN npm run build
 
 # 2단계: 정적 파일 서빙 + /api 전달

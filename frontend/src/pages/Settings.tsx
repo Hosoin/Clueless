@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { logout } from '../api/auth'
+import { errorText } from '../api/error'
 import { Back } from '../components/Icons'
 import { StyleGrid } from '../components/StyleGrid'
 import { toLogin } from '../nav'
@@ -64,8 +65,9 @@ export default function Settings() {
               <button className="link" style={{ padding: 0 }} disabled={loggingOut} onClick={async () => {
                 // 요청 중에는 버튼을 막아 연타로 로그아웃 요청이 여러 번 가지 않게 한다
                 setLoggingOut(true)
-                // 서버 로그인이면 서버 세션도 끝낸다. 서버가 실패하면 로그인 상태를 그대로 두고 알린다
-                try { await logout() } catch { setLoggingOut(false); return toast('로그아웃하지 못했어요. 잠시 후 다시 해 주세요') }
+                // 서버 로그인이면 서버 세션도 끝낸다(api/auth.ts의 logout). 서버가 실패하면 로그인 상태를 그대로 두고,
+                // 실패 이유에 맞는 문구를 띄운다(연결 안 됨·서버 오류·CSRF 거절 등, API_CONVENTION 3장)
+                try { await logout() } catch (e) { setLoggingOut(false); return toast(errorText(e)) }
                 // 성공하면 내 정보를 비우고 로그인 화면으로 보낸다. replace로 이동해 뒤로가기로 설정 화면에 돌아오지 않게 한다
                 clearMe(); toast('로그아웃했어요'); nav('/login', { replace: true })
               }}>{loggingOut ? '로그아웃하는 중' : '로그아웃'}</button></>
