@@ -4,8 +4,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { fetchMe, takeGoogleLoginReturn } from '../api/auth'
+import { errorText } from '../api/error'
 import { S, WEATHER, emit, useApp } from '../store'
-import { closeAll } from '../ui'
+import { closeAll, toast } from '../ui'
 import { Overlays } from './Overlays'
 import { setNav } from '../nav'
 import { TabIcon } from './Icons'
@@ -56,17 +57,23 @@ export function Layout() {
     fetchMe().then((me) => {
       if (!me) return goLogin() // 401: 로그인 안 됨 → 로그인 화면
       S.loggedIn = true
-      S.me.nick = me.nickName || S.me.nick // 서버의 닉네임을 쓰고, 비어 있으면 기존 값 유지
+      // 서버의 닉네임을 쓴다. 닉네임이 없으면(null) Google 이름, 그것도 없으면 빈칸으로 둔다.
+      // 예전에는 비어 있으면 기존 값을 남겨서, 가짜 데이터의 닉네임('옷장탐험가')이 내 이름처럼 보였다
+      S.me.nick = me.nickName ?? me.userName ?? ''
       if (justLoggedIn) {
         // Google 로그인에 막 성공함 → 첫 설정. 새로 열린 앱에는 첫 설정 진행 정보가 없어서 여기서 만든다
         if (!S.ob) S.ob = { step: 'mode', mode: S.pref.mode, styles: [...S.pref.styles], nick: S.me.nick }
         if (pathname !== '/onboard') nav('/onboard', { replace: true })
       } else if (pathname === '/login' || pathname === '/onboard') {
-        // 이미 로그인된 상태로 앱을 열었음 → 홈. (백엔드가 #/onboard로 보낸 주소를 새로고침한 경우도 여기)
+        // 이미 로그인된 상태로 앱을 열었음 → 홈. (첫 설정 주소를 새로고침한 경우도 여기)
         nav('/', { replace: true })
       }
       // 그 밖의 화면(옷장 등)에서 새로고침한 경우는 그 화면을 그대로 둔다
-    }).catch(goLogin) // 서버에 닿지 못해도 앱은 열리도록 로그인 화면으로 (가짜 데이터로 둘러볼 수 있다)
+    }).catch((e) => {
+      // 서버에 닿지 못함·10초 안에 응답 없음·서버 오류(5xx)도 앱은 열리도록 로그인 화면으로 보낸다 (가짜 데이터로 둘러볼 수 있다).
+      // 다만 '로그인 안 됨(401)'과 달리 서버 문제라서, 왜 로그인 화면이 떴는지 알 수 있게 알림을 띄운다 (API_CONVENTION 3장)
+      goLogin(); toast(errorText(e))
+    })
       .finally(() => { setReady(true); emit() })
   }, [nav, pathname])
   useEffect(() => { closeAll(); setNavHide(false); lastY.current = 0; if (phone.current) phone.current.scrollTop = 0 }, [pathname])
