@@ -33,10 +33,10 @@ FROM nginx:1.27-alpine
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# /api를 전달할 closet-service 주소. VM에서는 공용 Docker 네트워크 clueless 안의 서비스 이름(closet-service)으로 부른다.
-# 내 PC의 백엔드를 쓸 때는 -e API_UPSTREAM=http://host.docker.internal:8081 로 바꾼다. (README의 "VM에 배포하기")
+# /api를 전달할 closet-service 주소. VM에서는 프론트 컨테이너를 백엔드 compose 네트워크(clueless-closet-dev_default)에
+# 넣어 띄우므로(docker run --network clueless-closet-dev_default), 그 네트워크 안의 백엔드 서비스 이름(closet-service)으로 부른다.
+# 내 PC의 백엔드를 쓸 때는 -e API_UPSTREAM=http://host.docker.internal:8081 로 바꾼다. (README의 "VM 구성")
 # 끝에 /나 경로를 붙이지 않는다 (http://host:8081 O, http://host:8081/ X). 이유는 nginx/default.conf.template 참고.
-# 백엔드 컨테이너는 clueless 네트워크에 서비스 이름 closet-service, 포트 8081로 띄운다.
 ENV API_UPSTREAM=http://closet-service:8081 \
     NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 
