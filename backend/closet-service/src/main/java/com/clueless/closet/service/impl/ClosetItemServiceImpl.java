@@ -2,6 +2,7 @@
 package com.clueless.closet.service.impl;
 
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -24,6 +25,39 @@ public class ClosetItemServiceImpl implements ClosetItemService {
 
     public ClosetItemServiceImpl(ClosetItemRepository items) {
         this.items = items;
+    }
+
+    @Override
+    public ItemList list(long userId, String category, String color, String recommendYn) {
+        var standardColor = ClosetColor.fromLabel(color);
+        if ((category != null && !CATEGORIES.contains(category))
+                || (color != null && (standardColor == null || !color.equals(standardColor.label())))
+                || (recommendYn != null && !validRecommendYn(recommendYn))) {
+            throw badRequest();
+        }
+        var summaries = items.findList(userId, category, standardColor == null ? List.of() : standardColor.storedLabels(),
+                        recommendYn).stream()
+                .map(row -> new ItemSummary(Long.toString(row.id()), row.name(), previewUrl(row.id(), row.hasImage())))
+                .toList();
+        return new ItemList(summaries.size(), summaries);
+    }
+
+    @Override
+    public ItemDetail detail(long userId, long itemId) {
+        var row = items.findDetail(userId, itemId).orElseThrow(ClosetItemServiceImpl::notFound);
+        return new ItemDetail(Long.toString(row.id()), row.name(), row.category(), row.subcategory(), row.color(), row.colorHex(),
+                row.styles(), row.tags(), row.memo(), row.recommendYn(), previewUrl(row.id(), row.hasImage()));
+    }
+
+    private static String previewUrl(long id, boolean hasImage) {
+        return hasImage ? "/api/closet/preview?id=" + id : null;
+    }
+
+    @Override
+    public void delete(long userId, long itemId) {
+        if (!items.hide(userId, itemId)) {
+            throw notFound();
+        }
     }
 
     @Override

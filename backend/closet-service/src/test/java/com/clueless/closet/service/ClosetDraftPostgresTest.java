@@ -113,12 +113,61 @@ class ClosetDraftPostgresTest {
         assertStatusRequired(db, owner);
         assertThat(items.findImageBlob(owner, visible)).contains(LEGACY_KEY);
         assertThat(items.findImageBlob(other, visible)).isEmpty();
+        long imageless = db.queryForObject("""
+                INSERT INTO public.closet_items (user_id, category, color, status)
+                VALUES (?, '상의', '네이비', 'CONFIRMED') RETURNING id
+                """, Long.class, owner);
+        assertThat(new ClosetItemServiceImpl(items).detail(owner, imageless).previewUrl()).isNull();
         db.update("UPDATE public.closet_items SET disp_yn = 'N' WHERE id = ?", visible);
         assertThat(items.findImageBlob(owner, visible)).isEmpty();
         assertThat(db.queryForObject("SELECT status FROM public.closet_items WHERE id = ?", String.class, visible))
                 .isEqualTo("CONFIRMED");
         assertConstraints(db, visible);
         checkItemWrites(db, items, owner, other);
+        checkItemList(db, items, createUser(db, "list-owner"), other);
+    }
+
+    private static void checkItemList(JdbcTemplate db, ClosetItemRepository items, long owner, long other) {
+        var service = new ClosetItemServiceImpl(items);
+        long newer = listFixture(db, owner, "상의", "블랙", "Y", "CONFIRMED", "Y", "2026-11-02", LEGACY_KEY);
+        long older = listFixture(db, owner, "상의", " 블랙 ", "N", "CONFIRMED", "Y", "2026-11-01", null);
+        long alias = listFixture(db, owner, "상의", "검은색", "N", "CONFIRMED", "Y", "2026-11-01", "   ");
+        long wrongCategory = listFixture(db, owner, "하의", "검정", "N", "CONFIRMED", "Y", "2026-11-01", null);
+        long custom = listFixture(db, owner, "상의", "사용자색", "N", "CONFIRMED", "Y", "2026-11-01", null);
+        listFixture(db, owner, "상의", "블랙", "N", "DRAFT", "Y", "2026-11-03", null);
+        listFixture(db, owner, "상의", "블랙", "N", "CONFIRMED", "N", "2026-11-03", null);
+        long foreign = listFixture(db, other, "상의", "블랙", "N", "CONFIRMED", "Y", "2026-11-03", null);
+
+        var all = service.list(owner, null, null, null);
+        assertThat(all.totalCount()).isEqualTo(5);
+        assertThat(all.items()).extracting(ClosetItemService.ItemSummary::id)
+                .containsExactly("" + newer, "" + custom, "" + wrongCategory, "" + alias, "" + older);
+        assertThat(all.items().getFirst().previewUrl()).isEqualTo("/api/closet/preview?id=" + newer);
+        assertThat(all.items().getLast().previewUrl()).isNull();
+        var filtered = service.list(owner, "상의", "블랙", "N");
+        assertThat(filtered.totalCount()).isEqualTo(2);
+        assertThat(filtered.items()).extracting(ClosetItemService.ItemSummary::id).containsExactly("" + alias, "" + older);
+        assertThat(filtered.items().getFirst().previewUrl()).isNull();
+        assertThat(service.list(owner, null, "블랙", null).totalCount()).isEqualTo(4);
+        assertThat(service.list(owner, "상의", null, null).totalCount()).isEqualTo(4);
+        assertThat(service.list(owner, null, null, "Y").items()).extracting(ClosetItemService.ItemSummary::id)
+                .containsExactly("" + newer);
+        assertThat(service.list(owner, null, null, "N").totalCount()).isEqualTo(4);
+        assertThat(service.list(owner, "아우터", "블랙", "N")).isEqualTo(new ClosetItemService.ItemList(0, List.of()));
+        assertThat(service.list(other, "상의", "블랙", "N").items()).extracting(ClosetItemService.ItemSummary::id)
+                .containsExactly("" + foreign);
+        assertThat(service.detail(owner, alias).color()).isEqualTo("검은색");
+        assertThat(service.detail(owner, alias).colorHex()).isEqualTo("#aBcDeF");
+        assertThat(service.detail(owner, custom).color()).isEqualTo("사용자색");
+        assertThat(service.detail(owner, custom).colorHex()).isEqualTo("#aBcDeF");
+    }
+
+    private static long listFixture(JdbcTemplate db, long userId, String category, String color, String recommendYn,
+            String status, String dispYn, String day, String image) {
+        return db.queryForObject("""
+                INSERT INTO public.closet_items (user_id, category, color, color_hex, recommend_yn, status, disp_yn, created_at, image_blob)
+                VALUES (?, ?, ?, '#aBcDeF', ?, ?, ?, CAST(? AS timestamptz), ?) RETURNING id
+                """, Long.class, userId, category, color, recommendYn, status, dispYn, day + " UTC", image);
     }
 
     private static void checkItemWrites(JdbcTemplate db, ClosetItemRepository items, long owner, long other) throws Exception {
@@ -137,15 +186,24 @@ class ClosetDraftPostgresTest {
         String beforeJson = db.queryForObject(rowJson, String.class, missingColor);
 
         assertThat(items.findImageBlob(owner, clean)).isEmpty();
+        assertThat(status(() -> service.detail(owner, clean))).isEqualTo(404);
+        assertThat(status(() -> service.delete(owner, clean))).isEqualTo(404);
+        assertThat(status(() -> service.delete(owner, hidden))).isEqualTo(404);
         assertThat(status(() -> tx.executeWithoutResult(s -> service.confirm(other, clean, json.readTree("{}"))))).isEqualTo(404);
         assertThat(status(() -> tx.executeWithoutResult(s -> service.confirm(owner, hidden, json.readTree("{}"))))).isEqualTo(404);
         assertThat(status(() -> service.update(owner, clean, json.readTree("{}")))).isEqualTo(404);
+        var exclude = json.readTree("{\"recommend_yn\":\"N\"}");
+        assertThat(status(() -> service.update(owner, clean, exclude))).isEqualTo(404);
         assertThat(status(() -> tx.executeWithoutResult(s -> service.confirm(owner, missingColor, json.readTree("{\"name\":\"미저장\"}")))))
                 .isEqualTo(400);
         assertThat(db.queryForObject(rowJson, String.class, missingColor)).isEqualTo(beforeJson);
         tx.executeWithoutResult(s -> service.confirm(owner, clean, json.readTree("{}")));
-        assertThat(db.queryForObject("SELECT color_hex FROM public.closet_items WHERE id = ?", String.class, clean))
-                .isEqualTo("#000000");
+        assertThat(db.queryForMap("SELECT color, color_hex FROM public.closet_items WHERE id = ?", clean))
+                .containsEntry("color", "블랙").containsEntry("color_hex", "#000000");
+        service.update(owner, clean, json.readTree("{\"color\":\"검은색\",\"hex\":\"#aBcDeF\"}"));
+        service.update(owner, clean, json.readTree("{\"color\":\"빨간색\"}"));
+        assertThat(db.queryForMap("SELECT color, color_hex FROM public.closet_items WHERE id = ?", clean))
+                .containsEntry("color", "레드").containsEntry("color_hex", "#aBcDeF");
         assertThat(items.findImageBlob(owner, clean)).contains(BLOB);
         assertThat(items.findImageBlob(other, clean)).isEmpty();
 
@@ -163,22 +221,53 @@ class ClosetDraftPostgresTest {
                 missingColor)).containsEntry("styles", 0).containsEntry("tags", 0);
         assertThat(status(() -> tx.executeWithoutResult(s -> service.confirm(owner, missingColor, json.readTree("{\"name\":\"retry\"}")))))
                 .isEqualTo(404);
-        assertThat(status(() -> service.update(other, missingColor, json.readTree("{\"name\":\"foreign\"}")))).isEqualTo(404);
+        assertThat(status(() -> service.update(other, missingColor, exclude))).isEqualTo(404);
         assertThat(status(() -> service.update(owner, Long.MAX_VALUE, json.readTree("{}")))).isEqualTo(404);
-        String confirmedJson = db.queryForObject(rowJson, String.class, missingColor);
+        service.update(owner, missingColor, exclude);
+        String excludedJson = db.queryForObject(rowJson, String.class, missingColor);
         service.update(owner, missingColor, json.readTree("{}"));
-        assertThat(db.queryForObject(rowJson, String.class, missingColor)).isEqualTo(confirmedJson);
+        assertThat(db.queryForObject(rowJson, String.class, missingColor)).isEqualTo(excludedJson);
 
         assertThat(race(i -> status(() -> service.update(owner, missingColor, json.readTree(i == 0
                 ? "{\"memo\":\"edited\",\"hex\":null}" : "{\"tags\":[\"봄\",\"쉼,표\"]}")))))
                 .containsExactly(204, 204);
         var updated = db.queryForMap("SELECT *, tags[2] AS second_tag FROM public.closet_items WHERE id = ?", missingColor);
         assertThat(updated).containsEntry("name", name).containsEntry("color", "데님").containsEntry("memo", "edited")
-                .containsEntry("second_tag", "쉼,표").containsEntry("color_hex", null).containsEntry("meta_json", before.get("meta_json"));
+                .containsEntry("recommend_yn", "N").containsEntry("disp_yn", "Y").containsEntry("second_tag", "쉼,표")
+                .containsEntry("color_hex", null).containsEntry("meta_json", before.get("meta_json"));
         assertThat(updated.get("updated_at")).isNotEqualTo(confirmed.get("updated_at"));
+        var detail = service.detail(owner, missingColor);
+        assertThat(detail.id()).isEqualTo(Long.toString(missingColor));
+        assertThat(detail.colorHex()).isNull();
+        assertThat(detail.styles()).isEmpty();
+        assertThat(detail.tags()).containsExactly("봄", "쉼,표");
+        assertThat(detail.recommendYn()).isEqualTo("N");
+        assertThat(detail.previewUrl()).isEqualTo("/api/closet/preview?id=" + missingColor);
+        assertThat(items.findImageBlob(owner, missingColor)).contains(BLOB);
+        var include = json.readTree("{\"recommend_yn\":\"Y\"}");
+        service.update(owner, missingColor, include);
+        assertThat(db.queryForObject("SELECT recommend_yn FROM public.closet_items WHERE id = ?", String.class, missingColor))
+                .isEqualTo("Y");
         db.update("UPDATE public.closet_items SET disp_yn = 'N' WHERE id = ?", missingColor);
-        assertThat(status(() -> service.update(owner, missingColor, json.readTree("{\"memo\":\"hidden\"}")))).isEqualTo(404);
+        assertThat(status(() -> service.update(owner, missingColor, exclude))).isEqualTo(404);
         assertThat(items.findImageBlob(owner, missingColor)).isEmpty();
+
+        assertThat(status(() -> service.detail(owner, missingColor))).isEqualTo(404);
+        assertThat(status(() -> service.detail(other, clean))).isEqualTo(404);
+        assertThat(status(() -> service.detail(owner, Long.MAX_VALUE))).isEqualTo(404);
+        assertThat(status(() -> service.delete(other, clean))).isEqualTo(404);
+        assertThat(status(() -> service.delete(owner, Long.MAX_VALUE))).isEqualTo(404);
+        db.update("UPDATE public.closet_items SET updated_at = '2000-01-01 UTC' WHERE id = ?", clean);
+        String otherColumns = "SELECT (to_jsonb(i) - 'updated_at' - 'disp_yn')::text FROM public.closet_items i WHERE id = ?";
+        String previous = db.queryForObject(otherColumns, String.class, clean);
+        assertThat(race(i -> status(() -> service.delete(owner, clean)))).containsExactlyInAnyOrder(204, 404);
+        assertThat(db.queryForObject(otherColumns, String.class, clean)).isEqualTo(previous);
+        assertThat(db.queryForObject("""
+                SELECT disp_yn = 'N' AND updated_at > '2000-01-01 UTC' FROM public.closet_items WHERE id = ?
+                """, Boolean.class, clean)).isTrue();
+        assertThat(items.findImageBlob(owner, clean)).isEmpty();
+        assertThat(status(() -> service.detail(owner, clean))).isEqualTo(404);
+        assertThat(status(() -> service.delete(owner, clean))).isEqualTo(404);
 
         long contested = items.insertDraft(owner, "경쟁 확정", "하의", null, "검정", "#000000", List.of(), ml, BLOB);
         var confirmedOnce = race(i -> status(() -> tx.executeWithoutResult(s -> service.confirm(owner, contested,
@@ -240,6 +329,11 @@ class ClosetDraftPostgresTest {
                 .containsEntry("color_hex", null).containsEntry("recommend_yn", "Y");
         var items = new ClosetItemRepository(JdbcClient.create(db));
         assertThat(items.findImageBlob(owner, id)).contains(LEGACY_KEY);
+        var service = new ClosetItemServiceImpl(items);
+        assertThat(service.list(owner, "상의", "버건디", "Y").items()).extracting(ClosetItemService.ItemSummary::id)
+                .containsExactly(Long.toString(id));
+        assertThat(db.queryForObject("SELECT color FROM public.closet_items WHERE id = ?", String.class, id))
+                .isEqualTo("와인");
         assertConstraints(db, id);
     }
 
