@@ -71,7 +71,8 @@ class ClosetItemServiceTest {
     @BeforeEach
     void setup(@Autowired WebApplicationContext context, @Autowired FilterChainProxy security) {
         mvc = MockMvcBuilders.webAppContextSetup(context).addFilters(security).build();
-        when(users.findProfileById(OWNER)).thenReturn(Optional.of(new UserRepository.UserProfile(OWNER, "test", null, null)));
+        when(users.findProfileById(OWNER)).thenReturn(Optional.of(
+                new UserRepository.UserProfile(OWNER, "test", null, null, List.of())));
         when(transactions.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
     }
 
@@ -313,7 +314,7 @@ class ClosetItemServiceTest {
     private static MockHttpSession member() {
         var now = Instant.now();
         var idToken = new OidcIdToken("synthetic", now, now.plusSeconds(60), Map.of("sub", "item-edit-test"));
-        return session(new ClosetOidcUser(new DefaultOidcUser(AuthorityUtils.NO_AUTHORITIES, idToken), OWNER));
+        return session(new ClosetOidcUser(new DefaultOidcUser(AuthorityUtils.NO_AUTHORITIES, idToken), OWNER, false));
     }
 
     private static MockHttpSession session(Object principal) {

@@ -250,7 +250,7 @@ class ClosetPreviewIntegrationTest {
     private static MockHttpSession member(long id) {
         var now = Instant.now();
         var token = new OidcIdToken("synthetic", now, now.plusSeconds(60), Map.of("sub", "preview-test-" + id));
-        return session(new ClosetOidcUser(new DefaultOidcUser(AuthorityUtils.NO_AUTHORITIES, token), id));
+        return session(new ClosetOidcUser(new DefaultOidcUser(AuthorityUtils.NO_AUTHORITIES, token), id, false));
     }
 
     private static MockHttpSession session(Object principal) {

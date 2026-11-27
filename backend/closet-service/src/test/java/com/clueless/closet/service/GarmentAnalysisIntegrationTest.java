@@ -450,7 +450,7 @@ class GarmentAnalysisIntegrationTest {
                 var now = Instant.now();
                 var token = new OidcIdToken("synthetic", now, now.plusSeconds(60), Map.of("sub", "analysis-test"));
                 Object principal = kind.equals("authenticated")
-                        ? new ClosetOidcUser(new DefaultOidcUser(AuthorityUtils.NO_AUTHORITIES, token), USER) : "synthetic-user";
+                        ? new ClosetOidcUser(new DefaultOidcUser(AuthorityUtils.NO_AUTHORITIES, token), USER, false) : "synthetic-user";
                 var security = SecurityContextHolder.createEmptyContext();
                 security.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
                         principal, null, AuthorityUtils.NO_AUTHORITIES));
