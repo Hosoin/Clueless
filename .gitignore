@@ -12,6 +12,10 @@ service-account*.json
 *.p12
 *.pfx
 
+# Generated closet deploy override
+/backend/compose.closet-image.yaml
+/backend/compose.closet-image.yaml.tmp.*
+
 # Frontend dependencies and output
 node_modules/
 dist/
