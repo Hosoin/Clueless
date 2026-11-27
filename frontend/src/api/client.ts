@@ -50,8 +50,11 @@ export async function closetFetch(path: string, { timeoutMs, ...init }: FetchOpt
       credentials: 'include',
       headers,
     })
-  } catch {
-    // 기존 catch 처리 유지
+  } } catch {
+    if (timedOut) {
+      throw new ApiError(0, 'TIMEOUT', '요청 시간이 초과됐습니다.')
+    }
+    throw new ApiError(0, 'NETWORK_ERROR', '서버에 연결할 수 없습니다.')
   } finally {
     if (timer) clearTimeout(timer)
   }
