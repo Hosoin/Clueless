@@ -64,14 +64,14 @@ class ClosetDraftPostgresTest {
                 assertThat(response.name()).isEqualTo(expected);
                 assertThat(response.hex()).isNull();
                 var row = db.queryForMap("""
-                        SELECT user_id, name, char_length(name) AS chars, color, color_hex, status, disp_yn, image_blob,
+                        SELECT user_id, name, char_length(name) AS chars, color, color_hex, status, disp_yn, recommend_yn, image_blob,
                                styles[1] AS first_style, meta_json->'embedding' AS embedding,
                                meta_json->'crop_blob' AS crop, meta_json->'subcategory'->>'name' AS model_name
                         FROM public.closet_items WHERE id = ?
                         """, id);
                 assertThat(row).containsEntry("name", response.name()).containsEntry("chars", Math.min(length, 50))
                         .containsEntry("status", "DRAFT").containsEntry("disp_yn", "Y").containsEntry("user_id", owner)
-                        .containsEntry("color", "").containsEntry("color_hex", null)
+                        .containsEntry("recommend_yn", "Y").containsEntry("color", "").containsEntry("color_hex", null)
                         .containsEntry("image_blob", BLOB).containsEntry("first_style", "캐주얼")
                         .containsEntry("crop", null).containsEntry("model_name", unicode);
                 assertThat(row.get("embedding").toString()).isEqualTo("[0.25]");
@@ -79,14 +79,32 @@ class ClosetDraftPostgresTest {
             }
 
             var metadata = (ObjectNode) json.readTree("""
-                    {"retake":false,"category":{"name":"상의"},"color_name":{"name":"네이비"},
-                     "colors":[{"name":"검정","rgb":[0,0,0]},{"name":"네이비","rgb":[38,50,79]}],"crop_blob":"%s"}
+                    {"retake":false,"category":{"name":"상의"},"color_name":{"name":"블루"},
+                     "colors":[{"name":"데님","rgb":[51,70,122]},{"name":"블루","rgb":[15,42,177]}],"crop_blob":"%s"}
                     """.formatted(BLOB));
             when(ml.analyze(any(), eq("png"))).thenReturn(new GarmentAnalysisClient.Result(HttpStatus.OK, metadata, null));
             var response = (ClosetDraftService.Draft) service.analyze(owner, new byte[] {1}, "png");
-            assertThat(response.hex()).isEqualTo("#26324F");
-            assertThat(db.queryForMap("SELECT status, color_hex FROM public.closet_items WHERE id = ?",
-                    Long.parseLong(response.id()))).containsEntry("status", "DRAFT").containsEntry("color_hex", response.hex());
+            assertThat(response.color()).isEqualTo("데님");
+            assertThat(response.hex()).isEqualTo("#0F2AB1");
+            assertThat(db.queryForMap("SELECT status, color, color_hex FROM public.closet_items WHERE id = ?",
+                    Long.parseLong(response.id()))).containsEntry("status", "DRAFT")
+                    .containsEntry("color", "데님").containsEntry("color_hex", "#0F2AB1");
+
+            var unknown = (ObjectNode) json.readTree("""
+                    {"retake":false,"category":{"name":"상의"},"color_name":{"name":"미등록색"},
+                     "colors":[{"name":"미등록색","rgb":[15,42,177]}],"crop_blob":"%s"}
+                    """.formatted(BLOB));
+            when(ml.analyze(any(), eq("png"))).thenReturn(new GarmentAnalysisClient.Result(HttpStatus.OK, unknown, null));
+            var unselected = (ClosetDraftService.Draft) service.analyze(owner, new byte[] {1}, "png");
+            assertThat(unselected.color()).isNull();
+            assertThat(unselected.name()).isEqualTo("상의");
+            long unknownId = Long.parseLong(unselected.id());
+            var tx = new TransactionTemplate(new DataSourceTransactionManager(db.getDataSource()));
+            var edits = new ClosetItemServiceImpl(items);
+            assertThat(status(() -> tx.executeWithoutResult(s -> edits.confirm(owner, unknownId, json.readTree("{}")))))
+                    .isEqualTo(400);
+            assertThat(db.queryForMap("SELECT status, color, color_hex FROM public.closet_items WHERE id = ?", unknownId))
+                    .containsEntry("status", "DRAFT").containsEntry("color", "").containsEntry("color_hex", "#0F2AB1");
         }
         long visible = db.queryForObject("""
                 INSERT INTO public.closet_items (user_id, category, color, image_blob, status)
@@ -95,12 +113,61 @@ class ClosetDraftPostgresTest {
         assertStatusRequired(db, owner);
         assertThat(items.findImageBlob(owner, visible)).contains(LEGACY_KEY);
         assertThat(items.findImageBlob(other, visible)).isEmpty();
+        long imageless = db.queryForObject("""
+                INSERT INTO public.closet_items (user_id, category, color, status)
+                VALUES (?, '상의', '네이비', 'CONFIRMED') RETURNING id
+                """, Long.class, owner);
+        assertThat(new ClosetItemServiceImpl(items).detail(owner, imageless).previewUrl()).isNull();
         db.update("UPDATE public.closet_items SET disp_yn = 'N' WHERE id = ?", visible);
         assertThat(items.findImageBlob(owner, visible)).isEmpty();
         assertThat(db.queryForObject("SELECT status FROM public.closet_items WHERE id = ?", String.class, visible))
                 .isEqualTo("CONFIRMED");
         assertConstraints(db, visible);
         checkItemWrites(db, items, owner, other);
+        checkItemList(db, items, createUser(db, "list-owner"), other);
+    }
+
+    private static void checkItemList(JdbcTemplate db, ClosetItemRepository items, long owner, long other) {
+        var service = new ClosetItemServiceImpl(items);
+        long newer = listFixture(db, owner, "상의", "블랙", "Y", "CONFIRMED", "Y", "2026-11-02", LEGACY_KEY);
+        long older = listFixture(db, owner, "상의", " 블랙 ", "N", "CONFIRMED", "Y", "2026-11-01", null);
+        long alias = listFixture(db, owner, "상의", "검은색", "N", "CONFIRMED", "Y", "2026-11-01", "   ");
+        long wrongCategory = listFixture(db, owner, "하의", "검정", "N", "CONFIRMED", "Y", "2026-11-01", null);
+        long custom = listFixture(db, owner, "상의", "사용자색", "N", "CONFIRMED", "Y", "2026-11-01", null);
+        listFixture(db, owner, "상의", "블랙", "N", "DRAFT", "Y", "2026-11-03", null);
+        listFixture(db, owner, "상의", "블랙", "N", "CONFIRMED", "N", "2026-11-03", null);
+        long foreign = listFixture(db, other, "상의", "블랙", "N", "CONFIRMED", "Y", "2026-11-03", null);
+
+        var all = service.list(owner, null, null, null);
+        assertThat(all.totalCount()).isEqualTo(5);
+        assertThat(all.items()).extracting(ClosetItemService.ItemSummary::id)
+                .containsExactly("" + newer, "" + custom, "" + wrongCategory, "" + alias, "" + older);
+        assertThat(all.items().getFirst().previewUrl()).isEqualTo("/api/closet/preview?id=" + newer);
+        assertThat(all.items().getLast().previewUrl()).isNull();
+        var filtered = service.list(owner, "상의", "블랙", "N");
+        assertThat(filtered.totalCount()).isEqualTo(2);
+        assertThat(filtered.items()).extracting(ClosetItemService.ItemSummary::id).containsExactly("" + alias, "" + older);
+        assertThat(filtered.items().getFirst().previewUrl()).isNull();
+        assertThat(service.list(owner, null, "블랙", null).totalCount()).isEqualTo(4);
+        assertThat(service.list(owner, "상의", null, null).totalCount()).isEqualTo(4);
+        assertThat(service.list(owner, null, null, "Y").items()).extracting(ClosetItemService.ItemSummary::id)
+                .containsExactly("" + newer);
+        assertThat(service.list(owner, null, null, "N").totalCount()).isEqualTo(4);
+        assertThat(service.list(owner, "아우터", "블랙", "N")).isEqualTo(new ClosetItemService.ItemList(0, List.of()));
+        assertThat(service.list(other, "상의", "블랙", "N").items()).extracting(ClosetItemService.ItemSummary::id)
+                .containsExactly("" + foreign);
+        assertThat(service.detail(owner, alias).color()).isEqualTo("검은색");
+        assertThat(service.detail(owner, alias).colorHex()).isEqualTo("#aBcDeF");
+        assertThat(service.detail(owner, custom).color()).isEqualTo("사용자색");
+        assertThat(service.detail(owner, custom).colorHex()).isEqualTo("#aBcDeF");
+    }
+
+    private static long listFixture(JdbcTemplate db, long userId, String category, String color, String recommendYn,
+            String status, String dispYn, String day, String image) {
+        return db.queryForObject("""
+                INSERT INTO public.closet_items (user_id, category, color, color_hex, recommend_yn, status, disp_yn, created_at, image_blob)
+                VALUES (?, ?, ?, '#aBcDeF', ?, ?, ?, CAST(? AS timestamptz), ?) RETURNING id
+                """, Long.class, userId, category, color, recommendYn, status, dispYn, day + " UTC", image);
     }
 
     private static void checkItemWrites(JdbcTemplate db, ClosetItemRepository items, long owner, long other) throws Exception {
@@ -119,15 +186,24 @@ class ClosetDraftPostgresTest {
         String beforeJson = db.queryForObject(rowJson, String.class, missingColor);
 
         assertThat(items.findImageBlob(owner, clean)).isEmpty();
+        assertThat(status(() -> service.detail(owner, clean))).isEqualTo(404);
+        assertThat(status(() -> service.delete(owner, clean))).isEqualTo(404);
+        assertThat(status(() -> service.delete(owner, hidden))).isEqualTo(404);
         assertThat(status(() -> tx.executeWithoutResult(s -> service.confirm(other, clean, json.readTree("{}"))))).isEqualTo(404);
         assertThat(status(() -> tx.executeWithoutResult(s -> service.confirm(owner, hidden, json.readTree("{}"))))).isEqualTo(404);
         assertThat(status(() -> service.update(owner, clean, json.readTree("{}")))).isEqualTo(404);
+        var exclude = json.readTree("{\"recommend_yn\":\"N\"}");
+        assertThat(status(() -> service.update(owner, clean, exclude))).isEqualTo(404);
         assertThat(status(() -> tx.executeWithoutResult(s -> service.confirm(owner, missingColor, json.readTree("{\"name\":\"미저장\"}")))))
                 .isEqualTo(400);
         assertThat(db.queryForObject(rowJson, String.class, missingColor)).isEqualTo(beforeJson);
         tx.executeWithoutResult(s -> service.confirm(owner, clean, json.readTree("{}")));
-        assertThat(db.queryForObject("SELECT color_hex FROM public.closet_items WHERE id = ?", String.class, clean))
-                .isEqualTo("#000000");
+        assertThat(db.queryForMap("SELECT color, color_hex FROM public.closet_items WHERE id = ?", clean))
+                .containsEntry("color", "블랙").containsEntry("color_hex", "#000000");
+        service.update(owner, clean, json.readTree("{\"color\":\"검은색\",\"hex\":\"#aBcDeF\"}"));
+        service.update(owner, clean, json.readTree("{\"color\":\"빨간색\"}"));
+        assertThat(db.queryForMap("SELECT color, color_hex FROM public.closet_items WHERE id = ?", clean))
+                .containsEntry("color", "레드").containsEntry("color_hex", "#aBcDeF");
         assertThat(items.findImageBlob(owner, clean)).contains(BLOB);
         assertThat(items.findImageBlob(other, clean)).isEmpty();
 
@@ -137,7 +213,7 @@ class ClosetDraftPostgresTest {
                 """.formatted(name))));
         var confirmed = db.queryForMap("SELECT * FROM public.closet_items WHERE id = ?", missingColor);
         assertThat(confirmed).containsEntry("status", "CONFIRMED").containsEntry("name", name).containsEntry("category", "아우터")
-                .containsEntry("subcategory", null).containsEntry("color", "블루").containsEntry("memo", "")
+                .containsEntry("subcategory", null).containsEntry("color", "데님").containsEntry("memo", "")
                 .containsEntry("color_hex", "#00bbff").containsEntry("image_blob", BLOB)
                 .containsEntry("meta_json", before.get("meta_json")).containsEntry("created_at", before.get("created_at"));
         assertThat(confirmed.get("updated_at")).isNotEqualTo(before.get("updated_at"));
@@ -145,22 +221,53 @@ class ClosetDraftPostgresTest {
                 missingColor)).containsEntry("styles", 0).containsEntry("tags", 0);
         assertThat(status(() -> tx.executeWithoutResult(s -> service.confirm(owner, missingColor, json.readTree("{\"name\":\"retry\"}")))))
                 .isEqualTo(404);
-        assertThat(status(() -> service.update(other, missingColor, json.readTree("{\"name\":\"foreign\"}")))).isEqualTo(404);
+        assertThat(status(() -> service.update(other, missingColor, exclude))).isEqualTo(404);
         assertThat(status(() -> service.update(owner, Long.MAX_VALUE, json.readTree("{}")))).isEqualTo(404);
-        String confirmedJson = db.queryForObject(rowJson, String.class, missingColor);
+        service.update(owner, missingColor, exclude);
+        String excludedJson = db.queryForObject(rowJson, String.class, missingColor);
         service.update(owner, missingColor, json.readTree("{}"));
-        assertThat(db.queryForObject(rowJson, String.class, missingColor)).isEqualTo(confirmedJson);
+        assertThat(db.queryForObject(rowJson, String.class, missingColor)).isEqualTo(excludedJson);
 
         assertThat(race(i -> status(() -> service.update(owner, missingColor, json.readTree(i == 0
                 ? "{\"memo\":\"edited\",\"hex\":null}" : "{\"tags\":[\"봄\",\"쉼,표\"]}")))))
                 .containsExactly(204, 204);
         var updated = db.queryForMap("SELECT *, tags[2] AS second_tag FROM public.closet_items WHERE id = ?", missingColor);
-        assertThat(updated).containsEntry("name", name).containsEntry("color", "블루").containsEntry("memo", "edited")
-                .containsEntry("second_tag", "쉼,표").containsEntry("color_hex", null).containsEntry("meta_json", before.get("meta_json"));
+        assertThat(updated).containsEntry("name", name).containsEntry("color", "데님").containsEntry("memo", "edited")
+                .containsEntry("recommend_yn", "N").containsEntry("disp_yn", "Y").containsEntry("second_tag", "쉼,표")
+                .containsEntry("color_hex", null).containsEntry("meta_json", before.get("meta_json"));
         assertThat(updated.get("updated_at")).isNotEqualTo(confirmed.get("updated_at"));
+        var detail = service.detail(owner, missingColor);
+        assertThat(detail.id()).isEqualTo(Long.toString(missingColor));
+        assertThat(detail.colorHex()).isNull();
+        assertThat(detail.styles()).isEmpty();
+        assertThat(detail.tags()).containsExactly("봄", "쉼,표");
+        assertThat(detail.recommendYn()).isEqualTo("N");
+        assertThat(detail.previewUrl()).isEqualTo("/api/closet/preview?id=" + missingColor);
+        assertThat(items.findImageBlob(owner, missingColor)).contains(BLOB);
+        var include = json.readTree("{\"recommend_yn\":\"Y\"}");
+        service.update(owner, missingColor, include);
+        assertThat(db.queryForObject("SELECT recommend_yn FROM public.closet_items WHERE id = ?", String.class, missingColor))
+                .isEqualTo("Y");
         db.update("UPDATE public.closet_items SET disp_yn = 'N' WHERE id = ?", missingColor);
-        assertThat(status(() -> service.update(owner, missingColor, json.readTree("{\"memo\":\"hidden\"}")))).isEqualTo(404);
+        assertThat(status(() -> service.update(owner, missingColor, exclude))).isEqualTo(404);
         assertThat(items.findImageBlob(owner, missingColor)).isEmpty();
+
+        assertThat(status(() -> service.detail(owner, missingColor))).isEqualTo(404);
+        assertThat(status(() -> service.detail(other, clean))).isEqualTo(404);
+        assertThat(status(() -> service.detail(owner, Long.MAX_VALUE))).isEqualTo(404);
+        assertThat(status(() -> service.delete(other, clean))).isEqualTo(404);
+        assertThat(status(() -> service.delete(owner, Long.MAX_VALUE))).isEqualTo(404);
+        db.update("UPDATE public.closet_items SET updated_at = '2000-01-01 UTC' WHERE id = ?", clean);
+        String otherColumns = "SELECT (to_jsonb(i) - 'updated_at' - 'disp_yn')::text FROM public.closet_items i WHERE id = ?";
+        String previous = db.queryForObject(otherColumns, String.class, clean);
+        assertThat(race(i -> status(() -> service.delete(owner, clean)))).containsExactlyInAnyOrder(204, 404);
+        assertThat(db.queryForObject(otherColumns, String.class, clean)).isEqualTo(previous);
+        assertThat(db.queryForObject("""
+                SELECT disp_yn = 'N' AND updated_at > '2000-01-01 UTC' FROM public.closet_items WHERE id = ?
+                """, Boolean.class, clean)).isTrue();
+        assertThat(items.findImageBlob(owner, clean)).isEmpty();
+        assertThat(status(() -> service.detail(owner, clean))).isEqualTo(404);
+        assertThat(status(() -> service.delete(owner, clean))).isEqualTo(404);
 
         long contested = items.insertDraft(owner, "경쟁 확정", "하의", null, "검정", "#000000", List.of(), ml, BLOB);
         var confirmedOnce = race(i -> status(() -> tx.executeWithoutResult(s -> service.confirm(owner, contested,
@@ -200,25 +307,33 @@ class ClosetDraftPostgresTest {
                 CREATE TABLE public.closet_items (
                     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                     user_id bigint NOT NULL REFERENCES public.user_info(id), category text NOT NULL, subcategory text,
-                    color text NOT NULL, styles text[] NOT NULL DEFAULT '{}', memo text, meta_json jsonb, image_blob text
+                    color text NOT NULL, styles text[] NOT NULL DEFAULT '{}', memo text, meta_json jsonb, image_blob text,
+                    created_at timestamptz NOT NULL DEFAULT now()
                 );
                 """);
         long owner = createUser(db, "migration-owner");
         long id = db.queryForObject("""
                 INSERT INTO public.closet_items (user_id, category, color, memo, image_blob, meta_json)
-                VALUES (?, '상의', '네이비', 'keep this', ?, '{"legacy": true}') RETURNING id
+                VALUES (?, '상의', '와인', 'keep this', ?, '{"legacy": true}') RETURNING id
                 """, Long.class, owner, LEGACY_KEY);
         db.execute(Files.readString(SQL.resolve("migrations/001_closet_drafts.sql")));
         db.execute(Files.readString(SQL.resolve("migrations/002_drop_closet_items_status_default.sql")));
         db.execute(Files.readString(SQL.resolve("migrations/003_closet_item_color_hex.sql")));
+        db.execute(Files.readString(SQL.resolve("migrations/004_closet_item_recommend_yn.sql")));
         assertStatusRequired(db, owner);
         assertThat(db.queryForMap("""
-                SELECT status, disp_yn, name, memo, meta_json->>'legacy' AS legacy, user_id, color_hex
+                SELECT status, disp_yn, name, memo, meta_json->>'legacy' AS legacy, user_id, color_hex, recommend_yn
                 FROM public.closet_items WHERE id = ?
                 """, id)).containsEntry("status", "CONFIRMED").containsEntry("disp_yn", "Y").containsEntry("name", null)
                 .containsEntry("memo", "keep this").containsEntry("legacy", "true").containsEntry("user_id", owner)
-                .containsEntry("color_hex", null);
-        assertThat(new ClosetItemRepository(JdbcClient.create(db)).findImageBlob(owner, id)).contains(LEGACY_KEY);
+                .containsEntry("color_hex", null).containsEntry("recommend_yn", "Y");
+        var items = new ClosetItemRepository(JdbcClient.create(db));
+        assertThat(items.findImageBlob(owner, id)).contains(LEGACY_KEY);
+        var service = new ClosetItemServiceImpl(items);
+        assertThat(service.list(owner, "상의", "버건디", "Y").items()).extracting(ClosetItemService.ItemSummary::id)
+                .containsExactly(Long.toString(id));
+        assertThat(db.queryForObject("SELECT color FROM public.closet_items WHERE id = ?", String.class, id))
+                .isEqualTo("와인");
         assertConstraints(db, id);
     }
 
@@ -231,7 +346,8 @@ class ClosetDraftPostgresTest {
     }
 
     private static void assertConstraints(JdbcTemplate db, long id) {
-        for (String update : List.of("disp_yn = 'X'", "disp_yn = NULL", "status = 'HIDDEN'", "name = repeat('🧥', 51)")) {
+        for (String update : List.of("disp_yn = 'X'", "disp_yn = NULL", "recommend_yn = 'X'", "recommend_yn = NULL",
+                "status = 'HIDDEN'", "name = repeat('🧥', 51)")) {
             assertThatExceptionOfType(DataIntegrityViolationException.class)
                     .isThrownBy(() -> db.update("UPDATE public.closet_items SET " + update + " WHERE id = ?", id));
         }

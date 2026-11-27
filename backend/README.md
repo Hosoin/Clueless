@@ -11,7 +11,7 @@ Java 21 JDK와 Gradle Wrapper를 사용하는 두 개의 Spring Boot 하위 프�
 | `closet-service` | Google 로그인 및 옷장·의류 서비스 로직 | `8081` |
 | `recommendation-service` | 추천 관련 API와 서비스 로직 | `8082` |
 
-옷장 서비스는 Google 로그인과 의류 분석·미리보기·최종 저장·부분 편집 API를 제공합니다. 두 서비스는 서로 독립적으로 실행하며, 각각의 기본 애플리케이션 설정에 PostgreSQL 연결 정보가 있습니다.
+옷장 서비스는 Google 로그인과 의류 분석·미리보기·최종 저장·부분 편집·목록/상세 조회·삭제 API를 제공합니다. 두 서비스는 서로 독립적으로 실행하며, 각각의 기본 애플리케이션 설정에 PostgreSQL 연결 정보가 있습니다.
 
 ## 로컬 준비와 빌드
 
@@ -116,7 +116,7 @@ curl -i http://localhost:8082/test
 
 - [의류 전용 빈 설정 템플릿](closet-service/.env.example)의 항목을 환경변수 또는 `bootRun`이 읽는 Git 제외 `backend/.env`에 설정합니다. 배포 JAR은 `.env`를 자동으로 읽지 않습니다. `ML_API_URL`은 `/v1/garments/analyze`를 제외한 기본 주소(HTTPS, 루프백만 HTTP 허용), `ML_API_KEY`는 서버 간 인증 키입니다. Blob 연결 문자열·키·서명 URL은 로그, 이슈, 커밋에 남기지 마세요.
 - `AZURE_STORAGE_CONNECTION_STRING`은 Blob 조회와 분석 미리보기용 SAS 발급에 사용합니다. SAS 발급에는 계정 키 인증이 필요합니다. `BLOB_DRAFTS_CONTAINER`는 ML이 쓰는 `closet-drafts` 컨테이너와 일치해야 하고, `BLOB_CONTAINER_NAME`은 기존 등록 의류 이미지의 컨테이너 설정입니다. 분석과 ML 크롭 프리뷰에는 후자 설정이 필요하지 않습니다.
-- 새 DB에는 [`db/closet/schema.sql`](db/closet/schema.sql)을 적용합니다. 기존 DB에는 [`001` → `002` → `003` 마이그레이션](db/closet/migrations)을 배포 전에 수동으로 한 번씩 적용합니다. 기존 등록 행은 `CONFIRMED`/`Y`로 보존되고, `002`부터 모든 신규 INSERT는 `status`를 명시해야 합니다. Spring은 SQL을 자동 적용하지 않습니다.
+- 새 DB에는 [`db/closet/schema.sql`](db/closet/schema.sql)을 적용합니다. 기존 DB에는 [`001` → `002` → `003` → `004` 마이그레이션](db/closet/migrations)을 배포 전에 수동으로 한 번씩 적용합니다. 기존 등록 행은 `CONFIRMED`/`Y`로 보존되고, `002`부터 모든 신규 INSERT는 `status`를 명시해야 합니다. Spring은 SQL을 자동 적용하지 않습니다.
 - **배포 전 확인:** 비재촬영 응답에는 ML이 업로드한 `crop_blob` 키가 필요합니다(`closet-drafts/<UUID>.webp`). 현재 `main`의 base64 PNG만 반환하는 ML로는 비재촬영 분석이 `502`로 끝납니다. 또한 confirm은 DB 상태만 변경합니다. Blob 복사·이동은 하지 않으므로 원본 컨테이너의 수명 정책이 Blob을 삭제하면 확정된 의류의 미리보기도 사라집니다. Blob 호환 ML과 확정 Blob 보존 방안을 별도로 확인하세요.
 
 ## 의류 분석
@@ -132,6 +132,8 @@ curl -i http://localhost:8082/test
 
 `previewImg`는 WebP Blob 하나를 읽는 HTTPS 전용 SAS URL(발급 후 5분 유효)입니다. 재사용할 영구 주소가 아니며 로깅·공유하지 마세요. 잘못된 multipart는 `400`, 초과 크기는 `413`, 지원하지 않는 형식은 `415`, ML이 읽지 못한 이미지는 `422`입니다. 연동 오류는 `502`/`503`/`504`로 응답하며 상위 응답 내용이나 접속 정보를 반환하지 않습니다.
 
+**색상 계약(미배포 로컬 변경):** FE의 `COLORS` 18색(화이트·아이보리·베이지·카멜·브라운·블랙·차콜·그레이·네이비·데님·스카이·카키·그린·버건디·레드·핑크·옐로·퍼플)을 표준으로 사용합니다. 분석·confirm·PATCH에서 색상명은 이 표준으로 정규화하며 `검정`은 `블랙`으로 처리합니다. 개별 의류의 HEX는 표준 팔레트 HEX로 덮어쓰지 않고 유지합니다. 알 수 없는 ML 색상은 미선택(`color: null`)으로 처리하고 confirm에서 유효한 색으로 보완해야 합니다. 임의의 사용자 색상은 `400`입니다. FE는 18색 상수로 선택지를 표시하므로 목록 응답에 `color_options`는 없습니다.
+
 ## 의류 최종 저장 및 부분 편집
 
 | 요청 | 처리 |
@@ -143,7 +145,31 @@ curl -i http://localhost:8082/test
 
 필드: `name`(최대 50자), `category`(상의·덧입기·하의·아우터·원피스), `sub_category`, `color`, `styles`·`tags`(문자열 배열), `memo`(문자열), `hex`(`#RRGGBB`). 생략한 필드는 유지합니다. `sub_category`와 `hex`는 `null`, 목록은 `[]`, 메모는 `""`로 지울 수 있습니다. `status`, 소유자 정보, 이미지 키 및 ML 메타데이터는 편집할 수 없습니다.
 
+**미배포 로컬 변경 계약:** `recommend_yn`은 PATCH에서만 추가로 편집할 수 있습니다. 정확한 문자열 `"Y"` 또는 `"N"`만 허용하며, 생략하면 기존 값을 유지합니다. `null`, 소문자(`"y"`/`"n"`), 공백이 포함된 값은 `400`입니다. DB 기본값은 `"Y"`이며 기존 DB에는 마이그레이션 `004_closet_item_recommend_yn.sql`이 필요합니다. confirm의 허용 필드는 기존과 같으며 `recommend_yn`을 보내면 `400`입니다. 이 변경의 원격 DB 적용·배포는 확인되지 않았습니다.
+
 같은 오리진이나 프록시를 권장합니다. 직접 호출 시 로컬 FE `http://localhost:5173`에는 `/api/auth/me`의 `X-CSRF-TOKEN` 헤더 조회와 위 confirm/PATCH만 CORS로 허용됩니다. 그 경우에도 `credentials: 'include'`와 CSRF 헤더가 필요합니다.
+
+## 의류 목록 조회 (미배포 로컬 계약)
+
+`GET /api/closet/items?category=상의&color=블랙&recommend_yn=N` — 로그인 세션 쿠키가 필요하며 CSRF 토큰은 필요하지 않습니다. 본인의 `CONFIRMED`, `disp_yn = 'Y'` 의류만 `created_at DESC, id DESC` 순서(최신순)로 반환합니다.
+
+- `category`, `color`, `recommend_yn`은 각각 선택 사항이며, 전달한 조건은 AND로 결합합니다. 한글 쿼리는 URL 인코딩해서 전송합니다.
+- 종류/색상 필터의 **전체**는 해당 파라미터 생략입니다. `recommend_yn` 생략은 추천 포함/제외 모두, `N`은 추천에서 제외한 의류, `Y`는 추천에 포함한 의류입니다. 추천 제외는 숨김/삭제가 아닙니다.
+- 응답은 `{"total_count":1,"items":[{"id":"5000000001","name":"블랙 티셔츠","preview_url":"/api/closet/preview?id=5000000001"}]}` 형태입니다(설명용 예시, 실제 데이터/검증 결과 아님). `id`는 문자열이며 각 항목은 `id`, `name`, `preview_url`만 포함합니다. `preview_url`은 상세 조회와 같은 상대 경로 또는 JSON `null`입니다.
+- 0건도 `200`과 `{"total_count":0,"items":[]}`를 반환합니다. 색상 선택지는 FE 18색 상수를 사용하며 `color_options`는 반환하지 않습니다.
+
+## 의류 상세 조회 및 삭제 (미배포 로컬 계약)
+
+아래는 미배포 로컬 계약이며, 원격 DB 적용·배포 완료를 의미하지 않습니다.
+
+| 요청 | 처리 |
+| --- | --- |
+| `GET /api/closet/items/{id}` | 로그인 세션 본인의 `CONFIRMED`, `disp_yn = 'Y'` 의류만 `200` JSON으로 반환합니다. CSRF 토큰은 필요하지 않습니다. |
+| `DELETE /api/closet/items/{id}` | 로그인 세션 쿠키와 같은 세션의 `X-CSRF-TOKEN`이 필요합니다. 본인의 `CONFIRMED`, `disp_yn = 'Y'` 의류만 `disp_yn = 'N'`으로 논리 삭제하고 `204 No Content`를 반환합니다. 물리 삭제가 아니며 재삭제는 `404`입니다. |
+
+상세 응답 필드는 `id`(문자열), `name`, `category`, `sub_category`, `color`, `color_hex`, `styles`, `tags`, `memo`, `recommend_yn`, `preview_url`입니다. 상세의 색상 코드 키는 `color_hex`이며 분석 응답·편집 요청의 `hex`와 구분합니다. 존재하지 않거나 타인 소유, 숨김, `DRAFT` 등 상태가 맞지 않는 대상은 두 요청 모두 `404`입니다.
+
+`preview_url`은 이미지 참조가 없으면 JSON `null`, 있으면 `/api/closet/preview?id={id}` 형태의 상대 경로입니다. 직접 SAS URL이 아닙니다. FE는 같은 세션이 전달되는 오리진/프록시에서 `<img src="...">`로 사용합니다. 상세 JSON GET 자체는 이미지를 내려받지 않으며, `img`가 별도의 이미지 GET을 발생시킵니다. 이미지 참조가 있어도 실제 Blob이 없으면 이미지 GET은 `404`일 수 있습니다. 로컬 계약에 대한 직접 cross-origin CORS 허용·배포 상태는 별도로 확인해야 합니다.
 
 ## 등록 의류 이미지 미리보기
 
