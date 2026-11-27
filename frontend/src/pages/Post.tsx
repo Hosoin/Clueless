@@ -25,7 +25,7 @@ export default function Post() {
   // 댓글 목록은 글을 만들 때 채워 둔다 (store.ts의 withComments). 그리는 중에는 읽기만 한다 (코드 리뷰 23번)
   const cm = p.cmList ?? [], reTo = p.replyTo != null ? cm[p.replyTo] : undefined
   const back = () => { p.replyTo = null; nav(S.postFrom) }
-  /** 로그인이 필요한 일(댓글·답글·좋아요·팔로우·저장)을 로그인 없이 하려 하면 알림을 띄우고 로그인 화면으로 보낸다.
+  /** 로그인이 필요한 일(댓글·답글·좋아요·팔로우·저장·글 삭제)을 로그인 없이 하려 하면 알림을 띄우고 로그인 화면으로 보낸다.
    *  로그인이 끝나면 이 글로 돌아온다. 결과: 막았으면 true (코드 리뷰 21번: 팔로우·글 좋아요·저장에도 적용) */
   const needLogin = (msg: string) => { if (S.loggedIn) return false; toast(msg); toLogin(`/post/${p.id}`); return true }
   const send = () => {
@@ -91,7 +91,9 @@ export default function Post() {
           <button className="btn solid" onClick={send}>등록</button>
         </div>
         {mine ? (
-          <button className="link danger" style={{ marginTop: 10 }} onClick={() => openModal(() => (
+          // 예시 '내 글'은 로그인하지 않아도 커뮤니티에 보인다. '수정'은 로그인 화면으로 보내는데 삭제만 바로 지워져서,
+          // 삭제도 needLogin을 거쳐 로그인 화면으로 보낸다 (코드 리뷰 11/27 6번)
+          <button className="link danger" style={{ marginTop: 10 }} onClick={() => !needLogin('로그인하면 글을 삭제할 수 있어요') && openModal(() => (
             <>
               <h3>이 글을 삭제할까요?</h3><p className="sub">삭제하면 되돌릴 수 없어요</p>
               <div className="col mt18">

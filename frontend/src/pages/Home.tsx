@@ -62,9 +62,11 @@ export default function Home() {
   // 추천 이유: 돌리는 중 → 안내, 추천 코디 그대로 → (스타일을 골랐으면 스타일 문구, 아니면 추천 이유), 직접 바꿨으면 → 어울림 판단
   const why = S.spinning ? '옷장을 돌려 오늘의 코디를 찾는 중이에요' : same ? (pickedStyle ? styleReason(pickedStyle) : o.reason) : m.t
   const setView = (v: typeof S.view) => { S.view = v; scrRef.current?.scrollTo(0, 0); emit() }
-  // 룩북과 아바타 보기에서 같이 쓰는 '이 코디로 입을래요' 버튼
+  // 룩북과 아바타 보기에서 같이 쓰는 '이 코디로 입을래요' 버튼.
+  // 돌아가는 중(S.spinning)에도 막는다. 안 막으면 지나가던 아무 코디나 오늘 입은 기록과 chosenKey에 남고,
+  // 돌기가 끝나 줄이 추천 코디로 바뀐 뒤에도 캘린더에는 틀린 코디가 그대로 남는다 (코드 리뷰 11/27 1번)
   const wearBtn = (
-    <button className="btn" disabled={isChosen} onClick={() => chooseToday(c)}>{isChosen ? '오늘 코디로 정했어요' : '이 코디로 입을래요'}</button>
+    <button className="btn" disabled={isChosen || S.spinning} onClick={() => chooseToday(c)}>{isChosen ? '오늘 코디로 정했어요' : '이 코디로 입을래요'}</button>
   )
 
   /* 첫 화면 한 장(아래 탭을 뺀 높이)에 코디 사진과 버튼이 모두 들어오게.
@@ -89,8 +91,10 @@ export default function Home() {
   const order = rows.map(([k]) => k)
   const bigK: RowKey = order.includes('o') ? 'o' : order.includes('j') ? 'j' : 't'
   const rest = order.filter((k) => k !== bigK)
+  // 돌아가는 중에는 화살표·밀기·빼기를 막는다. 돌기는 시작할 때 잡아 둔 줄 위치·목록으로 멈출 자리를 정하므로,
+  // 중간에 줄을 바꾸면 멈춘 자리가 추천 코디가 아닐 수 있다 (코드 리뷰 11/27 1번)
   const piece = (k: RowKey, big = false) => (
-    <Piece key={k} k={k} item={c[k]} big={big} canStep={L[k].length > 1} rolling={S.spinKeys.has(k)}
+    <Piece key={k} k={k} item={c[k]} big={big} canStep={L[k].length > 1 && !S.spinning} rolling={S.spinKeys.has(k)}
       off={isExtra(k) ? () => keepSel(() => { S.on[k] = false }) : undefined} />
   )
 
@@ -143,7 +147,8 @@ export default function Home() {
         )}
         <div className="why">
           <p>{why}</p>
-          {next && <button className="link" onClick={() => keepSel(() => { S.on[next] = true; S.pos[next] = 0 })}>+ 겹쳐 입기</button>}
+          {/* 겹쳐 입기·아래 토글도 줄 구성을 바꾸므로 돌아가는 중에는 막는다 (코드 리뷰 11/27 1번) */}
+          {next && <button className="link" disabled={S.spinning} onClick={() => keepSel(() => { S.on[next] = true; S.pos[next] = 0 })}>+ 겹쳐 입기</button>}
         </div>
         {isAvatar ? (
           // 아바타 보기에서는 입기 버튼 하나만 (디자인 2-3)
@@ -173,7 +178,7 @@ export default function Home() {
             : tr ? <>참고한 유행 <b>{tr.k}</b> · Google 트렌드 {tr.why}</> : '참고한 유행 없음 · 오래 안 입은 옷 위주로 골랐어요'}
         </div>
         <p className="note">{note}</p>
-        <div className="toggles"><button className="tg" aria-pressed={S.fresh} onClick={() => keepSel(() => { S.fresh = !S.fresh })}>최근 입은 옷 빼고 추천</button></div>
+        <div className="toggles"><button className="tg" aria-pressed={S.fresh} disabled={S.spinning} onClick={() => keepSel(() => { S.fresh = !S.fresh })}>최근 입은 옷 빼고 추천</button></div>
       </div>
       <Trend />
       </>}
@@ -183,7 +188,8 @@ export default function Home() {
 
 const CAP: Record<RowKey, string> = { t: 'Top', m: 'Layer', j: 'Outer', o: 'Outer', b: 'Bottom' }
 
-/** 화보 한 칸: 누르면 고르기, 좌우로 밀거나 화살표로 바꾸기, 아래에 종류와 이름 */
+/** 화보 한 칸: 누르면 고르기, 좌우로 밀거나 화살표로 바꾸기, 아래에 종류와 이름.
+ *  canStep이 false면(옷이 한 벌뿐이거나 코디가 돌아가는 중) 화살표·밀기를 막고, 돌아가는 중에는 '빼기'도 막는다 */
 function Piece({ k, item, big, canStep, rolling, off }: { k: RowKey; item: Item | null; big: boolean; canStep: boolean; rolling: boolean; off?: () => void }) {
   const x0 = useRef<number | null>(null), swiped = useRef(false)
   const cap = item?.cat === '원피스' ? 'Dress' : CAP[k]
@@ -193,7 +199,7 @@ function Piece({ k, item, big, canStep, rolling, off }: { k: RowKey; item: Item 
       onPointerUp={(e) => {
         if (x0.current === null) return
         const dx = e.clientX - x0.current; x0.current = null
-        if (Math.abs(dx) < 30) return
+        if (Math.abs(dx) < 30 || !canStep) return
         swiped.current = true; setTimeout(() => (swiped.current = false), 50)
         stepFit(k, dx < 0 ? 1 : -1)
       }}
@@ -209,7 +215,7 @@ function Piece({ k, item, big, canStep, rolling, off }: { k: RowKey; item: Item 
         <button aria-label={`이전 ${NAME[k]}`} disabled={!canStep} onClick={() => stepFit(k, -1)}><Arrow dir={-1} /></button>
         <button aria-label={`다음 ${NAME[k]}`} disabled={!canStep} onClick={() => stepFit(k, 1)}><Arrow dir={1} /></button>
       </div>
-      <div className="cap"><span>{cap}{off && <button onClick={off}>빼기</button>}</span><p>{item ? item.name : ''}</p></div>
+      <div className="cap"><span>{cap}{off && <button disabled={S.spinning} onClick={off}>빼기</button>}</span><p>{item ? item.name : ''}</p></div>
     </div>
   )
 }
@@ -356,13 +362,18 @@ function Trend() {
   const title = mine.length ? (mine.length > 1 ? `내 옷장에 ${t.k}${iga(t.k)} ${mine.length}벌이나 있어요` : `내 옷장에 ${t.k}${iga(t.k)} 1벌 있어요`) : `내 옷장에 아직 ${t.k}${eun(t.k)} 없어요`
   const it = mine.find((x) => !isPast(x)) || mine[0] // 오늘 입은 옷은 빼지 않음 (위 pairFor 설명과 같은 이유)
   // 고른 옷의 종류에 따라 나머지 칸을 채운다. 숫자는 원래 짝지어 둔 옷(6 인디고 와이드 데님, 10 카멜 롱 코트,
-  // 1 아이보리 오버핏 니트, 3 블랙 오버핏 니트, 7 블랙 플리츠 스커트)이고, 없으면 pairFor가 남은 옷으로 바꾼다
-  const look = !it ? null
+  // 1 아이보리 오버핏 니트, 3 블랙 오버핏 니트, 7 블랙 플리츠 스커트, 15 화이트 하이넥 셔링 티, 16 차콜 와이드 슬랙스)이고,
+  // 없으면 pairFor가 남은 옷으로 바꾼다. 15·16은 홈 추천 코디(seed.ts)의 뷔스티에 조합과 같은 짝이다
+  const look: Look | null = !it ? null
     : it.cat === '상의' ? { top: it.id, bottom: pairFor(6, '하의'), outer: pairFor(10, '아우터') }
     : it.cat === '하의' ? { top: pairFor(1, '상의'), bottom: it.id, outer: pairFor(10, '아우터') }
     : it.cat === '아우터' ? { top: pairFor(3, '상의'), bottom: pairFor(7, '하의'), outer: it.id }
-    : { top: it.id, bottom: null, outer: pairFor(10, '아우터') } // 원피스·덧입기는 그 옷을 상의 칸에 두고 하의는 비움
-  const ps = look ? ([byId(look.top), byId(look.outer), byId(look.bottom)].filter(present)) : []
+    // 덧입기(뷔스티에·조끼 등)는 상의 위에 겹쳐 입는 옷이라 덧입기 칸(mid)에 두고, 속에 입을 상의와 하의를 채운다.
+    // 전에는 원피스와 같은 분기로 가서 상의 칸에 들어가고 하의가 비어, 입기·저장하면 덧입기가 상의로 남았다 (코드 리뷰 11/27 2번)
+    : it.cat === '덧입기' ? { top: pairFor(15, '상의'), mid: it.id, bottom: pairFor(16, '하의'), outer: pairFor(10, '아우터') }
+    : { top: it.id, bottom: null, outer: pairFor(10, '아우터') } // 원피스는 위아래가 한 벌이라 상의 칸에 두고 하의는 비움
+  // 썸네일·입기에 쓰는 옷 목록. 입는 순서(상의 → 덧입기 → 아우터 → 하의)로 둔다. mid를 빼면 덧입기가 화면에 안 보인다
+  const ps = look ? ([byId(look.top), byId(look.mid), byId(look.outer), byId(look.bottom)].filter(present)) : []
   const mm = matchText(ps)
   const pick = (i: number) => { tSel = i; tResult = false; emit() }
   // 트렌드 코디를 이미 보여 준 상태인지. 코디 받기를 막 눌렀을 때(false → true)만 그 위치로 스크롤하려고 둔다.

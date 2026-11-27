@@ -8,7 +8,8 @@ import type { Comment, Hist, Item, Look, Outfit, Plan, Post, Saved } from './dat
 const toCmt = (x: (typeof CMTS)[number]): Comment => ({ u: x[0], t: x[1], ago: x[2], likes: x[3] || 0, liked: false, replies: (x[4] || []).map((r) => ({ u: r[0], t: r[1], ago: r[2], likes: r[3] || 0, liked: false, replies: [] })) })
 /** 글을 만들 때 댓글 목록을 채운다 (내 글은 MY_CMTS, 남의 글은 CMTS 예시 댓글).
  *  전에는 글 화면을 그리는 도중에 채웠는데, 그리는 중에 상태를 바꾸지 않으려고 글을 만드는 곳으로 옮겼다 (코드 리뷰 23번).
- *  새로 올린 내 글도 예전처럼 예시 댓글로 시작한다. 결과: 같은 글 객체 */
+ *  가짜 데이터(seed.ts)의 글에만 쓴다. 새로 올린 글은 WriteSheet.tsx에서 빈 댓글 목록으로 만든다 (코드 리뷰 11/27 7번).
+ *  cmList가 이미 있으면 그대로 둔다. 결과: 같은 글 객체 */
 export function withComments<T extends Post>(p: T): T {
   if (!p.cmList) p.cmList = (p.mine ? MY_CMTS : CMTS).map(toCmt)
   return p
@@ -18,6 +19,10 @@ export function withComments<T extends Post>(p: T): T {
 /** 처음 상태의 내 정보와 추천 취향. 앱을 켤 때와 로그아웃할 때(clearMe) 같은 값으로 시작하려고 함수로 둔다 */
 const newMe = () => ({ ...ME, photo: null as string | null }) // photo: 프로필 사진 (없으면 닉네임 첫 글자)
 const newPref = () => ({ mode: 'trend' as 'trend' | 'taste', styles: [] as string[] })
+/** 처음 상태의 팔로우·좋아요·저장한 글. 위와 같은 이유로 함수로 둔다 (로그아웃하면 clearMe가 이 값으로 되돌린다) */
+const newFollowing = () => new Set(['mina.closet', 'hyun.wear'])
+const newLiked = () => new Set<number>()
+const newSavedPosts = () => new Set([4])
 
 /** 앱 전체 상태 (메모리에만 있어서 새로고침하면 seed.ts의 처음 상태로 돌아간다). 바꾼 뒤에는 emit()을 부른다 */
 export const S = {
@@ -34,9 +39,9 @@ export const S = {
   RECENT: 3, // 이 날수 안에 입은 옷은 추천에서 뺌
   defScope: '전체 공개', // 새 글의 기본 공개 범위 (설정)
   cmpOn: true, // 커뮤니티 글에 내 옷장 비교 표시
-  followingSet: new Set(['mina.closet', 'hyun.wear']), // 팔로우하는 사람 아이디
-  liked: new Set<number>(), // 좋아요를 누른 글 id
-  savedPosts: new Set([4]), // 저장한 글 id
+  followingSet: newFollowing(), // 팔로우하는 사람 아이디
+  liked: newLiked(), // 좋아요를 누른 글 id
+  savedPosts: newSavedPosts(), // 저장한 글 id
   // 홈
   oi: 0, // 지금 보여 주는 추천 코디 번호 (S.outfits의 순서)
   pos: { t: 0, m: 0, j: 0, o: 0, b: 0 } as Record<RowKey, number>, // 줄마다 고른 옷의 순서 (lists()의 각 줄 기준)
@@ -242,11 +247,18 @@ export function tidyRows() {
 /**
  * 로그아웃한 뒤 앱에 남은 내 정보를 처음 상태로 비운다 (docs/API_CONVENTION.md 4장).
  * 비우지 않으면 다음 사람이 로그인 화면을 거쳐 들어와도 앞 사람의 닉네임·프로필 사진·첫 설정 결과가 그대로 보인다.
- * 첫 설정 여부(onboarded)도 풀어서, 다시 로그인하면 첫 설정부터 한다. 서버 세션과 CSRF 토큰은 api/auth.ts의 logout이 정리한다
+ * 첫 설정 여부(onboarded)도 풀어서, 다시 로그인하면 첫 설정부터 한다. 서버 세션과 CSRF 토큰은 api/auth.ts의 logout이 정리한다.
+ * 팔로우·좋아요·저장한 글과 댓글의 '내가 눌렀는지(liked)'·'내가 썼는지(me)' 표시도 비운다. 전에는 남아 있어서
+ * 다음 사람에게 앞 사람이 누른 하트가 켜져 있고, 앞 사람이 쓴 댓글에 '삭제' 버튼이 보였다 (코드 리뷰 11/27 3번).
+ * 글과 댓글의 좋아요 수(likes)와 앞 사람이 쓴 댓글 자체는 그대로 둔다. 서버가 있으면 다른 사람에게도 남는 값이라서다
  */
 export function clearMe() {
   S.me = newMe(); S.pref = newPref()
   S.loggedIn = false; S.onboarded = false; S.ob = null; S.loginBack = '/'
+  S.followingSet = newFollowing(); S.liked = newLiked(); S.savedPosts = newSavedPosts()
+  // 댓글과 답글을 모두 돌며 내 표시를 푼다 (답글도 Comment라 같은 함수로 내려간다)
+  const unmark = (c: Comment) => { c.liked = false; c.me = false; c.replies.forEach(unmark) }
+  S.posts.forEach((p) => p.cmList?.forEach(unmark))
 }
 /** 커뮤니티 따라 입기 등: 지정한 옷으로 줄을 맞춤. 줄에 없는 옷(추천에서 뺀 옷)은 건너뜀 */
 export function setCombo(ids: number[]) {
@@ -374,6 +386,12 @@ function removeItem(it: Item) {
   // 입을 계획(캘린더)에서도 뺀다. 남겨 두면 캘린더가 지운 옷을 찾다가 멈춤. 옷이 하나도 안 남은 계획은 지운다
   for (let k = S.plans.length - 1; k >= 0; k--) { const p: Plan = S.plans[k]; p.ids = p.ids.filter((x) => x !== id); if (!p.ids.length) S.plans.splice(k, 1) }
   S.chosenKey = null
+  // 옷 등록(Upload.tsx)에서 찍거나 고른 사진은 blob: 주소로 들고 있다. 옷을 지우면 그 주소도 해제해 사진 메모리를 돌려준다.
+  // 전에는 해제하지 않아서 옷을 지워도 사진이 앱을 끌 때까지 메모리에 남았다 (코드 리뷰 11/27 10번).
+  // 다만 그 옷으로 올린 커뮤니티 글은 같은 주소를 글 사진(Post.img)으로 쓰므로, 그런 글이 남아 있으면 해제하지 않는다.
+  // 예시 옷의 사진(앱 안 이미지)은 blob이 아니라 해제할 것이 없다
+  const img = it.img
+  if (img?.startsWith('blob:') && !S.posts.some((p) => p.img === img)) URL.revokeObjectURL(img)
 }
 
 /* ---------- 캘린더 ---------- */

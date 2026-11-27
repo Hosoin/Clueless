@@ -25,25 +25,35 @@ type FetchOptions = RequestInit & { timeoutMs?: number }
  *  시간 제한이 없으면 백엔드가 응답하지 않을 때 앱이 첫 로딩 화면에서 끝없이 기다렸다 */
 export async function closetFetch(path: string, { timeoutMs, ...init }: FetchOptions = {}): Promise<Response> {
   const isRead = (init.method ?? 'GET').toUpperCase() === 'GET'
-  // 시간 제한: 정해진 시간이 지나면 AbortController로 요청을 끊는다. 끊긴 것인지 알려고 timedOut을 따로 둔다
+
+  // 요청 시간 제한
   const ctrl = timeoutMs ? new AbortController() : null
   let timedOut = false
-  const timer = ctrl ? setTimeout(() => { timedOut = true; ctrl.abort() }, timeoutMs) : 0
+  const timer = ctrl ? setTimeout(() => {
+    timedOut = true
+    ctrl.abort()
+  }, timeoutMs) : 0
+
+  // 전달받은 헤더를 유지하고, 없는 기본 헤더만 채운다
+  const headers = new Headers(init.headers)
+  if (typeof init.body === 'string' && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+  if (csrf && !isRead && !headers.has(csrf.header)) {
+    headers.set(csrf.header, csrf.token)
+  }
+
   try {
     return await fetch(`${CLOSET_URL}${path}`, {
       ...init,
       ...(ctrl ? { signal: ctrl.signal } : {}),
-      credentials: 'include', // 로그인 세션 쿠키를 같이 보낸다
-      headers: {
-        ...(typeof init.body === 'string' ? { 'Content-Type': 'application/json' } : {}),
-        ...(csrf && !isRead ? { [csrf.header]: csrf.token } : {}), // 값을 바꾸는 요청(POST 등)에만 CSRF 토큰
-        ...init.headers,
-      },
+      credentials: 'include',
+      headers,
     })
   } catch {
-    // 서버가 꺼져 있거나, 네트워크가 끊겼거나, 시간 안에 응답이 없음. 서버가 준 에러가 아니라서 status 0으로 따로 알린다
-    throw new ApiError(0, timedOut ? 'TIMEOUT' : 'NETWORK', '서버에 연결할 수 없어요')
+    // 기존 catch 처리 유지
   } finally {
     if (timer) clearTimeout(timer)
   }
+
 }

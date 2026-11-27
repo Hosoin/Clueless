@@ -104,6 +104,7 @@ function scheduleAnalysis() {
  *   미리보기도 줄인 사진을 쓰는 이유: 서버로 가는 사진과 화면에 보이는 사진이 같아야 하고, 큰 원본을 9장 들고 있으면 폰 메모리를 많이 쓴다
  * - 새 묶음이 이전 묶음을 바꾸므로, 이전 묶음에 남아 있던(옷장에 넣지 않은) 사진의 주소는 해제한다.
  *   옷장에 넣은 사진은 넣을 때 batch에서 빠지므로 여기서 해제되지 않는다 (옷장 사진으로 계속 쓰임).
+ *   그 옷을 나중에 지우면 store.ts의 deleteItem이 주소를 해제한다 (그 사진을 쓰는 글이 남아 있으면 두고).
  */
 async function startBatch(files: FileList | Blob[] | null) {
   pauseAnalysis()

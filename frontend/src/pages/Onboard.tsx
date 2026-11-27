@@ -6,7 +6,7 @@ import { StyleGrid } from '../components/StyleGrid'
 import { MODES } from '../data/seed'
 import { S, emit, useApp } from '../store'
 
-/** 첫 설정 화면. 진행 상태는 S.ob에 두고, 마지막 단계에서 S.me·S.pref에 넣은 뒤 홈으로 */
+/** 첫 설정 화면. 진행 상태는 S.ob에 두고, 마지막 단계에서 S.me·S.pref에 넣은 뒤 로그인 전에 보던 화면(S.loginBack)으로 */
 export default function Onboard() {
   useApp()
   const nav = useNavigate()
@@ -24,9 +24,13 @@ export default function Onboard() {
     if (v.length < 2) return setErr('닉네임은 2자 이상이에요')
     S.me.nick = v; S.pref.mode = ob.mode; if (ob.mode === 'taste') S.pref.styles = [...ob.styles]; S.onboarded = true
     S.ob = null // 진행 정보를 비워, 첫 설정 주소로 다시 와도 끝난 단계가 그대로 다시 그려지지 않게 한다 (위 Navigate가 홈으로 보냄)
-    // 첫 설정이 끝나면 홈으로만 보냄. "오늘의 코디를 골랐어요" 알림은 홈 화면에 바로 코디가 보여서 군더더기라 띄우지 않는다.
-    // replace로 이동해 방문 기록에서 첫 설정을 지운다. 쌓아 두면 홈에서 뒤로가기했을 때 끝낸 첫 설정 화면이 다시 나왔다
-    nav('/', { replace: true }); emit()
+    // 첫 설정이 끝나면 로그인 전에 보던 화면(S.loginBack)으로 돌려보낸다. 기본값은 홈('/')이다.
+    // 전에는 늘 홈으로 보내서, 글 화면에서 댓글을 쓰려다 로그인하면 첫 설정을 거친 뒤 그 글이 아니라 홈으로 갔다.
+    // 로그아웃하면 onboarded가 풀리므로 다시 로그인할 때마다 같은 일이 생겼다 (코드 리뷰 11/27 5번).
+    // Google 로그인은 앱이 새로 열려서 loginBack이 기본값('/')이라 전처럼 홈으로 간다.
+    // "오늘의 코디를 골랐어요" 알림은 홈 화면에 바로 코디가 보여서 군더더기라 띄우지 않는다.
+    // replace로 이동해 방문 기록에서 첫 설정을 지운다. 쌓아 두면 뒤로가기했을 때 끝낸 첫 설정 화면이 다시 나왔다
+    nav(S.loginBack, { replace: true }); emit()
   }
   return (
     <section className="screen on" id="s-onboard">
