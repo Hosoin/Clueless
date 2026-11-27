@@ -53,10 +53,13 @@ type Status = 'resizing' | 'waiting' | 'analyzing' | 'done' | 'retake' | 'failed
  * - hex: "사진에서 색 뽑기"를 했을 때만 있는 실제 색. 서버가 주는 hex는 지금 쓰지 않는다 (확정 저장을 연결할 때 정함)
  * - file: 서버로 보낼 사진 (1024×1024px JPEG, 남는 곳은 흰 여백). 예시 사진은 앱 안 이미지라 보낼 파일이 없어서 null
  * - draftId: 서버가 DRAFT로 저장한 옷의 id. 확정 저장(confirm)에 쓸 값이라 받아만 둔다. 예시 사진과 가짜 데이터는 서버 id가 아니다
+ * - alias: 확인 창에서 붙인 별명 (선택, 12자까지). 비어 있으면 별명 없이 원래 이름으로 넣는다.
+ *   옷장에 넣을 때 Item.alias가 된다. 서버 옷 API에는 아직 별명 칸이 없어서 앱 안에만 남는다 (11/27)
  */
 type Tile = {
   id: number; img: string | null; file: Blob | null; status: Status; error: string | null; failKind: AnalyzeFailKind | null; draftId: string | null
   name: string | null; cat: Category | null; sub: string | null; color: string | null; material: string | null; hex: string | null
+  alias: string
 }
 
 // 가짜 분석 결과. 예시 사진(아래 DEMO_IDS)과 같은 순서. Figma 3. 옷 등록의 예시(1/6 면, 3/6 울, 6/6 데님)와 값을 맞췄다
@@ -252,7 +255,7 @@ async function startBatch(files: FileList | Blob[] | null) {
   const tiles: Tile[] = list.map((f, i) => ({
     id: ++S.uid, img: f ? null : photo(DEMO_IDS[i % DEMO_IDS.length]) || null, file: null,
     status: f ? 'resizing' : 'waiting', error: null, failKind: null, draftId: null, // 예시 사진은 줄일 것이 없어서 바로 차례를 기다린다
-    name: null, cat: null, sub: null, color: null, material: null, hex: null,
+    name: null, cat: null, sub: null, color: null, material: null, hex: null, alias: '',
   }))
   batch = tiles; cur = 0; autoOpened = false
   emit()
@@ -279,7 +282,7 @@ function putInCloset() {
   const take = batch.filter(isSet)
   // 홈의 선택은 ID 기반이므로 새 옷을 맨 앞에 넣어도 기존 선택이 유지된다
   addItems(take.map((b) => ({
-    id: b.id, name: b.name || `${b.color} ${b.sub || b.cat}`, cat: b.cat!, sub: b.sub, color: b.color!, hex: b.hex, material: b.material,
+    id: b.id, name: b.name || `${b.color} ${b.sub || b.cat}`, alias: b.alias.trim() || null, cat: b.cat!, sub: b.sub, color: b.color!, hex: b.hex, material: b.material,
     rec: 0, tags: [], lastWorn: null, img: b.img || undefined, isNew: true, added: Date.now(),
   })))
   batch = batch.filter((b) => !isSet(b))
@@ -582,6 +585,10 @@ function Confirm() {
           </div>
           <button className="btn full mt8" onClick={() => openColorTable(b)}>색 바꾸기</button>
           <button className="link scanlink" disabled={scanning} onClick={() => { scanning = true; emit(); scanColor(b, () => { scanning = false; b.name = null; emit() }) }}>{scanning ? '색을 뽑는 중이에요' : '사진에서 색 다시 뽑기'}</button>
+          {/* 별명 (11/27): 옷 등록 때부터 붙일 수 있게. 옷 크게 보기의 '별명 붙이기'와 같은 규칙(12자까지, 비우면 원래 이름).
+              입력할 때마다 다시 그리지 않도록 tile에 바로 넣기만 한다 (옷장에 넣을 때 읽음) */}
+          <label className="field2 alias-field"><span>별명 (선택)</span>
+            <input key={b.id} defaultValue={b.alias} maxLength={12} placeholder={`예: 최애 ${b.sub || b.cat || '옷'}`} onChange={(e) => { b.alias = e.target.value }} /></label>
           {/* 재질 칸: 화면에서 잠시 숨김 (2026-11-26). 다시 보이게 하려면 아래 주석을 풀고, 위 import의 MATERIALS도 되살린다.
               AI가 고른 재질 값(b.material)은 그대로 옷에 저장된다
           <h4>재질</h4>
