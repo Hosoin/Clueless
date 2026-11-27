@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.oauth2.client.CommonOAuth2Provider;
 import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenDecoderFactory;
@@ -20,6 +21,8 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.util.StringUtils;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
@@ -41,10 +44,24 @@ class SecurityConfig {
     }
 
     @Bean
+    WebMvcConfigurer closetCsrfCors() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                // Local editing clients need to read the same-session token before writing.
+                registry.addMapping("/api/auth/me").allowedOrigins("http://localhost:5173")
+                        .allowedMethods("GET").allowCredentials(true).exposedHeaders("X-CSRF-TOKEN");
+            }
+        };
+    }
+
+    @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, UserService userService,
             @Value("${closet.security.google.client-id:}") String clientId,
-            @Value("${closet.security.google.client-secret:}") String clientSecret) {
-        http.authorizeHttpRequests(auth -> auth
+            @Value("${closet.security.google.client-secret:}") String clientSecret,
+            @Value("${closet.security.google.success-url}") String successUrl) {
+        http.cors(Customizer.withDefaults())
+                .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/test").permitAll()
                         .anyRequest().authenticated())
                 .requestCache(cache -> cache.disable())
@@ -64,7 +81,7 @@ class SecurityConfig {
                     .loginPage("/oauth2/authorization/google")
                     .userInfoEndpoint(userInfo -> userInfo.oidcUserService(userService))
                     .failureHandler((request, response, failure) -> response.setStatus(HttpStatus.UNAUTHORIZED.value()))
-                    .defaultSuccessUrl("http://localhost:5173/home", true));
+                    .defaultSuccessUrl(successUrl, true));
         }
         return http.build();
     }

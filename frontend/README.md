@@ -4,7 +4,7 @@
 
 ## 요구 사항
 
-- Node.js 20.19 이상 (또는 22.12 이상)
+- Node.js 22.22 이상 (`react-router` 8.5.2가 Node 22.22 이상, `@capacitor/cli` 8.6.2가 22 이상을 요구합니다. CI와 `Dockerfile`도 Node 22를 씁니다)
 - npm
 
 ## 실행 방법
@@ -54,7 +54,7 @@ frontend/
 │  │  └─ error.ts         요청 실패 에러(ApiError)
 │  ├─ data/
 │  │  ├─ types.ts         앱 전체 데이터 모양 (Item, Look, Outfit, Post …)
-│  │  └─ seed.ts          가짜 데이터와 목록 상수 (COLORS, CATS, SUBS, TRENDS, STYLES)
+│  │  └─ seed.ts          가짜 데이터와 목록 상수 (COLORS, MATERIALS, CATS, SUBS, TRENDS, STYLES)
 │  ├─ pages/              화면 하나 = 파일 하나, `export default`
 │  │  ├─ Home.tsx         홈: 오늘의 코디 맞추기, 아바타 보기, 트렌드
 │  │  ├─ Closet.tsx       옷장: 내 옷 / 추천에서 뺀 옷
@@ -109,7 +109,7 @@ data/seed.ts ──(앱이 켜질 때 한 번 복사)──▶ store.ts 의 S �
 6. 화면 이동은 컴포넌트 안에서는 `useNavigate()`, 창 안의 버튼처럼 컴포넌트 밖에서는 `nav.ts`의 `go`를 씁니다.
 
 - 저장은 메모리뿐입니다. 새로고침하면 `seed.ts`의 처음 상태로 돌아갑니다. (`localStorage`도 쓰지 않습니다. 예외로 Google 로그인 직후인지 표시하는 값 하나만 `sessionStorage`에 잠깐 남깁니다)
-- **로그인을 뺀 모든 데이터는 아직 `seed.ts`의 가짜 데이터입니다.** 백엔드는 `closet-service`(8081)와 `recommendation-service`(8082) 두 서비스이고, 옷·추천 같은 업무 API는 아직 없습니다. 로그인만 `closet-service`와 연결되어 있습니다. (아래 [로그인](#로그인-백엔드-연결))
+- **로그인을 뺀 모든 데이터는 아직 `seed.ts`의 가짜 데이터입니다.** 백엔드는 `closet-service`(8081)와 `recommendation-service`(8082) 두 서비스입니다. `closet-service`에는 옷 사진 분석·확정·수정·사진 보기 API가 있지만([`backend/README.md`](../backend/README.md)) 프론트는 아직 연결하지 않았고, 옷 상세·목록 조회·삭제와 추천 API는 아직 없습니다. 로그인만 `closet-service`와 연결되어 있습니다. (아래 [로그인](#로그인-백엔드-연결))
 - API가 열리면 서비스별로 `seed.ts`가 하던 일을 `src/api/`의 요청 함수가 대신합니다. 그때까지는 같은 함수가 가짜 데이터를 돌려주는 방식으로 넘어갑니다. 자세한 방법은 [`docs/API_CONVENTION.md`](docs/API_CONVENTION.md)를 참고하세요.
 - 화면 구성에만 쓰는 보기 상태(`kView`, `cTab` 등)도 `S`에 있어서, 탭을 옮겨 다녀도 유지됩니다.
 
@@ -187,28 +187,29 @@ ssh -i <키 파일 경로> <사용자 이름>@20.41.112.42
 
 ### ② 코드 받기
 
-**처음 배포하는 경우** (VM에 `~/deploy/clueless-frontend` 폴더가 없을 때만):
+프론트는 VM의 홈 폴더에 받아 둔 저장소 폴더 **`~/Clueless`**(저장소 루트)에서 배포합니다.
+
+**처음 배포하는 경우** (VM에 `~/Clueless` 폴더가 없을 때만):
 
 ```bash
-mkdir -p ~/deploy
-git clone -b frontend https://github.com/Hosoin/Clueless.git ~/deploy/clueless-frontend
+git clone -b frontend https://github.com/Hosoin/Clueless.git ~/Clueless
 ```
 
 **두 번째부터** (폴더가 이미 있을 때):
 
 ```bash
-cd ~/deploy/clueless-frontend
+cd ~/Clueless
 git pull
 ```
 
 - `git pull`이 끝나고 `Already up to date.`가 나오면 이미 최신입니다. 새 변경이 있으면 바뀐 파일 목록이 나옵니다.
 - 이 폴더는 **배포 전용**입니다. 여기서 파일을 고치지 마세요. 고치면 다음 `git pull`이 실패합니다.
-- 다른 팀(백엔드·ML)도 같은 VM을 쓰므로, 꼭 이 폴더(`~/deploy/clueless-frontend`)를 씁니다.
+- 다른 팀(백엔드·ML)도 같은 VM을 쓰므로, 프론트 배포는 꼭 이 폴더(`~/Clueless`)에서 합니다. 다른 팀의 폴더에서는 명령을 치지 않습니다.
 
 ### ③ 패키징하기 (이미지 만들기)
 
 ```bash
-cd ~/deploy/clueless-frontend
+cd ~/Clueless
 docker build -t clueless-frontend:latest ./frontend
 ```
 
@@ -274,7 +275,7 @@ curl -I http://localhost
 익숙해지면 VM에 접속한 뒤 아래만 차례로 실행하면 됩니다.
 
 ```bash
-cd ~/deploy/clueless-frontend
+cd ~/Clueless
 git pull
 docker build -t clueless-frontend:latest ./frontend
 docker images clueless-frontend
@@ -321,8 +322,8 @@ docker run --rm -p 5173:80 -e API_UPSTREAM=http://host.docker.internal:8081 clue
 
 - **`/api`는 nginx가 백엔드로 전달합니다.** 개발 서버의 프록시(`vite.config.ts`)와 같은 방식이라, 브라우저에게는 같은 출처로 보여서 CORS 설정 없이도 로그인 쿠키가 같이 갑니다. 그래서 `VITE_CLOSET_API_URL`은 비워 둔 채로 빌드합니다.
 - **`API_UPSTREAM`**: `/api`를 넘길 `closet-service` 주소입니다. 실행할 때 `-e`로 바꿀 수 있습니다. 기본값은 VM의 공용 네트워크(`clueless`) 안에서 쓰는 `http://closet-service:8081`이고([VM에 배포하기](#vm에-배포하기-공용-네트워크)), 내 PC에서 켠 백엔드는 `http://host.docker.internal:8081`입니다. **끝에 `/`나 경로를 붙이지 않습니다.** 붙이면 모든 `/api` 요청이 백엔드의 `/`로 가서 로그인이 안 된 것처럼 보입니다. 기본값의 서비스 이름(`closet-service`)은 백엔드 컨테이너가 공용 네트워크에서 쓸 이름입니다. 백엔드가 꺼져 있어도 nginx는 뜨고, 그동안 `/api` 요청만 502가 됩니다.
-- **포트를 5173으로 여는 이유**: 백엔드가 Google 로그인에 성공하면 `http://localhost:5173`의 앱 주소로 돌려보내도록 고정되어 있습니다(`SecurityConfig.java`). 다른 포트로 열면 로그인 뒤 개발 서버 주소로 돌아갑니다. 백엔드에서 이 주소를 설정으로 바꿀 수 있게 되면 포트를 자유롭게 바꿀 수 있습니다. 같은 포트를 쓰므로 `npm run dev`와 동시에 켤 수 없습니다.
-- **백엔드가 돌려보내는 주소에는 `#`이 있어야 합니다.** 앱은 `HashRouter`라서 화면 주소가 `/#/...`이고, nginx는 늘 `/`만 받습니다. `#` 없이 `/home` 같은 주소로 오면 nginx에 그런 파일이 없어 404가 됩니다. (개발 서버는 없는 경로에도 `index.html`을 줘서 이 문제가 보이지 않습니다) 지금 백엔드는 `/home`으로 보내고 있어 `#/...`로 바꿔 달라고 BE에 요청했습니다. 반영되기 전에는 Docker 이미지에서 Google 로그인 뒤 404가 뜹니다.
+- **포트를 5173으로 여는 이유**: 백엔드가 Google 로그인에 성공하면 돌려보내는 주소의 기본값이 `http://localhost:5173/#`입니다. 다른 포트로 열면 로그인 뒤 개발 서버 주소로 돌아갑니다. 이 주소는 백엔드 환경 변수 `FRONTEND_LOGIN_SUCCESS_URL`로 바꿀 수 있습니다(`application.yml`의 `closet.security.google.success-url`, [`backend/README.md`](../backend/README.md)). 같은 포트를 쓰므로 `npm run dev`와 동시에 켤 수 없습니다.
+- **백엔드가 돌려보내는 주소에는 `#`이 있어야 합니다.** 앱은 `HashRouter`라서 화면 주소가 `/#/...`이고, nginx는 늘 `/`만 받습니다. `#` 없이 `/home` 같은 주소로 오면 nginx에 그런 파일이 없어 404가 됩니다. (개발 서버는 없는 경로에도 `index.html`을 줘서 이 문제가 보이지 않습니다) 백엔드의 기본값(`http://localhost:5173/#`)은 `#`이 들어 있어 그대로 쓰면 됩니다. `FRONTEND_LOGIN_SUCCESS_URL`로 다른 주소를 넣을 때도 `#`을 꼭 넣습니다. 첫 설정으로 보낼지 홈으로 보낼지는 앱이 정하므로(위 [로그인](#로그인-백엔드-연결)) 돌려보내는 주소는 `#`까지만 있으면 됩니다.
 - **`VITE_` 값은 빌드할 때 고정됩니다.** 실행할 때 `-e`로 넘겨도 바뀌지 않고, 바꾸려면 `--build-arg`로 다시 빌드합니다. 빌드 결과를 열면 누구나 볼 수 있으므로 비밀값을 넣지 않습니다.
 - 백엔드·ML 이미지와 전체를 함께 띄우는 `docker-compose.yml`은 BE·ML 팀과 정한 뒤 추가합니다.
 
@@ -349,11 +350,11 @@ docker run --rm -p 5173:80 -e API_UPSTREAM=http://host.docker.internal:8081 clue
 
 **프론트 배포 순서**
 
-명령과 확인 방법은 위의 [배포하기 (VM에 올리기, 따라 하기)](#배포하기-vm에-올리기-따라-하기)에 있습니다. 요약하면 VM의 배포 전용 폴더(`~/deploy/clueless-frontend`)에서 `frontend` 브랜치를 `git pull` → `docker build` → `docker run --network clueless -p 80:80` 순서입니다.
+명령과 확인 방법은 위의 [배포하기 (VM에 올리기, 따라 하기)](#배포하기-vm에-올리기-따라-하기)에 있습니다. 요약하면 VM의 배포 전용 폴더(`~/Clueless`, 저장소 루트)에서 `frontend` 브랜치를 `git pull` → `docker build` → `docker run --network clueless -p 80:80` 순서입니다.
 
 - VM에는 Docker가 설치되어 있고 접속 계정이 `docker` 그룹에 들어 있어야 합니다. VM은 x86_64, 메모리 15GB라 VM 안에서 빌드해도 충분합니다.
 - 공용 네트워크는 VM에서 처음 한 번만 만듭니다(`docker network create clueless`, 이미 만들어 둠).
-- 다른 팀도 같은 VM과 계정을 쓰므로 프론트는 배포 전용 폴더를 따로 씁니다. 같은 폴더에서 누가 `git switch`를 하면 다른 팀의 배포 소스가 바뀝니다.
+- 다른 팀도 같은 VM과 계정을 쓰므로 프론트는 `~/Clueless`에서만 배포합니다. 이 폴더에서 누가 다른 브랜치로 `git switch`를 하면 배포되는 프론트 소스가 바뀌므로, `frontend` 브랜치에 그대로 둡니다.
 - VM에는 **`frontend` 브랜치**(스테이징)를 배포합니다. `frontend-dev`에 머지된 변경은 `frontend-dev → frontend` PR이 머지된 뒤에 VM에 반영됩니다.
 - 빌드를 여러 번 하면 이전 이미지가 쌓입니다. 가끔 `docker image prune -f`로 정리합니다.
 - Azure NSG 인바운드에서 **80(TCP)만** 허용합니다. 8081(백엔드), 8000(ML), 5432(DB)는 외부에 열지 않습니다.
@@ -383,7 +384,7 @@ networks:
 
 1. 도메인 정하기: Google은 리디렉션 주소에 IP를 받지 않습니다. (Azure DNS 이름 또는 `nip.io`)
 2. 프론트: nginx가 `/oauth2/`, `/login/oauth2/`도 백엔드로 넘기고, 배포 빌드의 Google 로그인 주소를 상대 주소로 바꾸기 (지금은 `http://localhost:8081`)
-3. BE: 로그인 성공 주소를 `http://<도메인>/#/onboard`로, Google 콘솔에 `http://<도메인>/login/oauth2/code/google` 등록
+3. BE: 배포 환경의 `FRONTEND_LOGIN_SUCCESS_URL`을 `http://<도메인>/#`로 설정(기본값과 같은 `#` 주소), Google 콘솔에 `http://<도메인>/login/oauth2/code/google` 등록
 
 ## 폰에서 보기
 

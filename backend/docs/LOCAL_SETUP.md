@@ -31,6 +31,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 | `DB_PASSWORD` | 별도로 전달받은 DB 비밀번호 입력. |
 | `DB_CA_CERT` | 템플릿의 `certs/ca.crt` 유지. 공개 CA가 저장소에 있으므로 별도 설치하지 않는다. 기본 `verify-full`이 인증서와 호스트를 확인한다. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | 팀의 Google 웹 애플리케이션 자격증명. **둘 다** 있어야 `closet-service`의 Google 로그인이 활성화된다. |
+| `FRONTEND_LOGIN_SUCCESS_URL` | 로그인 성공 후 이동할 FE 주소(선택). 항목을 생략하면 `http://localhost:5173/home`을 사용한다. |
 
 `bootRun`과 `livePostgresTest`는 `backend/` 기준으로 `.env`와 상대 CA 경로를 읽는다. 기존 OS 환경변수가 `.env`보다 우선하며, 외부 Spring 설정 경로를 명시한 경우 `.env` 자동 로딩이 생략될 수 있다. 값을 바꾸면 앱을 재시작한다. `java -jar`는 이 Gradle 설정을 사용하지 않는다. 실제 `.env`·비밀번호·Client Secret은 Git, 채팅, FE의 `VITE_*`에 넣지 않는다.
 
@@ -56,7 +57,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
    ```
    Windows PowerShell에서는 `./gradlew` 대신 `.\gradlew.bat`을 쓴다.
 
-3. **실제 Google 로그인:** `closet-service`를 실행하고 `http://localhost:8081/oauth2/authorization/google`을 브라우저로 연다. 승인 후 백엔드가 고정 FE 주소 `http://localhost:5173/home`로 `302` 리디렉션하는지 확인한다. Google 콜백은 `http://localhost:8081/login/oauth2/code/google`로 유지한다. FE 서버 실행과 `/home` 라우팅은 별도이며, FE 화면이 열리지 않는 것만으로 로그인 실패를 단정하지 않는다. **처음 사용하는 계정이면 연결된 DB에 실제 회원 행이 생성된다.** 같은 계정으로 재로그인하면 내부 ID를 재사용한다.
+3. **실제 Google 로그인:** `closet-service`를 실행하고 `http://localhost:8081/oauth2/authorization/google`을 브라우저로 연다. 승인 후 백엔드가 설정된 FE 주소(기본 `http://localhost:5173/home`)로 `302` 리디렉션하는지 확인한다. Google 콜백은 `http://localhost:8081/login/oauth2/code/google`로 유지한다. FE 서버 실행과 복귀 경로 라우팅은 별도이며, FE 화면이 열리지 않는 것만으로 로그인 실패를 단정하지 않는다. **처음 사용하는 계정이면 연결된 DB에 실제 회원 행이 생성된다.** 같은 계정으로 재로그인하면 내부 ID를 재사용한다.
 4. **세션 확인:** 같은 브라우저에서 `http://localhost:8081/api/auth/me`를 열어 `200`과 본인 정보를 확인한다. [API 명세의 로그아웃 예시](AUTH_API.md#브라우저-확인-예시)로 `POST /api/auth/logout` → `204`, 다시 `/me` → `401`까지 확인한다. 브라우저로 로그인한 뒤 별도의 `curl`이나 Postman을 열면 세션 쿠키가 공유되지 않는다.
 
 ## 자주 막히는 지점
@@ -67,4 +68,4 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 | Google `redirect_uri_mismatch` | Google 콘솔에 등록한 콜백 URI와 실제 요청의 스킴·호스트·포트·경로가 정확히 일치하는지 확인. |
 | DB 테스트 실패 | `DB_PASSWORD`, `backend/certs/ca.crt` 존재 여부와 DB까지의 네트워크 접근을 확인. CA 검증을 끄는 방식으로 해결하지 않는다. |
 | 로그인 후 `/me`가 `401` 또는 로그아웃이 `403` | 로그인한 브라우저·호스트를 유지하고, `/me`가 내려준 CSRF 헤더를 같은 세션의 POST로 보냈는지 확인. |
-| 성공 후 FE 홈이 열리지 않거나 `/me` 호출이 실패함 | 백엔드의 성공 응답은 `302` → `http://localhost:5173/home`이다. FE 서버·`/home` 라우팅과 `/api/auth/me` 호출용 프록시 또는 CORS 구성은 별도 연동 작업이며 자동 완료되지 않는다. 백엔드 세션은 같은 브라우저에서 `http://localhost:8081/api/auth/me`로 확인한다. |
+| 성공 후 FE 홈이 열리지 않거나 `/me` 호출이 실패함 | `302`의 `Location`이 `FRONTEND_LOGIN_SUCCESS_URL`(기본 `http://localhost:5173/home`)과 일치하는지 확인한다. FE 서버·복귀 경로 라우팅과 `/api/auth/me` 호출용 프록시 또는 CORS 구성은 별도 연동 작업이다. 백엔드 세션은 같은 브라우저에서 `http://localhost:8081/api/auth/me`로 확인한다. |
