@@ -6,7 +6,7 @@ import { Face } from '../components/Face'
 import { writeSheet } from '../sheets'
 import { JPEG_QUALITY, PROFILE_SIDE, resizeImage } from '../image'
 import { openPost, toLogin } from '../nav'
-import { S, emit, useApp } from '../store'
+import { S, setMyTab, updateMyProfile, useApp } from '../store'
 import { askPermission, closeAll, openSheet, toast } from '../ui'
 
 /** MY 화면: 프로필, 내 게시물 / 저장한 글. 로그인하지 않았으면 로그인 안내 */
@@ -31,7 +31,7 @@ export default function My() {
               <button className="btn" style={{ minHeight: 34, padding: '0 12px', fontSize: 12, flexShrink: 0 }} onClick={() => openSheet(() => <Profile />)}>프로필 편집</button></div>
             <div className="stats"><div><b>{mine.length}</b><span>게시물</span></div><div><b>{S.me.followers}</b><span>팔로워</span></div><div><b>{S.followingSet.size}</b><span>팔로잉</span></div></div>
             <div className="tabs">
-              {([['posts', `내 게시물 ${mine.length}`], ['saved', `저장한 글 ${sv.length}`]] as const).map(([k, l]) => <button key={k} className={k === S.myTab ? 'on' : ''} onClick={() => { S.myTab = k; emit() }}>{l}</button>)}
+              {([['posts', `내 게시물 ${mine.length}`], ['saved', `저장한 글 ${sv.length}`]] as const).map(([k, l]) => <button key={k} className={k === S.myTab ? 'on' : ''} onClick={() => setMyTab(k)}>{l}</button>)}
             </div>
             {list.length ? (
               <div className="pgrid">{list.map((p) => (
@@ -82,8 +82,7 @@ function Profile() {
         setE1(n.length < 2 ? '닉네임은 2자 이상이에요' : '')
         setE2(okH(h) ? '' : '영문 소문자, 숫자, 점(.), 밑줄(_)로 3자 이상 적어 주세요')
         if (n.length < 2 || !okH(h)) return
-        S.me.nick = n; S.me.handle = h; S.me.bio = bio.trim(); S.me.photo = photo
-        S.posts.filter((p) => p.mine).forEach((p) => (p.user = h))
+        updateMyProfile({ nick: n, handle: h, bio: bio.trim(), photo })
         closeAll(); toast('프로필을 바꿨어요')
       }}>저장</button>
     </>

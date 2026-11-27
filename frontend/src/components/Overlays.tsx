@@ -4,7 +4,7 @@
 // 창이 열려 있는 동안에는 키보드 포커스를 창 안에 두고, 뒤 화면은 누르거나 Tab으로 갈 수 없게 한다 (접근성, 코드 리뷰 34번).
 import { useEffect, useRef } from 'react'
 import { useApp } from '../store'
-import { O, closeAll } from '../ui'
+import { O, closeAll, handleOverlayPopState } from '../ui'
 
 /** 창이 아닌 것(알림·바깥 어둡게·창)을 고르는 선택자. 폰 틀(#app)의 나머지 자식은 뒤 화면이다 */
 const OVERLAY = '.toast, .scrim, .sheet, .modal'
@@ -19,6 +19,11 @@ export function Overlays() {
   const modalRef = useRef<HTMLDivElement>(null)
   const before = useRef<HTMLElement | null>(null) // 창을 열기 전에 포커스가 있던 곳 (닫으면 돌려준다)
   const top = O.modal ? 'modal' : O.sheet ? 'sheet' : null // 맨 위에 보이는 창
+
+  useEffect(() => {
+    window.addEventListener('popstate', handleOverlayPopState)
+    return () => window.removeEventListener('popstate', handleOverlayPopState)
+  }, [])
 
   // 뒤 화면(위쪽 줄·화면·하단 탭)을 inert로: 창이 열려 있는 동안 누를 수도, Tab으로 갈 수도, 화면 읽기 프로그램이 읽을 수도 없다.
   // 뒤 화면 요소들은 Layout이 그려서 여기서 속성만 붙였다 뗀다. 화면이 바뀌어도 맞게 그릴 때마다 다시 맞춘다
