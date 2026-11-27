@@ -63,6 +63,7 @@ API 주소는 코드에 직접 적지 않고 Vite 환경 변수로 받습니다.
 | 키 | 예시 (로컬) | 설명 |
 | --- | --- | --- |
 | `VITE_CLOSET_API_URL` | 비움 | `closet-service` 주소. 비우면 같은 출처의 `/api`로 요청하고 개발 서버 프록시나 배포 nginx가 백엔드로 넘깁니다. Capacitor 앱으로 빌드할 때만 전체 주소(예: `http://localhost:8081`)를 적습니다. 끝에 `/`를 붙이지 않습니다 (`src/api/client.ts`) |
+| `VITE_CLOSET_LOGIN_URL` | 비움 | Google 로그인을 시작할 백엔드 주소(화면 이동용 전체 주소). 로그인은 화면 이동이라 프록시를 쓸 수 없어서 API 주소와 따로 정합니다. 비우면 `VITE_CLOSET_API_URL`, 그것도 비면 `http://localhost:8081`. 배포 빌드에서는 `<BE 배포 주소>`를 넣습니다 (`src/api/auth.ts`, Dockerfile의 `--build-arg`) |
 | `API_PROXY_TARGET` | `http://localhost:8081` | 개발 서버(`npm run dev`)가 `/api`를 넘길 백엔드 주소. `VITE_`로 시작하지 않아 빌드 결과에는 들어가지 않습니다 (`vite.config.ts`) |
 | `VITE_RECOMMENDATION_API_URL` | `http://localhost:8082` | (예정, 아직 코드가 읽지 않음) `recommendation-service` 주소. 끝에 `/`를 붙이지 않습니다 |
 | `VITE_MOCK_CLOSET` | `true` | (예정, 아직 코드가 읽지 않음) `true`면 `closet-service` 대신 `seed.ts`의 가짜 데이터를 씁니다 |
@@ -243,7 +244,7 @@ BE(`closet-service`)가 이미 구현한 방식이 기준입니다. **Google 소
 | `/test` | GET | 로그인 없이 부를 수 있는 유일한 경로 |
 
 - 위 외의 모든 경로는 로그인이 필요하고, 로그인하지 않으면 로그인 화면으로 보내지 않고 **401**만 돌려줍니다.
-- Google 로그인에 성공하면 BE가 브라우저를 `http://localhost:5173/#`으로 보냅니다(기본값). 첫 설정으로 보낼지 홈으로 보낼지는 앱이 정합니다(아래 앱 흐름). BE 환경 변수 `FRONTEND_LOGIN_SUCCESS_URL`로 이 주소를 바꿀 수 있습니다(`application.yml`의 `closet.security.google.success-url`). 실패하면 화면 이동 없이 401입니다.
+- Google 로그인에 성공하면 BE가 브라우저를 `FRONTEND_LOGIN_SUCCESS_URL`(로컬은 `http://localhost:5173/#`)로 보냅니다. BE 기본값을 `/home`에서 `#`으로 바꾸는 작업은 BE에서 진행 중이라, 지금 로컬 BE를 켤 때는 이 환경 변수를 직접 줍니다. 첫 설정으로 보낼지 홈으로 보낼지는 앱이 정합니다(아래 앱 흐름). BE 환경 변수 `FRONTEND_LOGIN_SUCCESS_URL`로 이 주소를 바꿀 수 있습니다(`application.yml`의 `closet.security.google.success-url`). 실패하면 화면 이동 없이 401입니다.
 - BE에 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` 환경 변수가 없으면 Google 로그인이 꺼져 있어 `/oauth2/authorization/google`이 동작하지 않습니다. 팀원 PC마다 확인합니다.
 - 카카오·Apple 로그인은 BE에 없습니다. 로그인 화면의 두 버튼은 계속 가짜 로그인입니다.
 
@@ -263,6 +264,9 @@ BE(`closet-service`)가 이미 구현한 방식이 기준입니다. **Google 소
 
 - "로그인했는지"의 기준은 **항상 서버**입니다. `S.loggedIn`은 `/me` 결과를 반영하는 값이고, 새로고침하면 `/me`로 다시 정합니다. `localStorage`에 로그인 정보를 저장하지 않습니다. 예외로 "방금 Google 로그인 버튼을 눌렀다"는 표시만 `sessionStorage`에 남겼다가 앱이 다시 열리면 읽고 바로 지웁니다(`api/auth.ts`의 `markGoogleLoginStart`, `takeGoogleLoginReturn`).
 - Google 로그인은 `fetch`가 아니라 **브라우저 화면 이동**(`window.location.href = ...`)으로 시작합니다. Google 화면으로 갔다가 돌아오는 방식이라 `fetch`로는 동작하지 않습니다. 돌아올 때는 페이지가 새로 불러와져 `S`가 초기화되므로, 돌아온 뒤의 로그인 상태는 `/me`로 되찾습니다.
+- `/me`의 `userName`·`nickName`·`email`은 비어 있으면 `null`입니다(`api/auth.ts`의 `Me`). 화면의 닉네임은 `nickName` → `userName` → 빈칸 순서로 정합니다. 가짜 데이터의 닉네임('옷장탐험가')을 남기지 않습니다.
+- 로그인 API(`/me`, 로그아웃)는 **10초**가 지나도 응답이 없으면 끊습니다(`closetFetch`의 `timeoutMs`). 앱을 켤 때 `/me`가 시간 초과·연결 실패·5xx이면 로그인 화면으로 보내되, 401과 달리 [3장](#화면에-보여-주기)의 문구(`'서버에 연결할 수 없어요'`, `'잠시 후 다시 시도해 주세요'`)를 `toast`로 띄웁니다(`api/error.ts`의 `errorText`).
+- Google 로그인 시작 주소는 API 주소와 따로 정합니다(`VITE_CLOSET_LOGIN_URL`, [1장](#환경-변수-키)). API는 같은 출처의 `/api` 프록시로 부르더라도, 로그인은 브라우저가 백엔드 주소로 직접 이동해야 하기 때문입니다. Google이 돌려주는 콜백(`/login/oauth2/code/google`)은 BE가 처리하고, 프론트는 code·state를 다루지 않습니다.
 - `/me`의 응답이 오기 전에는 로그인 화면이나 홈을 그리지 않고 로딩 화면을 보여 줍니다. (`Layout.tsx`가 처음에 무조건 `/login`으로 보내던 부분은 이 흐름으로 바뀌었습니다)
 - 첫 설정(가입) 여부는 지금 BE 응답에 없습니다. 그래서 Google 로그인을 할 때마다 이미 가입한 사람도 첫 설정이 뜹니다. BE가 알려 주면 "방금 로그인 + 첫 설정 안 함"일 때만 첫 설정으로 보냅니다. `BE 확인 필요`
 
@@ -270,7 +274,10 @@ BE(`closet-service`)가 이미 구현한 방식이 기준입니다. **Google 소
 
 - 모든 요청에 `credentials: 'include'`를 붙여 세션 쿠키를 같이 보냅니다. 지금 붙이는 곳은 `client.ts`의 `closetFetch()` 한 곳입니다. (`createRequest()`를 만들면 그 안으로 옮깁니다)
 - **CSRF**: GET이 아닌 요청(지금 BE에서는 POST와 PATCH)에는 `/me` 응답 헤더로 받은 CSRF 토큰을 **같은 헤더 이름으로** 보내야 합니다(지금 이름은 `X-CSRF-TOKEN`). 로그아웃(`POST /api/auth/logout`)과 옷 사진 분석(`POST /api/closet/analyze`)도 마찬가지입니다. 토큰이 없거나 틀리면 403입니다. 헤더 이름은 BE가 응답으로 알려 주므로 코드에 적지 않습니다. 토큰은 메모리에만 두고(`setCsrf`) 새로고침하면 `/me`에서 다시 받습니다. 로그인처럼 세션이 바뀌면 `/me`를 다시 불러 새 토큰을 받습니다(Google 로그인은 앱이 새로 열리므로 시작할 때 받음).
-- 로그아웃에 성공하면 `api/auth.ts`의 `logout()`이 CSRF 토큰을 지우고(`clearCsrf`), 설정 화면(`Settings.tsx`)이 `store.ts`의 `clearMe()`로 `S`의 내 정보를 비운 뒤 로그인 화면으로 보냅니다.
+- **로그아웃**(`api/auth.ts`의 `logout()`)은 서버 로그인일 때만 서버에 요청합니다. 서버 로그인인지는 `/me`가 200이었는지로 `api/auth.ts` 안에서만 기억합니다(`S` 구조는 그대로). 카카오·Apple 가짜 로그인은 서버 요청 없이 끝납니다.
+  - CSRF 토큰이 없으면 `/me`로 먼저 받습니다. 토큰 없이 끝내면 서버 세션이 남은 채 "로그아웃했어요"가 뜹니다. `/me`가 401이면 이미 로그아웃된 것으로 봅니다.
+  - 403(토큰이 없거나 틀림)이면 `/me`로 토큰을 새로 받아 **한 번만** 다시 보냅니다. 그래도 403이면 `'로그아웃하지 못했어요. 새로고침한 뒤 다시 해 주세요'`를 띄우고 로그인 상태를 그대로 둡니다.
+  - 204(또는 이미 끝난 세션의 401)이면 CSRF 토큰을 지우고(`clearCsrf`), 설정 화면(`Settings.tsx`)이 `store.ts`의 `clearMe()`로 `S`의 내 정보를 비운 뒤 로그인 화면으로 보냅니다.
 
 ### 401 처리
 
@@ -281,6 +288,9 @@ BE(`closet-service`)가 이미 구현한 방식이 기준입니다. **Google 소
 ### 개발할 때 주의
 
 - 웹 화면(`localhost:5173`)과 BE(`localhost:8081`)는 출처가 다릅니다. 지금은 개발 서버의 Vite 프록시(`vite.config.ts`)와 배포 이미지의 nginx로 같은 출처의 `/api`처럼 부르므로 CORS 없이도 `/me`를 쿠키와 함께 부를 수 있습니다. ([1장](#주의-웹과-capacitor-앱의-주소))
+- **배포 BE와 연결할 때 지금 막히는 점** (BE의 FE 연동 요약: "FE 세션 전달·동일 오리진 프록시 구성은 미확정"). 프론트에서 우회하지 않고 BE에 요청할 사항입니다. `BE 확인 필요`
+  - 로그인은 BE 도메인으로 이동해 끝나므로 세션 쿠키가 **BE 도메인**에 생깁니다. 개발 서버나 nginx 프록시로 같은 출처의 `/api`를 부르면 그 쿠키가 실리지 않아 로그인 뒤에도 `/me`가 401입니다.
+  - `localhost:5173`에서 BE 주소를 직접 부르면(`VITE_CLOSET_API_URL`) 출처와 사이트가 달라집니다. 세션 쿠키에 `SameSite=None; Secure`가 없어 브라우저가 쿠키를 보내지 않고, 401 응답에 CORS 헤더가 없어 브라우저가 응답을 읽지 못하며, 로그아웃(`POST` + `X-CSRF-TOKEN`) 사전 요청(preflight)에 허용 헤더가 없어 막힙니다.
 - 쿠키 방식은 **Capacitor 앱의 웹뷰에서 잘 붙지 않을 수 있습니다.** 폰 앱까지 쓰려면 BE와 인증 방식을 다시 정해야 할 수 있습니다. `BE 확인 필요`
 - 세션 쿠키와 CSRF 토큰은 `console.log`로 찍거나 커밋하지 않습니다.
 
