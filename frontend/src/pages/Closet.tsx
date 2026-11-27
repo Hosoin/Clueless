@@ -1,5 +1,7 @@
 // 옷장: 내 옷 / 추천 제외 (담당: B)
-import { Fragment, useEffect } from 'react'
+// - Figma v4 3-1: 종류·정렬은 칩, 색은 18색 전부를 한 줄로 좌우로 넘겨 고른다. 옷은 3칸 격자
+// - 정렬은 '최근 넣은 순'만 쓴다. 나머지 기준은 아직 준비 중이라 누르면 알림만 띄운다 (11/27 팀 결정)
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { Plus } from '../components/Icons'
 import { Ph } from '../components/Ph'
@@ -10,6 +12,9 @@ import { toast } from '../ui'
 
 /** 정렬 버튼 (S.cSort는 이 순서의 번호) */
 const SORTS = ['최근 넣은 순', '오래 안 입은 옷', '최근 입은 옷', 'AI 추천 많은 순']
+/** 지금 쓰는 정렬 번호. 0(최근 넣은 순)만 열어 두고, 나머지는 누르면 '준비 중' 알림만 띄운다.
+ *  다른 기준의 정렬 코드는 아래에 그대로 두었으니, 열 때는 이 목록에 번호만 더하면 된다 */
+const READY_SORTS = [0]
 const LONG = 30 // 이 날수 넘게 안 입었으면 '오래 안 입은 옷'
 /** 색 필터 칩의 동그라미 색. 색 목록(COLORS)에 없는 색 이름이면(서버나 사진 분석에서 새 이름이 올 때)
  *  그 색인 옷의 색 코드를, 그것도 없으면 회색을 쓴다. store.ts의 hexOf와 같은 기준 (코드 리뷰 22번) */
@@ -28,7 +33,11 @@ export default function Closet() {
   // S.cTab은 그린 뒤 effect에서 맞춘다 (코드 리뷰 23번)
   const tab = S.cTab !== '전체' && !(cats as string[]).includes(S.cTab) ? '전체' : S.cTab
   useEffect(() => { if (S.cTab !== tab) setClosetTab(tab) }, [tab])
-  const have = [...new Set(items.map((i) => i.color))]
+  // 색 칩: 앱이 아는 18색(COLORS)을 전부 보여 준다. 내가 가진 색만이 아니라 18색을 모두 넘겨 볼 수 있게 (11/27).
+  // 서버·사진 분석에서 18색에 없는 새 색 이름이 오면 그 색도 뒤에 붙인다
+  const have = [...new Set([...Object.keys(COLORS), ...items.map((i) => i.color)])]
+  // 종류 칩 옆 개수 (덧입기는 상의에 포함)
+  const nOf = (t: string) => items.filter((i) => inTab(i, t)).length
   let list = items.filter((i) => inTab(i, tab) && (!S.cColor || i.color === S.cColor))
   if (S.cSort === 0) list = [...list].sort((a, b) => b.added - a.added)
   if (S.cSort === 1) list = list.filter((i) => wornKey(i) > LONG).sort((a, b) => wornKey(b) - wornKey(a) || a.name.localeCompare(b.name, 'ko'))
@@ -44,17 +53,21 @@ export default function Closet() {
 
   return (
     <section className="screen on" id="s-closet">
-      <div className="head"><div className="h1row"><h1>My <i>Wardrobe</i></h1><button className="addplus" aria-label="옷 등록" onClick={() => nav('/upload')}><Plus /></button></div></div>
+      <div className="head"><div className="h1row"><h1>My <i>Wardrobe</i></h1><button className="addbtn" onClick={() => nav('/upload')}><Plus />옷 추가</button></div></div>
       <div className="pad">
         <div className="seg" id="c-seg">
           <button className={S.cView === 'items' ? 'on' : ''} onClick={() => setClosetView('items')}>내 옷</button>
-          <button className={S.cView === 'ex' ? 'on' : ''} onClick={() => setClosetView('ex')}>추천 제외</button>
+          <button className={S.cView === 'ex' ? 'on' : ''} onClick={() => setClosetView('ex')}>추천 제외 {ex.length}</button>
         </div>
         {S.cView === 'items' ? (
           <div>
-            <div className="tabs">{['전체', ...cats].map((t) => <button key={t} className={t === tab ? 'on' : ''} onClick={() => setClosetTab(t)}>{t}</button>)}</div>
-            <div className="sorts" aria-label="정렬">
-              {SORTS.map((s, i) => <Fragment key={s}>{i > 0 && <span />}<button className={i === S.cSort ? 'on' : ''} aria-pressed={i === S.cSort} onClick={() => setClosetSort(i)}>{s}</button></Fragment>)}
+            {/* 종류 칩: 줄이 길면 좌우로 넘긴다 */}
+            <div className="scroller ccat" aria-label="종류">
+              {['전체', ...cats].map((t) => <button key={t} className={`pill ${t === tab ? 'on' : ''}`} aria-pressed={t === tab} onClick={() => setClosetTab(t)}>{t}{t !== '전체' && ` ${nOf(t)}`}</button>)}
+            </div>
+            <div className="scroller csort" aria-label="정렬">
+              {SORTS.map((s, i) => <button key={s} className={`pill ${i === S.cSort ? 'on' : ''}`} aria-pressed={i === S.cSort}
+                onClick={() => READY_SORTS.includes(i) ? setClosetSort(i) : toast(`'${s}' 정렬은 준비 중이에요`)}>{s}</button>)}
             </div>
             {S.cSort === 3 && <p className="note">AI가 오늘의 코디에 많이 넣어 준 옷부터 보여 줘요. 커뮤니티 좋아요와는 관계없어요</p>}
             <div className="scroller" aria-label="색으로 거르기">
@@ -63,10 +76,10 @@ export default function Closet() {
             </div>
             {/* 개수 안내는 제목 밑이 아니라 지금 보는 목록 바로 위에 둠 */}
             <p className="ccount" id="c-count">{count}</p>
-            <div className="grid2">
+            <div className="grid3 cgrid">
               {list.length ? list.map((i) => (
                 <div className="card" key={i.id}>
-                  <Ph item={i} style={{ height: 160 }} />
+                  <Ph item={i} style={{ height: 136 }} />
                   <p className="t">{displayName(i)}</p>
                   <p className="s">{i.cat} · {worn(i)}</p>
                   {i.ex ? <p className="s">추천에서 뺀 옷</p> : i.isNew ? <p className="s pink">새로 넣은 옷</p> : i.rec ? <p className="s">AI 추천 {i.rec}번</p> : <p className="s pink">곧 추천 예정</p>}

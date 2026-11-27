@@ -86,7 +86,7 @@ git push -u origin FE/feat/my-work
 
 | scope | 대상 |
 | --- | --- |
-| `home`, `closet`, `calendar`, `community`, `post`, `my`, `settings`, `login`, `onboard`, `upload` | `src/pages/`의 화면 |
+| `home`, `closet`, `calendar`, `community`, `post`, `my`, `settings`, `login`, `onboard`, `upload`, `withdraw` | `src/pages/`의 화면 |
 | `nav` | 하단 탭과 화면 이동 |
 | `frontend` | 특정 화면이 아닌 프론트엔드 전체 (빌드 설정, 문서, 의존성 등) |
 

@@ -1,9 +1,10 @@
 // 홈: 오늘의 코디를 돌려 맞추고, 아래로 내리면 트렌드 (담당: A)
 // - 제목 아래 스타일 칩(추천·미니멀·캐주얼…)으로 원하는 스타일을 고르면 추천 이유 문구가 그 스타일로 바뀐다
-// - 아래 버튼: [다음 추천 코디] / [이 코디로 입을래요][아바타로 보기]
-// - [아바타로 보기]를 누르면 같은 화면이 'My Avatar' 보기로 바뀐다 (S.view = 'avatar'). 닫기로 룩북으로 돌아옴
-import { useEffect, useLayoutEffect, useRef } from 'react'
-import { Arrow, SpinIc, TabIcon } from '../components/Icons'
+// - Figma v4 2-1: 옷 줄을 위에서부터 아우터 → 덧입기 → 상의 → 하의 순서의 카드 줄로 보여 준다. 줄마다 좌우 화살표·밀기로 바꾸고, 사진을 누르면 고르기
+// - 아래 버튼: [이 코디로 입을래요] / [저장하기][다음 추천 코디]
+// - 위의 '사진으로 보기 / 아바타로 보기'로 같은 화면을 아바타 보기로 바꾼다 (S.view = 'avatar')
+import { useEffect, useRef } from 'react'
+import { Arrow, SpinIc } from '../components/Icons'
 import { Ph, PhPair } from '../components/Ph'
 import { COLORS, STYLES, TRENDS } from '../data/seed'
 import type { Item, Look } from '../data/types'
@@ -18,6 +19,8 @@ declare global {
   interface Window { renderAvatar?: (el: HTMLElement, outfit: unknown) => void }
 }
 
+/** 카드 줄을 위에서부터 놓는 순서: 겉에 입는 옷이 위 (코트 → 재킷 → 덧입기 → 상의 → 하의) */
+const ROW_ORDER: RowKey[] = ['o', 'j', 'm', 't', 'b']
 const rowsOf = (c: Combo): [RowKey, string][] => [
   ['t', c.t ? c.t.cat : '상의'],
   ...EXTRA.filter((k) => S.on[k]).map((k): [RowKey, string] => [k, NAME[k]]),
@@ -43,7 +46,6 @@ function chooseToday(c: Combo) {
 export default function Home() {
   useApp()
   const scrRef = useRef<HTMLElement>(null)
-  const foldRef = useRef<HTMLDivElement>(null)
   // 돌리는 중에 다른 탭으로 가면 타이머를 멈추고 바로 추천 코디에 맞춰 둔다 (나간 뒤에도 emit()이 계속 불리지 않게)
   useEffect(() => () => finishSpin(), []) // finishSpin은 돌릴 때마다 바뀌므로 나가는 시점의 것을 부름
   // 선택한 옷은 줄 순서가 아니라 고유 ID로 유지한다.
@@ -69,52 +71,40 @@ export default function Home() {
     <button className="btn" disabled={isChosen || S.spinning} onClick={() => chooseToday(c)}>{isChosen ? '오늘 코디로 정했어요' : '이 코디로 입을래요'}</button>
   )
 
-  /* 첫 화면 한 장(아래 탭을 뺀 높이)에 코디 사진과 버튼이 모두 들어오게.
-     높이는 창 크기와 하단 탭 높이에 달려 있어서, 홈에 들어올 때 한 번 맞추고 그 뒤로는 창 크기나 탭 높이가 바뀔 때만 다시 맞춘다.
-     의존성 배열([])이 없으면 코디를 돌리는 동안(약 45ms마다 다시 그림) 매번 resize 감지를 뗐다 다시 걸고 높이를 다시 계산했다 */
-  useLayoutEffect(() => {
-    const fit = () => {
-      const scr = scrRef.current, fold = foldRef.current; if (!scr || !fold) return
-      const navh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navh')) || 66
-      fold.style.height = Math.max(520, scr.clientHeight - navh) + 'px'
-    }
-    fit()
-    window.addEventListener('resize', fit)
-    window.visualViewport?.addEventListener('resize', fit)
-    // 하단 탭 높이(--navh)가 바뀌어도 다시 맞춘다. 홈이 처음 그려질 때는 Layout이 아직 탭 높이를 재기 전이라 (자식의 이 effect가
-    // 부모의 effect보다 먼저 돎) 기본값 66px로 계산되므로, Layout이 탭 높이를 잰 뒤 보내는 'navh' 이벤트로 한 번 더 맞춘다
-    window.addEventListener('navh', fit)
-    return () => { window.removeEventListener('resize', fit); window.visualViewport?.removeEventListener('resize', fit); window.removeEventListener('navh', fit) }
-  }, [])
 
-  // 화보 배치: 가장 바깥 아우터를 왼쪽에 크게, 나머지는 오른쪽에 위에서부터 (아우터가 없으면 상의가 크게)
-  const order = rows.map(([k]) => k)
-  const bigK: RowKey = order.includes('o') ? 'o' : order.includes('j') ? 'j' : 't'
-  const rest = order.filter((k) => k !== bigK)
+  // 카드 줄: 겉옷이 위로 오게 ROW_ORDER 순서로 다시 놓는다. 줄 이름은 rowsOf가 정한 것(상의·원피스·덧입기·아우터·하의)을 쓴다
+  const label = Object.fromEntries(rows) as Record<RowKey, string>
+  const order = ROW_ORDER.filter((k) => k in label)
+  // 저장하기: 지금 줄의 코디를 저장한 코디로 남긴다. 줄 키를 코디 칸(Look) 이름으로 옮긴다
+  const look: Look = { top: c.t?.id ?? null, mid: c.m?.id ?? null, jacket: c.j?.id ?? null, outer: c.o?.id ?? null, bottom: c.b?.id ?? null }
+  const savedNow = isSavedLook(look)
   // 돌아가는 중에는 화살표·밀기·빼기를 막는다. 돌기는 시작할 때 잡아 둔 줄 위치·목록으로 멈출 자리를 정하므로,
   // 중간에 줄을 바꾸면 멈춘 자리가 추천 코디가 아닐 수 있다 (코드 리뷰 11/27 1번)
-  const piece = (k: RowKey, big = false) => (
-    <Piece key={k} k={k} item={c[k]} big={big} canStep={L[k].length > 1 && !S.spinning} rolling={S.spinKeys.has(k)}
+  const piece = (k: RowKey) => (
+    <Piece key={k} k={k} label={label[k]} item={c[k]} canStep={L[k].length > 1 && !S.spinning} rolling={S.spinKeys.has(k)}
       off={isExtra(k) ? () => enableExtra(k, false) : undefined} />
   )
+  // 사진으로 보기 / 아바타로 보기 (Figma v4 2-1·2-3). 돌아가는 중에는 바꾸지 않는다
+  const viewSeg = (
+    <div className="vseg" role="group" aria-label="보기">
+      <button className={isAvatar ? '' : 'on'} aria-pressed={!isAvatar} disabled={S.spinning} onClick={() => setView('rows')}>사진으로 보기</button>
+      <button className={isAvatar ? 'on' : ''} aria-pressed={isAvatar} disabled={S.spinning} onClick={() => setView('avatar')}>아바타로 보기</button>
+    </div>
+  )
+  // 추천 이유 칸 아래 줄: 어떤 기준으로 골랐는지 (취향 / 참고한 유행)
+  const ref = S.pref.mode === 'taste'
+    ? <>내 취향 <b>{S.pref.styles.join('·')}</b>에 맞춰 골랐어요</>
+    : tr ? <>참고한 유행 <b>{tr.k}</b> · Google 트렌드 {tr.why}</> : '참고한 유행 없음 · 오래 안 입은 옷 위주로 골랐어요'
 
   return (
     <section className="screen on" id="s-home" ref={scrRef}>
-      <div id="h-fold" ref={foldRef} className="pad">
-        {isAvatar ? (
-          <div className="hhead">
-            <div className="h1row avhead">
-              <h1>My <i>Avatar</i></h1>
-              <button className="link" onClick={() => setView('rows')}>닫기</button>
-            </div>
-            <p className="avsub">홈에서 고른 코디를 입혀 봤어요. 여기서 바꾸면 홈 코디도 같이 바뀌어요</p>
+      <div id="h-fold" className="pad">
+        <div className="hhead">
+          <div className="h1row">
+            {isAvatar ? <h1>My <i>Avatar</i></h1> : <h1>Today’s <i>Look</i></h1>}
+            <span className="hmode">{S.pref.mode === 'taste' ? '내 취향대로' : '요즘 유행대로'}</span>
           </div>
-        ) : (
-          <div className="hhead">
-            <div className="h1row">
-              <h1>Today’s <i>Look</i></h1>
-              <span className="hcount2">{S.spinning ? '맞추는 중' : same ? <><b>{String(S.oi + 1).padStart(2, '0')}</b> / {String(S.outfits.length).padStart(2, '0')}</> : null}</span>
-            </div>
+          {isAvatar ? <p className="avsub">홈에서 고른 코디를 입혀 봤어요. 여기서 바꾸면 홈 코디도 같이 바뀌어요</p> : <>
             <p className="hstyle-k">STYLE · 원하는 스타일로 추천받기</p>
             {/* 스타일 칩: 첫 칸 '추천'은 스타일을 고르지 않은 기본 추천 */}
             <div className="scroller hstyle">
@@ -123,12 +113,34 @@ export default function Home() {
                   onClick={() => { pickedStyle = st; emit() }}>{st ?? '추천'}</button>
               ))}
             </div>
-          </div>
-        )}
+          </>}
+          {viewSeg}
+        </div>
         {!isAvatar ? (
-          <div className={`look ${rest.length ? '' : 'one'} ${S.spinning ? 'spinning' : ''}`} style={{ gridTemplateRows: `repeat(${Math.max(1, rest.length)}, minmax(0, 1fr))` }}>
-            {piece(bigK, true)}
-            {rest.map((k) => piece(k))}
+          <div className={`lookcard ${S.spinning ? 'spinning' : ''}`}>
+            <div className="lc-head">
+              <span className="lc-badge">{S.spinning ? '맞추는 중' : same ? `추천 코디 ${S.oi + 1} / ${S.outfits.length}` : '직접 맞춘 코디'}</span>
+            </div>
+            {order.map((k) => piece(k))}
+            {/* 겹쳐 입기·아래 토글도 줄 구성을 바꾸므로 돌아가는 중에는 막는다 (코드 리뷰 11/27 1번) */}
+            {next && <button className="btn full layerbtn" disabled={S.spinning} onClick={() => { const first = L[next][0]; if (first) selectItem(next, first.id) }}>+ 겹쳐 입기</button>}
+            <div className="why">
+              <p className="eyebrow">Why this look</p>
+              <p className="why-ref">{ref}</p>
+              <p>{why}</p>
+            </div>
+            <div className="hdock2">
+              {wearBtn}
+              <div className="row2">
+                <button className="btn" disabled={S.spinning || savedNow} onClick={() => {
+                  if (saveLook(look)) return toast('이미 저장한 코디예요')
+                  toast('저장했어요. 캘린더의 저장한 코디에서 볼 수 있어요'); emit()
+                }}>{savedNow ? '저장했어요' : '저장하기'}</button>
+                <button className="btn spinbtn" id="h-spin" disabled={S.spinning} onClick={() => spinTo(same ? firstFresh(S.oi + 1) : S.oi)}>
+                  <SpinIc /><span>{S.spinning ? '맞추는 중' : same ? '다음 추천 코디' : '추천 코디로 맞추기'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           <>
@@ -143,41 +155,15 @@ export default function Home() {
                 </div>
               ))}
             </div>
+            {/* 아바타 보기에서는 입기 버튼 하나만 (디자인 2-3) */}
+            <div className="hdock2">{wearBtn}</div>
           </>
         )}
-        <div className="why">
-          <p>{why}</p>
-          {/* 겹쳐 입기·아래 토글도 줄 구성을 바꾸므로 돌아가는 중에는 막는다 (코드 리뷰 11/27 1번) */}
-          {next && <button className="link" disabled={S.spinning} onClick={() => { const first = L[next][0]; if (first) selectItem(next, first.id) }}>+ 겹쳐 입기</button>}
-        </div>
-        {isAvatar ? (
-          // 아바타 보기에서는 입기 버튼 하나만 (디자인 2-3)
-          <div className="hdock2">{wearBtn}</div>
-        ) : (
-          <div className="hdock2">
-            <button className="btn full spinbtn" id="h-spin" disabled={S.spinning} onClick={() => spinTo(same ? firstFresh(S.oi + 1) : S.oi)}>
-              <SpinIc /><span>{S.spinning ? '맞추는 중' : same ? '다음 추천 코디' : '추천 코디로 맞추기'}</span>
-            </button>
-            <div className="row2">
-              {wearBtn}
-              <button className="btn avbtn" disabled={S.spinning} onClick={() => setView('avatar')}><TabIcon name="my" />아바타로 보기</button>
-            </div>
-          </div>
-        )}
       </div>
-      {/* 아바타 보기는 한 화면짜리라 아래 설명과 트렌드는 룩북에서만 보여 준다 */}
+      {/* 아바타 보기는 한 화면짜리라 아래 안내와 트렌드는 사진 보기에서만 보여 준다 */}
       {!isAvatar && <>
       <div className="pad hmore">
-        <div className="match hm mt0">
-          <span className={`dot ${m.hit || S.spinning ? '' : 'grey'}`} />
-          <p>{same ? `${o.reason} · ${m.t}` : m.t}</p>
-        </div>
-        <div className="ref">
-          {S.pref.mode === 'taste'
-            ? <>내 취향 <b>{S.pref.styles.join('·')}</b>에 맞춰 골랐어요</>
-            : tr ? <>참고한 유행 <b>{tr.k}</b> · Google 트렌드 {tr.why}</> : '참고한 유행 없음 · 오래 안 입은 옷 위주로 골랐어요'}
-        </div>
-        <p className="note">{note}</p>
+        {note && <p className="note mt0">{note}</p>}
         <div className="toggles"><button className="tg" aria-pressed={S.fresh} disabled={S.spinning} onClick={() => setFresh(!S.fresh)}>최근 입은 옷 빼고 추천</button></div>
       </div>
       <Trend />
@@ -186,15 +172,12 @@ export default function Home() {
   )
 }
 
-const CAP: Record<RowKey, string> = { t: 'Top', m: 'Layer', j: 'Outer', o: 'Outer', b: 'Bottom' }
-
-/** 화보 한 칸: 누르면 고르기, 좌우로 밀거나 화살표로 바꾸기, 아래에 종류와 이름.
+/** 카드 한 줄: [이전] 사진 · 줄 이름 · 옷 이름 [다음]. 사진·이름을 누르면 고르기 창, 좌우로 밀거나 화살표로 옷을 바꾼다.
  *  canStep이 false면(옷이 한 벌뿐이거나 코디가 돌아가는 중) 화살표·밀기를 막고, 돌아가는 중에는 '빼기'도 막는다 */
-function Piece({ k, item, big, canStep, rolling, off }: { k: RowKey; item: Item | null; big: boolean; canStep: boolean; rolling: boolean; off?: () => void }) {
+function Piece({ k, label, item, canStep, rolling, off }: { k: RowKey; label: string; item: Item | null; canStep: boolean; rolling: boolean; off?: () => void }) {
   const x0 = useRef<number | null>(null), swiped = useRef(false)
-  const cap = item?.cat === '원피스' ? 'Dress' : CAP[k]
   return (
-    <div className={`pc ${big ? 'big' : ''} ${rolling ? 'rolling' : ''}`}
+    <div className={`pc ${rolling ? 'rolling' : ''}`}
       onPointerDown={(e) => { x0.current = e.clientX }}
       onPointerUp={(e) => {
         if (x0.current === null) return
@@ -207,15 +190,16 @@ function Piece({ k, item, big, canStep, rolling, off }: { k: RowKey; item: Item 
       // 남겨 두면 다음에 살짝 탭할 때 예전 위치와의 차이로 계산돼 옆 옷으로 넘어간다 (코드 리뷰 22번)
       onPointerCancel={() => { x0.current = null }}
       onClickCapture={(e) => { if (swiped.current) e.stopPropagation() }}>
+      <button className="pstep" aria-label={`이전 ${NAME[k]}`} disabled={!canStep} onClick={() => stepFit(k, -1)}><Arrow dir={-1} /></button>
       <button className="ph" aria-label={`${NAME[k]} 고르기`} onClick={() => openPicker(k)}>
         {item?.img && <SpinImg src={item.img} rolling={rolling} />}
-        {!item?.img && <p className="lbl">{item ? item.name : '옷이 없어요'}</p>}
+        {!item?.img && <span className="lbl">{item ? item.name : '옷이 없어요'}</span>}
       </button>
-      <div className="pnav">
-        <button aria-label={`이전 ${NAME[k]}`} disabled={!canStep} onClick={() => stepFit(k, -1)}><Arrow dir={-1} /></button>
-        <button aria-label={`다음 ${NAME[k]}`} disabled={!canStep} onClick={() => stepFit(k, 1)}><Arrow dir={1} /></button>
+      <div className="cap">
+        <span>{label}{off && <button disabled={S.spinning} onClick={off}>빼기</button>}</span>
+        <button className="pc-name" onClick={() => openPicker(k)}>{item ? item.name : '옷이 없어요'}</button>
       </div>
-      <div className="cap"><span>{cap}{off && <button disabled={S.spinning} onClick={off}>빼기</button>}</span><p>{item ? item.name : ''}</p></div>
+      <button className="pstep" aria-label={`다음 ${NAME[k]}`} disabled={!canStep} onClick={() => stepFit(k, 1)}><Arrow dir={1} /></button>
     </div>
   )
 }

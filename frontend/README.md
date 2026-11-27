@@ -24,7 +24,7 @@ npm run lint     # oxlint로 코드 검사
 | --- | --- |
 | `src/main.tsx` | 앱 진입점 (글꼴·스타일 불러오기, HashRouter) |
 | `src/App.tsx` | 화면 주소 연결 |
-| `src/pages/` | 화면 하나 = 파일 하나 (홈, 옷장, 옷 등록, 캘린더, 커뮤니티, 글 보기, MY, 설정, 로그인, 첫 설정) |
+| `src/pages/` | 화면 하나 = 파일 하나 (홈, 옷장, 옷 등록, 캘린더, 커뮤니티, 글 보기, MY, 설정, 회원 탈퇴, 로그인, 첫 설정) |
 | `src/components/` | 공통 부품 (폰 틀·하단 탭, 옷 사진 칸, 아이콘, 코디 올리기) |
 | `src/store.ts` | 앱 상태와 추천 규칙. 화면은 `useApp()`으로 읽고, 값을 바꾼 뒤 `emit()`을 부른다 |
 | `src/ui.tsx` | 알림·아래 창·가운데 창 (`toast`, `openSheet`, `openModal`) |
@@ -65,6 +65,7 @@ frontend/
 │  │  ├─ Post.tsx         글 보기: 댓글, 내 옷장과 비교, 따라 입기
 │  │  ├─ My.tsx           MY: 프로필과 내 글
 │  │  ├─ Settings.tsx     설정
+│  │  ├─ Withdraw.tsx     회원 탈퇴 안내 (탈퇴 API 전까지 '준비 중' 알림만)
 │  │  ├─ Login.tsx        로그인 (Google은 백엔드 로그인, 카카오·Apple은 가짜)
 │  │  └─ Onboard.tsx      첫 설정: 추천 방식, 스타일, 닉네임
 │  ├─ components/         여러 화면이 같이 쓰는 부품

@@ -98,39 +98,41 @@ h1 i{font-style:italic}
 #s-home .hhead{padding-top:18px}
 .hcount2{font-family:var(--serif);font-size:13px;color:var(--soft);letter-spacing:.06em}
 .hcount2 b{color:var(--ink);font-weight:500}
+/* Figma v4 2-1: 위에서부터 아우터·덧입기·상의·하의 카드 줄 + 추천 이유 + 버튼을 흰 카드 하나에 담는다 */
 #h-fold{display:flex;flex-direction:column}
-.look{flex:1;min-height:0;display:grid;grid-template-columns:1.15fr 1fr;grid-auto-rows:1fr;gap:6px;margin-top:14px}
-.look.one{grid-template-columns:1fr}
-.pc{position:relative;overflow:hidden;background:var(--ph);min-height:0}
-.pc.big{grid-row:1 / -1}
-.pc>.ph{position:absolute;inset:0;padding:0;cursor:pointer}
-.pc .cap{position:absolute;left:0;right:0;bottom:0;padding:22px 10px 8px;background:linear-gradient(transparent,rgba(0,0,0,.45));color:#fff;pointer-events:none}
-.pc .cap span{display:flex;align-items:center;gap:8px;font-size:9px;letter-spacing:.2em;opacity:.9;text-transform:uppercase}
-.pc .cap span button{pointer-events:auto;background:none;border:none;padding:0;cursor:pointer;color:#fff;font-size:10px;letter-spacing:.04em;text-decoration:underline;text-underline-offset:2px;opacity:1}
-.pc .cap p{margin:2px 0 0;font-size:12px;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* 화보 넘기기 화살표: 보이는 동그라미(26px, 사이 4px, 모서리에서 8px)는 그대로 두고 누르는 자리만 넓힌다.
-   26px만 누를 수 있으면 손가락이 조금만 빗나가도 밑의 사진(옷 고르기 창 열기)이 눌려서.
-   - 누르는 자리: 사진 위 끝부터 동그라미 아래 18px까지(높이 52px), 두 버튼 사이에 빈틈 없이 붙임
-   - 왼쪽(이전) 48px은 왼쪽으로 넓히고, 오른쪽(다음) 36px은 사진 오른쪽 끝까지 닿음
-   - 동그라미(::before)와 화살표(svg)는 버튼 안에서 원래 자리에 절대 위치로 둠 */
-.pc .pnav{position:absolute;top:0;right:0;display:flex;gap:0;z-index:2}
-.pc .pnav button{position:relative;width:48px;height:52px;background:none;border:none;padding:0;color:var(--ink)}
-.pc .pnav button:last-child{width:36px}
-.pc .pnav button::before{content:"";position:absolute;top:8px;right:2px;width:26px;height:26px;border-radius:13px;background:rgba(251,250,248,.92)}
-.pc .pnav button:last-child::before{right:auto;left:2px}
-.pc .pnav button:disabled{display:none}
-.pc .pnav svg{position:absolute;top:15.5px;right:9.5px;width:11px;height:11px}
-.pc .pnav button:last-child svg{right:auto;left:9.5px}
-.pc .ph .chip{top:auto;bottom:10px;right:10px}
-.spinning .pc.rolling .chip{opacity:0}
-.why{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:12px;padding-bottom:12px;border-bottom:1px solid var(--line)}
-.why p{margin:0;font-size:12px;line-height:1.5;font-weight:300}
-.why p b{font-weight:500}
-.why .link{min-height:0;padding:0;font-size:11px;white-space:nowrap}
-.hdock2{flex-shrink:0;padding:12px 0 14px;display:flex;flex-direction:column;gap:8px}
-.hdock2 .spinbtn{margin:0;min-height:48px;display:flex;align-items:center;justify-content:center;gap:10px}
-.hdock2 .row2 .btn{min-height:44px;font-size:12px}
-#s-home .astage{flex:1;height:auto!important;min-height:0;margin-top:14px;border-color:var(--line);background:var(--paper)}
+.hmode{align-self:center;font-size:12px;padding:5px 10px;border:1px solid var(--ink);border-radius:999px;white-space:nowrap}
+.vseg{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:14px;padding:4px;border-radius:12px;background:var(--ph)}
+.vseg button{min-height:40px;border:none;border-radius:9px;background:none;font-size:13px;color:var(--muted)}
+.vseg button.on{background:var(--paper);color:var(--ink);font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.lookcard{margin-top:14px;padding:14px;border-radius:16px;background:var(--paper);display:flex;flex-direction:column;gap:10px}
+.lc-head{display:flex;justify-content:space-between;align-items:center}
+.lc-badge{font-size:12px;font-weight:500;color:var(--ivory);background:var(--ink);border-radius:999px;padding:5px 10px}
+/* 카드 한 줄: [화살표] 사진 · 이름 [화살표] */
+.lookcard .pc{display:flex;flex-direction:row;align-items:center;text-align:left;cursor:default;gap:8px;padding:8px 2px;border-radius:14px;background:var(--ivory);touch-action:pan-y}
+.lookcard .pc .pstep{flex:none;width:36px;height:44px;border:none;background:none;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.lookcard .pc .pstep svg{width:18px;height:18px}
+.lookcard .pc .pstep:disabled{opacity:.25}
+.lookcard .pc .ph{flex:none;width:92px;height:110px;padding:0;border:none;border-radius:10px;overflow:hidden;cursor:pointer;position:relative}
+.lookcard .pc .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.lookcard .pc .ph .lbl{font-size:11px;color:var(--soft);padding:6px}
+.lookcard .pc .cap{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.lookcard .pc .cap span{display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:.04em;color:var(--soft)}
+.lookcard .pc .cap span button{border:none;background:var(--ph);border-radius:6px;padding:2px 7px;font-size:11px;color:var(--ink);cursor:pointer}
+.lookcard .pc .pc-name{border:none;background:none;padding:0;text-align:left;font-size:15px;font-weight:500;color:var(--ink);line-height:1.35;cursor:pointer;word-break:keep-all}
+.lookcard.spinning .pc.rolling .cap{opacity:.5}
+.layerbtn{background:var(--ph);border-color:var(--ph)}
+#s-home .why{display:flex;flex-direction:column;gap:4px;margin:0;padding:12px 14px;border:none;border-radius:12px;background:var(--ph2)}
+#s-home .why .eyebrow{margin:0}
+#s-home .why p{margin:0;font-size:13px;line-height:1.55;font-weight:400;color:var(--muted)}
+#s-home .why .why-ref{color:var(--ink)}
+#s-home .why p b{font-weight:500}
+.hdock2{flex-shrink:0;padding:4px 0 0;display:flex;flex-direction:column;gap:8px}
+.hdock2>.btn{min-height:52px;background:var(--ink);border-color:var(--ink);color:var(--ivory)}
+.hdock2>.btn:disabled{background:var(--muted);border-color:var(--muted)}
+.hdock2 .row2 .btn{min-height:46px;font-size:13px}
+.hdock2 .spinbtn{margin:0;display:flex;align-items:center;justify-content:center;gap:6px}
+/* 아바타 칸: 예전에는 첫 화면 높이에 맞춰 늘렸지만, 카드 줄로 바뀌며 화면 높이를 고정하지 않아서 높이를 직접 준다 */
+#s-home .astage{flex:none;height:440px!important;min-height:0;margin-top:14px;border-color:var(--line);border-radius:16px;background:var(--paper);overflow:hidden}
 #s-home .arows{margin-top:8px;border-top:1px solid var(--line)}
 #s-home .arow{padding:2px 0}
 /* 아바타 보기의 줄 이름 칸: '아우터 빼기'가 한 줄에 들어가게 넓힘 (디자인 2-3) */
@@ -191,3 +193,157 @@ h1 i{font-style:italic}
 .lg-terms button{margin:0;padding:0;border:0;background:none;font:inherit;color:inherit;line-height:inherit;text-decoration:underline;text-underline-offset:2px;vertical-align:baseline}
 /* 창이 열리면 창 자체에 포커스를 두는데(Overlays.tsx), 창 테두리에 포커스 표시는 그리지 않는다. 창 안 버튼의 표시는 그대로 */
 .sheet:focus,.modal:focus{outline:none}
+
+/* ---------- Figma v4 공통 모양 (2026-11-27, Figma '클루리스 앱 화면 v4') ----------
+   각진 쇼핑몰 느낌에서 둥근 카드·버튼·칩으로 바꾼다. 색은 그대로 먹색·아이보리·회색만 쓰고 빨강은 삭제·탈퇴에만.
+   여러 화면이 같이 쓰는 클래스(btn, pill, opt, chips2, field2, sheet, modal, toast, nav)만 여기서 바꾼다.
+   화면별 모양은 각 화면 작업에서 아래에 화면 이름 구역을 따로 만들어 넣는다 */
+
+/* 버튼: 모서리 12px, 글자 조금 크게. 높이는 proto.css의 48px 그대로 */
+/* 바탕색은 정하지 않는다: 카카오(노랑)·Apple(검정)처럼 버튼마다 따로 정한 바탕(proto.css)을 덮지 않게 */
+.btn{border-radius:12px;font-size:14px;font-weight:500;letter-spacing:0;border-color:var(--line)}
+.btn.solid,#cm-write{border-radius:12px;font-weight:500;border-color:var(--ink);background:var(--ink)}
+.spinbtn{border-radius:12px;letter-spacing:.02em;font-weight:500}
+.btn.solid.danger{border-color:var(--danger)}
+
+/* 칩(필터·스타일·종류 고르기): 테두리 없는 연회색 알약, 고르면 먹색 */
+.pill{min-height:38px;padding:0 14px;border:none;border-radius:999px;background:var(--ph);color:var(--ink);font-size:13px}
+.pill.on{background:var(--ink);color:var(--ivory)}
+.pill i{width:14px;height:14px;border-radius:7px;border:1px solid rgba(17,17,17,.15)}
+.chips2 button{min-height:36px;padding:0 14px;border:none;border-radius:999px;background:var(--ph);color:var(--ink);font-size:13px}
+.chips2 button.on{background:var(--ink);color:var(--ivory)}
+/* 고르기 칸(색·세부 종류 등): 흰 바탕에 얇은 테두리, 고르면 먹색 두 줄 테두리 */
+.opt{border-radius:10px;background:var(--paper)}
+.opt.on{font-weight:500}
+.tg,.help,.gear{border-radius:10px}
+
+/* 입력 칸: 모서리 12px, 흰 바탕 */
+.field2 input,.field2 textarea{border-radius:12px;background:var(--paper);padding:12px 14px;font-size:15px}
+
+/* 아래 창: 위 모서리만 둥글게, 위쪽 손잡이 막대, 노란 줄 없앰 */
+.sheet{border-top:none;border-radius:24px 24px 0 0;background:var(--ivory);padding-top:28px}
+.sheet::before{content:"";position:absolute;top:10px;left:50%;width:40px;height:5px;margin-left:-20px;border-radius:3px;background:#D6D1C7}
+/* 가운데 확인창: 둥근 카드 + 테두리·그림자. 뒤 화면과 이어져 보이지 않게 (11/27 피드백) */
+.modal{border-top:none;border-radius:20px;background:var(--ivory);border:1px solid #D6D1C7;box-shadow:0 12px 40px rgba(17,17,17,.28)}
+/* 창 뒤 어두운 막: 먹색 계열로 조금 진하게 */
+.scrim{background:rgba(17,17,17,.42)}
+/* 알림: 둥근 먹색 상자 */
+.toast{border-radius:14px;background:rgba(17,17,17,.92)}
+
+/* 하단 탭: 가운데 홈은 늘 먹색 네모 버튼, 지금 탭은 진한 글자 + 아래 점.
+   글자색 #6F6B66(--soft)은 바탕(아이보리)과 대비 5:1이라 작은 글자도 읽힌다 */
+nav button{font-size:11px;letter-spacing:0;color:var(--soft)}
+nav button svg{stroke-width:1.6}
+nav button.on svg{stroke-width:1.9}
+nav button:nth-child(3) svg{box-sizing:content-box;width:24px;height:22px;padding:8px 12px;border-radius:12px;background:var(--ink);stroke:var(--ivory);stroke-width:1.8}
+nav button:nth-child(3){gap:3px;color:var(--ink);font-weight:500}
+nav button:nth-child(3)::after{display:none}
+/* 위의 .btn 흰 바탕이 '다음 추천 코디'(btn spinbtn) 먹색 바탕을 덮지 않게 다시 정한다 */
+.btn.spinbtn{background:var(--ink);border-color:var(--ink);color:var(--ivory)}
+.btn.spinbtn:disabled{background:var(--muted);border-color:var(--muted)}
+/* 설정의 짧은 칩(3일·7일·14일 등)이 두 줄로 꺾이지 않게 */
+.chips2 button{white-space:nowrap;padding:0 12px}
+
+/* ---------- 로그인 · 첫 설정 (Figma v4 1-1 ~ 1-6) ---------- */
+/* 로그인: 작은 영문 라벨 · 로고 · 한 줄 소개를 화면 가운데에 */
+.lg-main{align-items:center;text-align:center}
+.lg-main .eyebrow{margin:0 0 18px}
+.lg-logo{font-size:38px;letter-spacing:.3em;padding-left:.3em}
+.lg-lead{margin-top:18px;font-size:14px;font-weight:400;color:var(--muted)}
+.lg-acts .btn{min-height:54px;font-size:15px;font-weight:500}
+.lg-google{border-color:var(--line)}
+/* 첫 설정: 진행 막대는 굵고 둥글게, 고르기 칸은 둥근 흰 카드 */
+.ob-bar{height:4px;border-radius:2px;margin:12px 24px 0}
+.ob-bar i{height:4px;border-radius:2px}
+.ob-main{padding:28px 24px 12px}
+.ob-main h2{font-size:27px;font-weight:500;letter-spacing:-.02em}
+.ob-opts{gap:12px}
+.ob-opt{border-radius:16px;padding:20px 18px;border:1.5px solid var(--line);box-shadow:none}
+.ob-opt.on{border-color:var(--ink);box-shadow:none}
+.ob-opt b{font-size:17px;font-weight:500}
+.ob-opt span{font-size:14px;line-height:1.6}
+.ob-opt em{color:var(--ink);font-weight:500}
+.ob-styles{gap:10px}
+.ob-sty{border-radius:14px;border:1.5px solid var(--line);padding:16px;min-height:88px;box-shadow:none}
+.ob-sty.on{border-color:var(--ink);box-shadow:none}
+.ob-sty b{font-size:16px;font-weight:500}
+.ob-sty span{font-size:12px;margin-top:4px}
+.ob-field input{border-radius:12px;min-height:52px}
+.ob-field input:focus{border-width:2px;padding:11px 13px}
+.ob-acts{padding:12px 24px 30px}
+.ob-acts .btn{min-height:54px;font-size:15px}
+/* 저장하기 · 다음 추천 코디 두 버튼 높이를 맞춘다 */
+.hdock2 .row2 .btn{height:48px;min-height:48px}
+/* 이번 달 유행: 순위 목록과 내 옷 사진을 둥근 흰 카드·사진으로 */
+#s-home .list{background:var(--paper);border-radius:16px;padding:2px 16px}
+#s-home .grid3 .ph{border-radius:12px;overflow:hidden}
+#s-home .so{border-radius:16px}
+
+/* ---------- 옷장 (Figma v4 3-1 ~ 3-6) ---------- */
+/* 제목 옆 '옷 추가': 먹색 알약 버튼 */
+.addbtn{flex:none;display:flex;align-items:center;gap:4px;min-height:40px;padding:0 14px;border:none;border-radius:999px;background:var(--ink);color:var(--ivory);font-size:13px;font-weight:500;cursor:pointer;margin-bottom:4px}
+.addbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+/* 종류·정렬·색 칩 줄: 한 줄로 두고 좌우로 넘긴다 (두 줄로 꺾이지 않게) */
+#s-closet .scroller{flex-wrap:nowrap;margin-top:10px}
+#s-closet .scroller.ccat{margin-top:16px}
+#s-closet .scroller .pill{flex:none}
+/* 옷 3칸 격자: 사진 모서리 둥글게, 이름은 두 줄까지 */
+#s-closet .cgrid{margin-top:12px;gap:16px 8px}
+#s-closet .cgrid .ph{border-radius:12px;overflow:hidden}
+#s-closet .cgrid .card .t{font-size:13px;font-weight:500;line-height:1.35;word-break:keep-all}
+#s-closet .cgrid .card .s{font-size:11px}
+/* 추천 제외 목록: 둥근 흰 카드 줄 */
+#s-closet .erow{background:var(--paper);border-radius:14px;padding:10px 12px;margin-bottom:8px;border:none}
+#s-closet .erow .ph{border-radius:10px;overflow:hidden}
+
+/* ---------- 옷 등록 (Figma v4 3-7 ~ 3-18) ---------- */
+/* 확인 창의 색: 색 네모 + 설명 두 줄, 아래 '색 바꾸기' 버튼과 '사진에서 색 다시 뽑기' 글자 버튼 */
+.scan{align-items:center}
+.scan .sw{width:48px;height:48px;border-radius:12px;flex:none}
+.scan p b{font-weight:500}
+.scanlink{display:block;margin:6px auto 0;min-height:40px;padding:0;text-decoration:underline;text-underline-offset:3px}
+/* 색 고르기 표: 18색을 3칸으로, 고른 칸은 먹색 두 줄 테두리 */
+.ctable{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}
+.ccell{min-height:46px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--paper);font-size:13px;color:var(--ink);cursor:pointer}
+.ccell i{width:16px;height:16px;border-radius:8px;border:1px solid rgba(17,17,17,.15);flex:none}
+.ccell.on{border:2px solid var(--ink);padding:0 9px;font-weight:500}
+/* 확인 창 위 진행 막대·사진 */
+.track{border-radius:2px;overflow:hidden}
+.one-ph{border-radius:12px}
+.scan{border:none;padding:0;margin:0 0 4px;gap:14px}
+.scan p{font-size:13px;color:var(--muted)}
+/* 아래 창 위에 가운데 창(예: 색 고르기)이 뜨면 뒤의 아래 창도 어둡게 해서 구분되게 한다 */
+.sheet.on:has(~ .modal.on){filter:brightness(.62)}
+
+/* ---------- MY · 설정 · 회원 탈퇴 (Figma v4 5-4 ~ 5-8) ---------- */
+/* 설정의 '회원 탈퇴': 다른 줄보다 흐린 글자 */
+.wd-link p{color:var(--soft)}
+/* 회원 탈퇴 화면 */
+.wd-title{margin:6px 0 0;font-size:27px;font-weight:500;letter-spacing:-.02em}
+#s-withdraw .sub{margin:8px 0 0;font-size:14px;color:var(--muted)}
+.wd-list{list-style:none;margin:20px 0 0;padding:4px 16px;border-radius:16px;background:var(--paper)}
+.wd-list li{display:flex;justify-content:space-between;align-items:center;min-height:48px;border-bottom:1px solid var(--line);font-size:14px}
+.wd-list li:last-child{border-bottom:none}
+.wd-list b{font-weight:500}
+.wd-note{margin:12px 0 0;padding:14px 16px;border-radius:14px;background:var(--ph);font-size:13px;line-height:1.6;color:var(--muted)}
+.wd-check{display:flex;align-items:center;gap:10px;min-height:48px;margin-top:10px;padding:0;border:none;background:none;font-size:15px;font-weight:500;color:var(--ink);cursor:pointer}
+.wd-check i{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--soft);flex:none;display:flex;align-items:center;justify-content:center}
+.wd-check.on i{background:var(--ink);border-color:var(--ink)}
+.wd-check.on i::after{content:"";width:10px;height:5px;border-left:2px solid var(--ivory);border-bottom:2px solid var(--ivory);transform:rotate(-45deg) translate(1px,-1px)}
+.wd-acts{display:flex;flex-direction:column;gap:8px;margin-top:28px}
+.wd-acts .btn{min-height:54px;font-size:15px}
+/* 설정·MY 공통: 구역을 둥근 흰 카드로 */
+#s-settings .sec,#s-my .sec{background:var(--paper);border-radius:16px;padding:6px 16px 10px;margin-top:14px;border:none}
+
+/* ---------- 캘린더 (Figma v4 4-1 ~ 4-7) ---------- */
+/* 달력과 고른 날 칸을 둥근 흰 카드로, 날짜 칸 사진은 둥글게 */
+#s-cal .calgrid{background:var(--paper);border-radius:16px;padding:10px 8px 12px}
+#s-cal .cday .th img{border-radius:6px}
+#s-cal .calday{background:var(--paper);border-radius:16px;padding:14px;margin-top:14px;border:none}
+#s-cal .calday .ph,#s-cal .saved .ph{border-radius:12px;overflow:hidden}
+
+/* ---------- 커뮤니티 · 글 보기 (Figma v4 5-1 ~ 5-3) ---------- */
+/* 챌린지 띠·글 사진·비교 칸을 둥글게 */
+#s-com .challenge{border-radius:16px}
+#s-com .post img,#s-com .post .ph{border-radius:14px}
+#s-post .cmp,#s-post .so{border-radius:16px}
