@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from 'react'
 import { CMTS, COLORS, ME, MY_CMTS, TRENDS, seedHistory, seedItems, seedOutfits, seedPosts, seedSaved } from './data/seed'
 import type { Comment, Hist, Item, Look, Outfit, Plan, Post, Saved } from './data/types'
+import { daysBetweenDateKeys, formatDateKey, todayDateKey } from './data/dates'
 
 /** 예시 댓글 한 줄([작성자, 내용, 언제, 좋아요, 답글])을 Comment로 바꾼다 */
 const toCmt = (x: (typeof CMTS)[number]): Comment => ({ u: x[0], t: x[1], ago: x[2], likes: x[3] || 0, liked: false, replies: (x[4] || []).map((r) => ({ u: r[0], t: r[1], ago: r[2], likes: r[3] || 0, liked: false, replies: [] })) })
@@ -14,6 +15,15 @@ export function withComments<T extends Post>(p: T): T {
   if (!p.cmList) p.cmList = (p.mine ? MY_CMTS : CMTS).map(toCmt)
   return p
 }
+const initialPosts = () => seedPosts().map(withComments)
+const initialWearState = () => {
+  const history = seedHistory(), items = seedItems()
+  items.forEach((item) => {
+    item.lastWorn = history.filter((record) => record.ids.includes(item.id)).map((record) => record.date).sort().at(-1) ?? null
+  })
+  return { history, items }
+}
+const bootWearState = initialWearState()
 
 /* ---------- 상태 ---------- */
 /** 처음 상태의 내 정보와 추천 취향. 앱을 켤 때와 로그아웃할 때(clearMe) 같은 값으로 시작하려고 함수로 둔다 */
@@ -23,15 +33,19 @@ const newPref = () => ({ mode: 'trend' as 'trend' | 'taste', styles: [] as strin
 const newFollowing = () => new Set(['mina.closet', 'hyun.wear'])
 const newLiked = () => new Set<number>()
 const newSavedPosts = () => new Set([4])
+const newPlans = (): Plan[] => {
+  const d = new Date(); d.setDate(d.getDate() + 2)
+  return [{ date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`, ids: [2, 7, 10] }]
+}
 
 /** 앱 전체 상태 (메모리에만 있어서 새로고침하면 seed.ts의 처음 상태로 돌아간다). 바꾼 뒤에는 emit()을 부른다 */
 export const S = {
-  items: seedItems(), // 내 옷장
+  items: bootWearState.items, // 내 옷장
   outfits: seedOutfits(), // 추천 코디 목록 (홈에서 차례로 돌림)
   saved: seedSaved(), // 저장한 코디
-  history: seedHistory(), // 입은 기록
-  plans: [] as Plan[], // 입을 계획 (캘린더)
-  posts: seedPosts().map(withComments), // 커뮤니티 글
+  history: bootWearState.history, // 입은 기록
+  plans: newPlans(), // 예시: 모레 입을 코디
+  posts: initialPosts(), // 커뮤니티 글
   me: newMe(), // 내 정보. photo: 프로필 사진 (없으면 닉네임 첫 글자)
   pref: newPref(), // 추천 방식(유행·취향)과 좋아하는 스타일
   loggedIn: false, // 로그인했는지 (Google은 서버 세션, 카카오·Apple은 가짜)
@@ -44,7 +58,7 @@ export const S = {
   savedPosts: newSavedPosts(), // 저장한 글 id
   // 홈
   oi: 0, // 지금 보여 주는 추천 코디 번호 (S.outfits의 순서)
-  pos: { t: 0, m: 0, j: 0, o: 0, b: 0 } as Record<RowKey, number>, // 줄마다 고른 옷의 순서 (lists()의 각 줄 기준)
+  pick: { t: 1, m: null, j: null, o: 10, b: 6 } as Record<RowKey, number | null>, // 줄마다 고른 옷의 id
   on: { m: false, j: false, o: true } as Record<ExtraKey, boolean>, // 겹옷 줄(덧입기·재킷·코트)을 켰는지
   fresh: true, // '최근 입은 옷 빼고 추천'을 켰는지
   view: 'rows' as 'rows' | 'avatar', // 룩북(줄) 보기 / 아바타 보기
@@ -71,10 +85,10 @@ export const S = {
 
 let version = 0 // emit()마다 1씩 늘어나는 값. useApp이 이 값으로 다시 그릴지 정한다
 const subs = new Set<() => void>() // 다시 그려야 할 화면들 (useApp이 등록)
-/** 상태를 바꾼 뒤 부른다. 다시 그리기 전에 홈 줄의 위치(S.pos)를 줄 길이에 맞춘다.
- *  옷을 지우거나 추천에서 빼거나 최근 입은 옷 거르기가 바뀌면 줄이 짧아질 수 있어서다.
- *  전에는 홈을 그리는 도중에 맞췄다 (코드 리뷰 23번) */
-export const emit = () => { clampPos(); version++; subs.forEach((f) => f()) }
+const moduleResetters = new Set<() => void>()
+export const registerModuleReset = (reset: () => void) => { moduleResetters.add(reset); return () => moduleResetters.delete(reset) }
+/** 상태 변경 후 ID 기반 홈 선택을 정리하고 구독 중인 화면을 다시 그린다. */
+export const emit = () => { reconcileHomeSelection(); version++; subs.forEach((f) => f()) }
 /** 화면을 subs에 등록하고, 화면이 사라질 때 빼는 함수를 돌려준다 (useSyncExternalStore 규칙) */
 const subscribe = (f: () => void) => { subs.add(f); return () => { subs.delete(f) } }
 /** 상태가 바뀌면 다시 그려지게 함 */
@@ -94,12 +108,8 @@ export const displayName = (it: Item) => it.alias || it.name
 /** 옷 색 코드: 사진에서 뽑은 색 → 색 이름의 기본 색 → 회색 순서 */
 export const hexOf = (it: Item) => it.hex || COLORS[it.color] || '#CCCCCC'
 /** 오늘을 포함해 S.RECENT일 안에 입은 옷인지 (안내 문구용. 추천에서 빼는 기준은 오늘을 뺀 isPast) */
-export const isRecent = (it?: Item | null) => !!it && it.lastWorn !== null && it.lastWorn <= S.RECENT
-/** n일 전 날짜 글자 (예: '11월 20일'). 올해가 아니면 연도를 붙인다 */
-const wornDate = (n: number) => {
-  const t = new Date(); t.setDate(t.getDate() - n)
-  return (t.getFullYear() !== new Date().getFullYear() ? `${t.getFullYear()}년 ` : '') + `${t.getMonth() + 1}월 ${t.getDate()}일`
-}
+export const daysSince = (date: string | null | undefined) => date ? daysBetweenDateKeys(date, todayDateKey()) : null
+export const isRecent = (it?: Item | null) => { const n = it ? daysSince(it.lastWorn) : null; return n !== null && n >= 0 && n <= S.RECENT }
 /* 조사 고르기: 앞 말의 마지막 글자 받침을 보고 고른다. 조사가 필요한 문구는 모두 여기 함수를 쓴다 (코드 리뷰 24번).
    한글이 아닌 글자(영어 아이디, 숫자 등)로 끝나면 받침이 없는 것으로 보고 '는/가/를/로'를 붙인다. */
 /** 마지막 글자의 받침 번호. 0 = 받침 없음, 8 = ㄹ. 한글(가~힣)이 아니면 0 */
@@ -116,19 +126,18 @@ export const eulreul = (w: string) => (jongOf(w) ? '을' : '를')
 /** '으로/로'. ㄹ 받침도 '로'다 (예: 니트로, 데님으로, 팔로워만으로, 원피스 한 벌로) */
 export const euro = (w: string) => { const j = jongOf(w); return j === 0 || j === 8 ? '로' : '으로' }
 /** 마지막으로 입은 때 글자 (오늘 / 어제 / 11월 20일에) */
-const when = (it: Item) => (it.lastWorn === 0 ? '오늘' : it.lastWorn === 1 ? '어제' : `${wornDate(it.lastWorn!)}에`)
+const when = (it: Item) => { const n = daysSince(it.lastWorn); return n === 0 ? '오늘' : n === 1 ? '어제' : `${formatDateKey(it.lastWorn!)}에` }
 /** 최근 입은 옷 안내 문구 (예: '블랙 니트는 어제 입었어요') */
 export const wornNote = (it: Item) => `${it.name}${eun(it.name)} ${when(it)} 입었어요`
 /** 옷 카드에 보이는 마지막으로 입은 날 (아직 안 입음 / 오늘 입음 / 어제 입음 / 11월 20일 입음) */
-export const worn = (it: Item) => (it.lastWorn === null ? '아직 안 입음' : it.lastWorn === 0 ? '오늘 입음' : it.lastWorn === 1 ? '어제 입음' : `${wornDate(it.lastWorn)} 입음`)
-/** n일 전을 글자로 (오늘 / 어제 / 11월 20일) */
-export const dayLabel = (n: number) => (n === 0 ? '오늘' : n === 1 ? '어제' : wornDate(n))
+export const worn = (it: Item) => { const n = daysSince(it.lastWorn); return it.lastWorn === null ? '아직 안 입음' : n === 0 ? '오늘 입음' : n === 1 ? '어제 입음' : `${formatDateKey(it.lastWorn)} 입음` }
+export const dayLabel = (date: string) => { const n = daysSince(date); return n === 0 ? '오늘' : n === 1 ? '어제' : formatDateKey(date) }
 /** 요즘 인기가 오르는 트렌드 키워드를 가진 옷인지 */
 const trendOf = (it?: Item | null) => !!it && it.tags.some((t) => TRENDS.find((x) => x.k === t && x.up))
 /** 오래 안 입은 옷: 90일 넘게 안 입었거나 한 번도 안 입음 */
-const forgotten = (it?: Item | null) => !!it && (it.lastWorn === null || it.lastWorn >= 90)
+const forgotten = (it?: Item | null) => { const n = it ? daysSince(it.lastWorn) : null; return !!it && (n === null || n >= 90) }
 /** 정렬용 '며칠 전에 입었는지'. 안 입은 옷은 가장 오래된 것으로 친다 */
-export const wornKey = (it: Item) => (it.lastWorn === null ? 99999 : it.lastWorn)
+export const wornKey = (it: Item) => daysSince(it.lastWorn) ?? 99999
 
 /** 코디가 어울리는지 한 줄 판단. 유행하는 옷이 하나라도 있으면 hit. 결과: { hit, t(문구) } */
 export function matchText(list: (Item | null | undefined)[]) {
@@ -163,7 +172,7 @@ export const lookIds = (o: Look) => [o.top, o.mid, o.jacket, o.outer, o.bottom]
 /** 코디의 옷들 (지운 옷은 null) */
 const parts = (o: Look) => lookIds(o).map((id) => byId(id) || null)
 // 오늘 고른 옷(0일)은 빼지 않고, 어제부터 RECENT일 안에 입은 옷만 뺌
-export const isPast = (it?: Item | null) => !!it && it.lastWorn !== null && it.lastWorn >= 1 && it.lastWorn <= S.RECENT
+export const isPast = (it?: Item | null) => { const n = it ? daysSince(it.lastWorn) : null; return n !== null && n >= 1 && n <= S.RECENT }
 /** 코디 안의 최근 입은 옷 (isPast) */
 const recentIn = (o: Look) => parts(o).filter(isPast)
 /** from번째부터 차례로 보며 최근 입은 옷이 없는 첫 추천 코디의 번호. 모두 있으면 from 그대로 */
@@ -178,11 +187,12 @@ export const pool = (k: RowKey) => S.items.filter((i) => rowKey(i) === k && !i.e
 export const lists = () => Object.fromEntries(K.map((k) => [k, pool(k)])) as Record<RowKey, Item[]>
 /** 홈 줄에 지금 놓인 옷들. 꺼진 겹옷 줄은 null. dress면 원피스라 하의(b)가 null */
 export type Combo = Record<RowKey, Item | null> & { dress: boolean }
-/** 지금 홈 줄에 놓인 코디 (S.pos, S.on 기준) */
+/** 지금 홈 줄에 놓인 코디 (선택 ID와 S.on 기준) */
 export function current(): Combo {
-  const L = lists(), t = L.t[S.pos.t] || null, dress = !!t && t.cat === '원피스'
-  const c = { t, dress, b: dress ? null : L.b[S.pos.b] || null, m: null, j: null, o: null } as Combo
-  EXTRA.forEach((k) => (c[k] = S.on[k] ? L[k][S.pos[k]] || null : null))
+  const L = lists(), selected = (k: RowKey) => L[k].find((it) => it.id === S.pick[k]) || null
+  const t = selected('t'), dress = !!t && t.cat === '원피스'
+  const c = { t, dress, b: dress ? null : selected('b'), m: null, j: null, o: null } as Combo
+  EXTRA.forEach((k) => (c[k] = S.on[k] ? selected(k) : null))
   return c
 }
 /** 코디를 비교하려고 만드는 글자 (줄 순서대로 옷 id, 빈 칸은 0. 예: '1-0-0-10-6') */
@@ -191,11 +201,14 @@ export const comboKey = (c: Combo) => K.map((k) => (c[k] ? c[k]!.id : 0)).join('
 const outfitKey = (o: Look) => lookIds(o).map((x) => x || 0).join('-')
 /** 코디에서 실제로 입는 옷만 (빈 칸 뺌) */
 export const wearList = (c: Combo) => K.map((k) => c[k]).filter(present)
-/** 줄마다 고른 위치가 줄 길이를 넘지 않게 맞춘다 (빈 줄은 0) */
-export function clampPos() { const L = lists(); for (const k of K) S.pos[k] = Math.max(0, Math.min(S.pos[k], L[k].length - 1)) }
+/** 옷 목록 순서가 바뀌어도 선택 ID를 유지하고, 목록에서 사라진 선택만 안전하게 보정한다. */
+export function reconcilePicks() {
+  const L = lists()
+  for (const k of K) if (!L[k].some((it) => it.id === S.pick[k])) S.pick[k] = L[k][0]?.id ?? null
+}
 
 /**
- * i번째 추천 코디로 홈의 줄(S.pos, S.on)을 맞춘다.
+ * i번째 추천 코디로 홈의 줄(S.pick, S.on)을 맞춘다.
  * 겹옷 줄(덧입기·재킷·코트)은 코디의 옷이 그 줄에 실제로 있을 때만 켠다.
  * 추천에서 뺀 옷은 줄에서 빠지므로, 그 옷을 가리키는 겹을 그대로 켜면 "옷이 없어요"만 뜬 하얀 칸이 생겨서
  * (예: 덧입기가 한 벌뿐인데 그 옷을 뺀 경우). 뺀 옷이 든 코디를 어떻게 다시 짤지는 추천 서버(ML)가 정할 일이라
@@ -214,13 +227,13 @@ export function applyOutfit(i: number) {
   K.forEach((k) => {
     const id = ids[k]; if (!id) return
     const at = L[k].findIndex((x) => x.id === id)
-    if (at >= 0) S.pos[k] = at
+    if (at >= 0) S.pick[k] = L[k][at].id
     else if ((k === 't' || k === 'b') && L[k].length) missing.push(k) // 겹옷은 위에서 줄을 껐으니 따로 고를 필요 없음
   })
   // 못 찾은 칸은 나머지 옷과 가장 잘 어울리는 옷으로. 하의가 있는 코디의 상의 자리에 원피스가 오면 하의가 사라지므로 원피스는 건너뜀
   missing.forEach((k) => {
     const best = ranked(k).find((x) => k !== 't' || x.cat !== '원피스' || !o.bottom)
-    if (best) S.pos[k] = L[k].indexOf(best)
+    if (best) S.pick[k] = best.id
   })
   appliedKey = comboKey(current())
 }
@@ -231,7 +244,7 @@ export function applyOutfit(i: number) {
  * 그러면 버튼이 계속 '추천 코디로 맞추기'로 남아 같은 코디만 반복해서 맞췄다. 그래서 실제로 놓인 모양을 기억해 비교한다.
  * 화면 그리기 상태가 아니라 비교용 값이라 S에 넣지 않고 모듈 안에만 둔다.
  */
-let appliedKey = ''
+let appliedKey = '1-0-0-10-6'
 /** 지금 홈 줄(c)이 마지막으로 맞춘 추천 코디 그대로인지 */
 export const showsOutfit = (c: Combo) => comboKey(c) === appliedKey
 /**
@@ -239,10 +252,10 @@ export const showsOutfit = (c: Combo) => comboKey(c) === appliedKey
  * 켜져 있던 겹옷 줄에 남은 옷이 없으면 끄고(하얀 '옷이 없어요' 칸 방지), 줄마다 고른 위치가 줄 길이를 넘지 않게 맞춘다.
  * 지금 고른 다른 옷은 그대로 둔다.
  */
-export function tidyRows() {
+export function reconcileHomeSelection() {
   const L = lists()
   EXTRA.forEach((k) => { if (S.on[k] && !L[k].length) S.on[k] = false })
-  clampPos()
+  reconcilePicks()
 }
 /**
  * 로그아웃한 뒤 앱에 남은 내 정보를 처음 상태로 비운다 (docs/API_CONVENTION.md 4장).
@@ -253,12 +266,135 @@ export function tidyRows() {
  * 글과 댓글의 좋아요 수(likes)와 앞 사람이 쓴 댓글 자체는 그대로 둔다. 서버가 있으면 다른 사람에게도 남는 값이라서다
  */
 export function clearMe() {
+  S.items.forEach((it) => { if (it.img?.startsWith('blob:')) URL.revokeObjectURL(it.img) })
+  const freshWear = initialWearState()
+  S.items = freshWear.items; S.outfits = seedOutfits(); S.saved = seedSaved(); S.history = freshWear.history; S.plans = newPlans()
   S.me = newMe(); S.pref = newPref()
   S.loggedIn = false; S.onboarded = false; S.ob = null; S.loginBack = '/'
+  S.RECENT = 3; S.defScope = '전체 공개'; S.cmpOn = true
   S.followingSet = newFollowing(); S.liked = newLiked(); S.savedPosts = newSavedPosts()
+  S.posts = initialPosts()
+  S.oi = 0; S.pick = { t: 1, m: null, j: null, o: 10, b: 6 }; S.on = { m: false, j: false, o: true }
+  S.fresh = true; S.view = 'rows'; S.chosenKey = null; S.spinning = false; S.spinKeys.clear()
+  S.kView = 'cal'; S.cView = 'items'; S.cTab = '전체'; S.cColor = null; S.cSort = 0
+  S.cmTab = '인기'; S.chOnly = false; S.myTab = 'posts'; S.postFrom = 'community'
+  S.uid = 100; S.sid = 9; S.pid = 200
+  appliedKey = '1-0-0-10-6'
   // 댓글과 답글을 모두 돌며 내 표시를 푼다 (답글도 Comment라 같은 함수로 내려간다)
   const unmark = (c: Comment) => { c.liked = false; c.me = false; c.replies.forEach(unmark) }
   S.posts.forEach((p) => p.cmList?.forEach(unmark))
+  moduleResetters.forEach((reset) => reset())
+  emit()
+}
+
+/** State actions are kept explicit so they can become API mutations later. */
+export function toggleLike(id: number) {
+  const post = S.posts.find((p) => p.id === id); if (!post) return false
+  const liked = S.liked.has(id)
+  if (liked) { S.liked.delete(id); post.likes = Math.max(0, post.likes - 1) }
+  else { S.liked.add(id); post.likes++ }
+  emit(); return !liked
+}
+export function toggleFollow(user: string) {
+  const following = S.followingSet.has(user)
+  if (following) S.followingSet.delete(user); else S.followingSet.add(user)
+  emit(); return !following
+}
+export function toggleSavedPost(id: number) {
+  const saved = S.savedPosts.has(id)
+  if (saved) S.savedPosts.delete(id); else S.savedPosts.add(id)
+  emit(); return !saved
+}
+export function createPost(post: Omit<Post, 'id'>) {
+  const created = { ...post, id: ++S.pid }
+  S.posts.unshift(created); emit(); return created
+}
+export function updatePost(id: number, updates: Partial<Pick<Post, 'body' | 't' | 'scope' | 'ch'>>) {
+  const post = S.posts.find((item) => item.id === id)
+  if (!post) return false
+  Object.assign(post, updates); emit(); return true
+}
+export function addItems(items: Item[]) {
+  S.items.unshift(...items); emit()
+}
+export function setReplyTo(postId: number, index: number | null) {
+  const post = S.posts.find((item) => item.id === postId)
+  if (post) { post.replyTo = index; emit() }
+}
+export function setPostContext(from: string, postId: number) {
+  S.postFrom = from
+  const post = S.posts.find((item) => item.id === postId); if (post) post.replyTo = null
+  emit()
+}
+export function setPostOrigin(from: string) { S.postFrom = from; emit() }
+export function setLoginBack(path: string) { S.loginBack = path; emit() }
+export function updateMyProfile(profile: { nick: string; handle: string; bio: string; photo: string | null }) {
+  Object.assign(S.me, profile)
+  S.posts.filter((post) => post.mine).forEach((post) => { post.user = profile.handle })
+  emit()
+}
+export function setMyTab(tab: typeof S.myTab) { S.myTab = tab; emit() }
+export function setCalendarView(view: typeof S.kView) { S.kView = view; emit() }
+export function setCommunityTab(tab: string) { S.cmTab = tab; emit() }
+export function toggleChallenge() { S.chOnly = !S.chOnly; emit() }
+export function setClosetView(view: typeof S.cView) { S.cView = view; emit() }
+export function setClosetTab(tab: string) { S.cTab = tab; emit() }
+export function setClosetSort(sort: number) { S.cSort = sort; emit() }
+export function setClosetColor(color: string | null) { S.cColor = color; emit() }
+export function resetClosetFilters() { S.cView = 'items'; S.cSort = 0; S.cTab = '전체'; S.cColor = null; emit() }
+export function setRecentDays(days: number) { changeSelection(() => { S.RECENT = days }) }
+export function setDefaultScope(scope: string) { S.defScope = scope; emit() }
+export function setClosetComparison(enabled: boolean) { S.cmpOn = enabled; emit() }
+export function setPreferenceMode(mode: 'taste' | 'trend') { S.pref.mode = mode; emit() }
+export function setPreferenceStyles(styles: string[]) { S.pref.styles = [...styles]; emit() }
+export function beginLoginSetup() {
+  S.loggedIn = true
+  if (!S.onboarded) S.ob = { step: 'mode', mode: S.pref.mode, styles: [...S.pref.styles], nick: S.me.nick }
+  emit(); return !S.onboarded
+}
+export function acceptServerSession(nick: string, firstGoogleLogin: boolean) {
+  S.loggedIn = true; S.me.nick = nick
+  if (firstGoogleLogin && !S.ob) S.ob = { step: 'mode', mode: S.pref.mode, styles: [...S.pref.styles], nick }
+  emit()
+}
+export function finishOnboarding(nick: string, mode: 'taste' | 'trend', styles: string[]) {
+  S.me.nick = nick; S.pref.mode = mode
+  if (mode === 'taste') S.pref.styles = [...styles]
+  S.onboarded = true; S.ob = null; emit()
+}
+export function updateOnboarding(patch: Partial<NonNullable<typeof S.ob>>) {
+  if (S.ob) { Object.assign(S.ob, patch); emit() }
+}
+export function addComment(postId: number, replyIndex: number | undefined, comment: Comment) {
+  const post = S.posts.find((item) => item.id === postId); if (!post) return false
+  const list = post.cmList ?? (post.cmList = [])
+  if (replyIndex === undefined) list.push(comment)
+  else if (list[replyIndex]) list[replyIndex].replies.push(comment)
+  else return false
+  post.replyTo = null
+  post.cmts++ // cmts is the server's total count; cmList may be a loaded subset
+  emit(); return true
+}
+export function deleteComment(postId: number, index: number, replyIndex?: number) {
+  const post = S.posts.find((item) => item.id === postId), list = post?.cmList
+  if (!post || !list?.[index]) return false
+  if (replyIndex === undefined) {
+    post.cmts = Math.max(0, post.cmts - 1 - list[index].replies.length)
+    list.splice(index, 1)
+    if (post.replyTo === index) post.replyTo = null
+    else if (post.replyTo != null && post.replyTo > index) post.replyTo--
+  } else {
+    if (!list[index].replies[replyIndex]) return false
+    list[index].replies.splice(replyIndex, 1); post.cmts = Math.max(0, post.cmts - 1)
+  }
+  emit(); return true
+}
+export function toggleCommentLike(postId: number, index: number, replyIndex?: number) {
+  const comment = S.posts.find((item) => item.id === postId)?.cmList?.[index]
+  const target = replyIndex === undefined ? comment : comment?.replies[replyIndex]
+  if (!target) return false
+  target.liked = !target.liked; target.likes = Math.max(0, target.likes + (target.liked ? 1 : -1))
+  emit(); return target.liked
 }
 /** 커뮤니티 따라 입기 등: 지정한 옷으로 줄을 맞춤. 줄에 없는 옷(추천에서 뺀 옷)은 건너뜀 */
 export function setCombo(ids: number[]) {
@@ -267,26 +403,42 @@ export function setCombo(ids: number[]) {
   const L = lists()
   ids.forEach((id) => {
     const it = byId(id); if (!it) return
-    const k = rowKey(it), i = L[k].findIndex((x) => x.id === id)
-    if (i < 0) return // 추천에서 뺀 옷은 줄에 없다. 그 겹옷 줄을 켜면 하얀 '옷이 없어요' 칸만 생기므로 건너뜀
-    S.pos[k] = i
+    const k = rowKey(it)
+    if (!L[k].some((x) => x.id === id)) return // 추천에서 뺀 옷은 줄에 없다. 그 겹옷 줄을 켜면 하얀 '옷이 없어요' 칸만 생기므로 건너뜀
+    S.pick[k] = id
     if (isExtra(k)) S.on[k] = true
   })
 }
 /**
- * 홈의 줄 목록이 바뀌는 일(fn)을 해도 지금 고른 옷은 그대로 둔다.
- * 홈은 고른 옷을 옷 id가 아니라 줄 안의 순서(S.pos)로 기억한다. 그래서 옷 등록(맨 앞에 끼워 넣음), 삭제, 추천에서 빼기,
- * 최근 입은 옷 빼기 기준 변경처럼 줄 목록이 바뀌면 같은 번호가 다른 옷을 가리켜, 고른 옷이 저절로 바뀌었다.
- * fn 전에 고른 옷을 기억해 두고, fn 뒤에 그 옷을 줄에서 다시 찾아 번호를 맞춘다.
- * 고른 옷이 줄에서 빠졌으면(지웠거나 추천에서 뺀 옷) 찾을 수 없어 번호를 그대로 두고, 그 번호가 줄 길이를 넘거나
- * 겹옷 줄에 남은 옷이 없으면 tidyRows가 정리한다 (하얀 '옷이 없어요' 칸 방지).
+ * 홈 선택은 옷 ID라 목록 순서 변경과 무관하다. 작업 뒤 사라진 선택 ID와 빈 겹옷 줄만 정리한다.
  */
-export function keepSel(fn: () => void) {
-  const c = current(); fn()
-  const L = lists()
-  for (const k of K) { const it = c[k]; if (it) { const i = L[k].findIndex((x) => x.id === it.id); if (i >= 0) S.pos[k] = i } }
-  tidyRows()
+export function changeSelection(fn: () => void) {
+  fn()
+  reconcileHomeSelection()
   emit()
+}
+export function selectItem(k: RowKey, id: number) {
+  if (!lists()[k].some((item) => item.id === id)) return
+  S.pick[k] = id
+  if (isExtra(k)) S.on[k] = true
+  emit()
+}
+export function enableExtra(k: ExtraKey, enabled: boolean) {
+  changeSelection(() => { S.on[k] = enabled })
+}
+export function setFresh(enabled: boolean) { changeSelection(() => { S.fresh = enabled }) }
+export function setHomeView(view: typeof S.view) { S.view = view; emit() }
+export function restoreHomeSelection(picks: Record<RowKey, number | null>, on: Record<ExtraKey, boolean>) {
+  S.pick = { ...picks }; S.on = { ...on }
+}
+export function beginHomeSpin(on: Record<ExtraKey, boolean>) {
+  S.on = { ...on }; S.spinning = true; S.spinKeys.clear(); emit()
+}
+export function frameHomeSpin(picks: Record<RowKey, number | null>, active: RowKey[]) {
+  S.pick = { ...picks }; S.spinKeys = new Set(active); emit()
+}
+export function finishHomeSpin(picks: Record<RowKey, number | null>, on: Record<ExtraKey, boolean>) {
+  S.pick = { ...picks }; S.on = { ...on }; S.spinning = false; S.spinKeys.clear(); emit()
 }
 
 /* 지금 고른 다른 옷과 얼마나 어울리는지: 색, 유행, 오래 안 입은 옷, 최근 입은 옷 */
@@ -311,9 +463,10 @@ export function ranked(k: RowKey) {
 }
 /** 화살표·밀기: 잘 어울리는 옷부터, 끝에서 처음으로 돌아감 */
 export function stepFit(k: RowKey, d: number) {
-  const L = lists(), r = ranked(k), cur = L[k][S.pos[k]], n = r.length; if (n < 2) return
+  const r = ranked(k), cur = byId(S.pick[k]), n = r.length; if (n < 2) return
+  if (!cur) { S.pick[k] = r[0].id; emit(); return }
   const i = r.indexOf(cur)
-  S.pos[k] = L[k].indexOf(r[(i + d + n) % n])
+  S.pick[k] = r[(i < 0 ? (d > 0 ? 0 : n - 1) : (i + d + n) % n)].id
   emit()
 }
 
@@ -321,30 +474,33 @@ export function stepFit(k: RowKey, d: number) {
 /** 오늘 입은 기록을 이 옷들로 남긴다. 오늘 기록이 이미 있으면 바꾼다 (하루에 하나) */
 function logWear(ps: (Item | null | undefined)[]) {
   const ids = ps.filter(present).map((x) => x.id)
-  const today = S.history.find((h) => h.ago === 0)
-  if (today) today.ids = ids; else S.history.unshift({ ago: 0, ids })
+  const today = todayDateKey(), records = S.history.filter((h) => h.date === today), record = records.find((h) => h.visible !== false) ?? records[0]
+  records.filter((h) => h !== record).forEach((h) => S.history.splice(S.history.indexOf(h), 1))
+  if (ids.length) {
+    if (record) { record.ids = ids; record.visible = true }
+    else S.history.unshift({ date: today, ids, visible: true })
+  } else if (record) S.history.splice(S.history.indexOf(record), 1)
 }
 /**
  * '이 코디로 입을래요': 옷마다 마지막으로 입은 날을 오늘로 하고 입은 기록에 남긴다.
- * 입기 전 값은 prevWorn에 한 번만 남겨, 오늘 기록을 고치거나 지울 때 되돌린다.
+ * 기록을 바꾸면 마지막 착용일은 모든 착용 기록에서 다시 계산한다.
  * 오늘 이미 다른 코디를 입었다면 그 기록은 덮어쓰인다. 그래서 새 코디에서 빠진 옷은
  * '마지막으로 입은 날'을 다시 계산해 원래대로 돌린다 (안 하면 계속 '오늘 입음'으로 남음).
  * 홈의 '오늘 코디로 정했어요' 표시(S.chosenKey)도 푼다. 오늘 코디가 바뀌었으니 예전 표시는 맞지 않다.
  * 홈에서 부를 때는 이 함수 뒤에 chosenKey를 새 코디로 다시 정한다 (Home.tsx chooseToday)
  */
 export function wearToday(ps: Item[]) {
-  const before = S.history.find((h) => h.ago === 0)?.ids ?? [] // 덮어쓰기 전 오늘 입은 옷
-  ps.forEach((it) => { if (it.prevWorn === undefined) it.prevWorn = it.lastWorn; it.lastWorn = 0 })
+  const today = todayDateKey(), before = [...(S.history.find((h) => h.date === today)?.ids ?? [])] // 덮어쓰기 전 오늘 입은 옷
   logWear(ps)
-  before.filter((id) => !ps.some((it) => it.id === id)).forEach(recalcWorn) // 오늘 기록에서 빠진 옷만
+  ;[...new Set([...before, ...ps.map((it) => it.id)])].forEach(recalcWorn)
   S.chosenKey = null
 }
+export function wearComboToday(ps: Item[], key: string) { wearToday(ps); S.chosenKey = key; emit() }
 /** 입은 기록을 고치면 옷마다 마지막으로 입은 날을 다시 계산 */
 export function recalcWorn(id: number) {
   const it = byId(id); if (!it) return
   const hs = S.history.filter((h) => h.ids.includes(id))
-  it.lastWorn = hs.length ? Math.min(...hs.map((h) => h.ago)) : it.prevWorn !== undefined ? it.prevWorn : null
-  if (!hs.some((h) => h.ago === 0)) delete it.prevWorn
+  it.lastWorn = hs.map((h) => h.date).sort().at(-1) ?? null
 }
 /**
  * 이 옷들(ps)이 오늘 입은 코디와 같은지. 오늘 입은 기록(S.history의 ago 0)과 옷이 똑같으면 true.
@@ -352,7 +508,7 @@ export function recalcWorn(id: number) {
  * 기록을 보고 그때그때 판단한다 (캘린더 저장한 코디, 홈 트렌드 코디)
  */
 export function isWornToday(ps: Item[]) {
-  const today = S.history.find((h) => h.ago === 0)
+  const today = S.history.find((h) => h.date === todayDateKey())
   return !!today && ps.length > 0 && today.ids.length === ps.length && ps.every((it) => today.ids.includes(it.id))
 }
 /** 이미 저장한 코디인지. '저장했어요' 표시와 saveLook의 중복 확인이 같이 쓴다 */
@@ -366,10 +522,42 @@ export function saveLook(next: Look) {
 
 /**
  * 옷 삭제: 추천 코디·저장한 코디·입은 기록·입을 계획에서도 함께 빠짐.
- * 홈 줄에서도 옷이 빠지므로 keepSel로 감싸 홈에서 고른 다른 옷이 바뀌지 않게 한다 (keepSel이 끝에 emit)
+ * 홈 선택은 ID 기반이며 삭제 후 빠진 선택만 reconcilePicks가 정리한다.
  */
 export function deleteItem(it: Item) {
-  keepSel(() => removeItem(it))
+  changeSelection(() => removeItem(it))
+}
+export function setExcluded(it: Item, on: boolean) { changeSelection(() => { it.ex = on }) }
+export function setAlias(it: Item, value: string) { it.alias = value.trim() || null; emit() }
+export function deleteSaved(id: number) {
+  const i = S.saved.findIndex((item) => item.id === id)
+  if (i >= 0) { S.saved.splice(i, 1); emit() }
+}
+export function deletePlan(date: string) {
+  const i = S.plans.findIndex((plan) => plan.date === date)
+  if (i >= 0) { S.plans.splice(i, 1); emit() }
+}
+export function savePlan(date: string, ids: number[]) {
+  const plan = S.plans.find((item) => item.date === date)
+  if (plan) plan.ids = [...ids]; else S.plans.push({ date, ids: [...ids] })
+  emit()
+}
+export function saveHistory(date: string, ids: number[]) {
+  const sameDay = S.history.filter((item) => item.date === date)
+  const existing = sameDay.find((item) => item.visible !== false) ?? sameDay[0]
+  const before = sameDay.flatMap((item) => item.ids)
+  sameDay.filter((item) => item !== existing).forEach((item) => S.history.splice(S.history.indexOf(item), 1))
+  if (ids.length) {
+    if (existing) { existing.ids = [...ids]; existing.visible = true }
+    else S.history.push({ date, ids: [...ids], visible: true })
+  } else if (existing) S.history.splice(S.history.indexOf(existing), 1)
+  ;[...new Set([...before, ...ids])].forEach(recalcWorn)
+  if (date === todayDateKey()) S.chosenKey = null
+  emit()
+}
+export function deletePost(id: number) {
+  const i = S.posts.findIndex((post) => post.id === id)
+  if (i >= 0) { S.posts.splice(i, 1); S.savedPosts.delete(id); S.postFrom = '/my'; emit() }
 }
 function removeItem(it: Item) {
   const id = it.id, i = S.items.indexOf(it); if (i < 0) return
@@ -402,34 +590,22 @@ const startOfToday = () => { const t = new Date(); t.setHours(0, 0, 0, 0); retur
 /** 오늘 0시. 앱을 켜 둔 채 자정이 지나면 rollDay()가 새 날로 바꾼다 (let이라 불러 쓰는 쪽도 바뀐 값을 본다) */
 export let TODAY0 = startOfToday()
 /** 날짜 d가 오늘로부터 며칠 전인지 (앞날이면 음수) */
-export const agoOf = (d: Date) => Math.round((TODAY0.getTime() - d.getTime()) / 86400000)
+export const agoOf = (d: Date) => daysBetweenDateKeys(dkey(d), todayDateKey())
 
-/** 날짜가 바뀌었으면 오늘을 새 날로 옮기고, "며칠 전"으로 저장한 값을 지난 날 수만큼 늘린다.
- *  입은 기록(Hist.ago)과 마지막으로 입은 날(lastWorn, prevWorn)은 오늘 기준 며칠 전이라서,
- *  오늘만 바꾸면 어제 입은 옷이 계속 "오늘 입음"으로 남는다. 계획(Plan)은 날짜로 저장해서 그대로 둔다.
+/** 날짜 변경은 날짜를 기준으로 계산하며, 기록과 마지막 착용일은 수정할 필요가 없다.
  *  결과: 날짜가 바뀌었으면 true (화면을 다시 그림) (코드 리뷰 19번) */
 export function rollDay(): boolean {
   const now = startOfToday()
-  const days = Math.round((now.getTime() - TODAY0.getTime()) / 86400000)
-  if (days <= 0) return false
+  if (dkey(now) === dkey(TODAY0)) return false
   TODAY0 = now
-  S.history.forEach((h) => { h.ago += days })
-  S.items.forEach((it) => {
-    if (it.lastWorn !== null) it.lastWorn += days
-    if (typeof it.prevWorn === 'number') it.prevWorn += days
-  })
   S.chosenKey = null // "오늘 코디로 정했어요"는 어제 일이 됨
   emit()
   return true
 }
-// 1분마다, 그리고 앱으로 돌아왔을 때(폰에서 다른 앱을 쓰다 돌아오거나 탭을 다시 볼 때) 날짜가 바뀌었는지 확인한다
-setInterval(rollDay, 60_000)
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') rollDay() })
 /** 날짜 d의 입은 기록 (없으면 undefined) */
-export const wornOn = (d: Date) => S.history.find((h) => h.ago === agoOf(d))
+export const wornOn = (d: Date) => S.history.find((h) => h.date === dkey(d) && h.visible !== false)
 /** 날짜 d의 입을 계획 (없으면 undefined) */
 export const planOn = (d: Date) => S.plans.find((p) => p.date === dkey(d))
-;(() => { const d = new Date(TODAY0); d.setDate(d.getDate() + 2); S.plans.push({ date: dkey(d), ids: [2, 7, 10] }) })() // 예시: 모레 입을 코디
 
 /* ---------- 커뮤니티 ---------- */
 /** 글의 입은 옷 중 내 옷장에 있는 옷의 수 (따라 입기, 비슷한 옷 안내에 씀) */
@@ -438,5 +614,3 @@ export const owned = (p: Post) => p.wear.filter((w) => w[2] && byId(w[2])).lengt
  *  앞의 기호·숫자를 모두 지우고 첫 글자를 쓴다 (g가 없으면 앞 기호를 하나만 지웠다, 코드 리뷰 24번) */
 export const ini = (u: string) => (u || '?').replace(/[^a-z가-힣]/gi, '').slice(0, 1).toUpperCase()
 
-/* 처음엔 돌리지 않고 추천 코디 1번을 바로 보여 줌 */
-applyOutfit(firstFresh(0))

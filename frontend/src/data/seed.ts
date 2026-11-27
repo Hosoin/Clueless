@@ -1,5 +1,6 @@
 // 가짜 데이터 (프로토타입과 같음). 나중에 진짜 API로 바꿀 때 이 파일 대신 서버에서 받아 온다.
 import type { Item, Outfit, Saved, Hist, Post, Trend } from './types'
+import { dateKeyDaysAgo } from './dates'
 
 const clothes = import.meta.glob('../assets/clothes/*.jpg', { eager: true, import: 'default' }) as Record<string, string>
 const pics = import.meta.glob('../assets/community/*.jpg', { eager: true, import: 'default' }) as Record<string, string>
@@ -41,7 +42,8 @@ export const TRENDS: Trend[] = [
 const CREDITS: Record<number, string> = { 1: 'Yuliia Pakhomova', 2: 'Nynne Schrøder', 3: 'Alex Larrondo', 4: 'Avtar Singh', 5: 'Muhammad Rizwan', 13: 'Clara Dickieson', 6: 'happy face emoji', 7: 'Reza Shahriari', 8: 'Melbin Jacob', 9: 'Matthew Ye', 10: 'Margo Evardson', 11: 'Lea Ochel', 12: 'Engin Akyurt' }
 
 // lastWorn: 며칠 전에 입었는지 (null = 아직 안 입음)
-const raw: Omit<Item, 'img' | 'credit'>[] = [
+type SeedItem = Omit<Item, 'img' | 'credit' | 'lastWorn'> & { lastWorn: number | null }
+const raw: SeedItem[] = [
   { id: 1, name: '아이보리 오버핏 니트', cat: '상의', color: '아이보리', rec: 1, tags: ['오버핏 니트'], lastWorn: 120, added: 12 },
   { id: 2, name: '그레이 오버핏 니트', cat: '상의', color: '그레이', rec: 0, tags: ['오버핏 니트'], lastWorn: 200, added: 11 },
   { id: 3, name: '블랙 오버핏 니트', cat: '상의', color: '블랙', rec: 2, tags: ['오버핏 니트'], lastWorn: 14, added: 10 },
@@ -59,7 +61,7 @@ const raw: Omit<Item, 'img' | 'credit'>[] = [
   { id: 14, name: '블랙 벨벳 뷔스티에', cat: '덧입기', color: '블랙', rec: 0, tags: ['뷔스티에'], lastWorn: 60, added: 14 },
   { id: 16, name: '차콜 와이드 슬랙스', cat: '하의', color: '차콜', rec: 0, tags: [], lastWorn: 9, added: 16 },
 ]
-export const seedItems = (): Item[] => raw.map((i) => ({ ...i, tags: [...i.tags], img: photo(i.id), credit: CREDITS[i.id] }))
+export const seedItems = (): Item[] => raw.map((i) => ({ ...i, lastWorn: i.lastWorn === null ? null : dateKeyDaysAgo(i.lastWorn), tags: [...i.tags], img: photo(i.id), credit: CREDITS[i.id] }))
 
 // 오늘의 추천 코디 (jacket = 재킷, outer = 코트·패딩)
 export const seedOutfits = (): Outfit[] => [
@@ -78,9 +80,22 @@ export const seedSaved = (): Saved[] => [
   { id: 9, top: 1, bottom: 16, outer: 10, at: '10월 27일' },
 ]
 
-export const seedHistory = (): Hist[] => [
-  { ago: 1, ids: [4, 9] }, { ago: 14, ids: [3, 6] }, { ago: 20, ids: [12, 10] }, { ago: 45, ids: [5, 8] },
-]
+export const seedHistory = (): Hist[] => {
+  const now = new Date()
+  const visible: Hist[] = [
+    { date: dateKeyDaysAgo(1, now), ids: [4, 9] }, { date: dateKeyDaysAgo(14, now), ids: [3, 6] }, { date: dateKeyDaysAgo(20, now), ids: [12, 10] }, { date: dateKeyDaysAgo(45, now), ids: [5, 8] },
+  ]
+  // The old sample stored older wear dates on each item without showing those dates in Calendar.
+  // Preserve their meaning as hidden history records so lastWorn can now be derived from history.
+  const legacy = new Map<string, number[]>()
+  raw.forEach((item) => {
+    if (item.lastWorn === null) return
+    const date = dateKeyDaysAgo(item.lastWorn, now)
+    if (visible.some((record) => record.date === date && record.ids.includes(item.id))) return
+    legacy.set(date, [...(legacy.get(date) ?? []), item.id])
+  })
+  return [...visible, ...[...legacy].map(([date, ids]) => ({ date, ids, visible: false }))]
+}
 
 export const ME = { nick: '옷장탐험가', handle: 'closet.explorer', bio: '1년 넘게 안 입은 옷 다시 입는 중', followers: 128 }
 

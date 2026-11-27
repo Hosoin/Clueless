@@ -14,8 +14,7 @@ export type Item = {
   material?: string | null // 재질 (면·니트·데님 등). MATERIALS의 값. 모르면 없음. 노션 테이블 명세서 closet_items.material(선택)과 같은 칸
   rec: number // AI가 오늘의 코디에 넣어 준 횟수
   tags: string[] // 트렌드 키워드
-  lastWorn: number | null // 며칠 전에 입었는지, null = 아직 안 입음
-  prevWorn?: number | null // 오늘 입기 전 기록 (입은 기록을 고칠 때 되돌림)
+  lastWorn: string | null // 마지막으로 입은 날짜(YYYY-MM-DD), null = 아직 안 입음
   added: number // 옷장에 넣은 순서. 클수록 최근 (예시 옷은 작은 수, 새로 등록한 옷은 Date.now()). '최근 넣은 순' 정렬에 씀
   img?: string // 옷 사진 주소. 없으면 사진 자리만 보임
   credit?: string // 예시 사진의 Unsplash 작가 이름 (크게 보기에 출처로 보여 줌)
@@ -29,8 +28,8 @@ export type Look = { top?: number | null; mid?: number | null; jacket?: number |
 export type Outfit = Look & { ref: string; reason: string }
 /** 저장한 코디: 코디 + id + at(저장한 날 글자, 예: '11월 26일') */
 export type Saved = Look & { id: number; at: string }
-/** 입은 기록: ago(오늘로부터 며칠 전, 0 = 오늘)에 입은 옷 id 목록. 날짜가 바뀌면 store.ts의 rollDay가 ago를 늘린다 */
-export type Hist = { ago: number; ids: number[] }
+/** 입은 기록: 입은 날짜(YYYY-MM-DD)와 옷 id 목록. visible:false는 예전 lastWorn 값에서 옮긴 기록으로 달력 표시를 보존한다. */
+export type Hist = { date: string; ids: number[]; visible?: boolean }
 /** 입을 계획: date(YYYY-MM-DD, store.ts의 dkey)에 입을 옷 id 목록 */
 export type Plan = { date: string; ids: number[] }
 /** 이번 달 유행: k(키워드, 옷의 tags와 비교), up(인기가 오르는지), why(이유 문구) */
@@ -48,12 +47,12 @@ export type Post = {
   ago: string // 올린 때 글자 (예: '2시간 전', '방금')
   ch: boolean // '1년 안 입은 옷 꺼내 입기' 챌린지 참여 글
   likes: number
-  cmts: number // 댓글 수
   t: string // 피드에 보이는 제목 (26자까지)
   body: string // 본문 (설명)
   wear: [string, string, number | null, ('same' | 'like')?][] // 입은 옷마다 [이름, 색 코드, 내 옷장의 옷 id(없으면 null), 같은 옷 'same' / 비슷한 옷 'like']
   mine?: boolean // 내가 올린 글
   scope?: string // 공개 범위 ('전체 공개' / '팔로워만')
   cmList?: Comment[] // 댓글 목록. 가짜 데이터 글은 store.ts의 withComments가 예시 댓글로 채우고, 새로 올린 글은 빈 목록으로 시작한다
+  cmts: number // 서버가 아는 전체 댓글 수. cmList는 화면에 불러온 댓글만 담을 수 있다
   replyTo?: number | null // 지금 답글을 다는 댓글의 순서 (없으면 null)
 }
