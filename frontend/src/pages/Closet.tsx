@@ -23,10 +23,6 @@ export default function Closet() {
   useApp()
   const nav = useNavigate()
   const items = S.items
-  const count = S.cView === 'ex' ? `추천에서 뺀 옷 ${items.filter((i) => i.ex).length}벌`
-    : S.cSort === 1 ? `${LONG}일 넘게 안 입은 옷 ${items.filter((i) => wornKey(i) > LONG).length}벌`
-    : S.cSort === 2 ? `최근 ${LONG}일 안에 입은 옷 ${items.filter((i) => wornKey(i) <= LONG).length}벌`
-    : `총 ${items.length}벌`
   const cats = CATS.filter((c) => c !== '덧입기' && items.some((i) => inTab(i, c))) // 옷이 한 벌도 없는 종류는 탭을 숨김
   // 고른 종류의 옷이 다 없어져 탭이 사라졌으면 '전체'를 보여 준다. 그리는 중에는 S를 바꾸지 않고 보여 줄 탭만 따로 계산하고,
   // S.cTab은 그린 뒤 effect에서 맞춘다 (코드 리뷰 23번)
@@ -38,6 +34,12 @@ export default function Closet() {
   if (S.cSort === 1) list = list.filter((i) => wornKey(i) > LONG).sort((a, b) => wornKey(b) - wornKey(a) || a.name.localeCompare(b.name, 'ko'))
   if (S.cSort === 2) list = list.filter((i) => wornKey(i) <= LONG).sort((a, b) => wornKey(a) - wornKey(b) || a.name.localeCompare(b.name, 'ko'))
   if (S.cSort === 3) list = [...list].sort((a, b) => b.rec - a.rec)
+  // 목록 바로 위에 보여 주는 개수. 종류 탭·색·정렬로 걸러 낸 목록(list)의 수로 센다.
+  // 전에는 옷장 전체(items)로 세서, '하의' 탭이나 '블랙' 필터를 켜도 '총 16벌'처럼 전체 수가 보였다 (코드 리뷰 11/27 4번)
+  const count = S.cView === 'ex' ? `추천에서 뺀 옷 ${items.filter((i) => i.ex).length}벌`
+    : S.cSort === 1 ? `${LONG}일 넘게 안 입은 옷 ${list.length}벌`
+    : S.cSort === 2 ? `최근 ${LONG}일 안에 입은 옷 ${list.length}벌`
+    : `총 ${list.length}벌`
   const set = (f: () => void) => { f(); emit() }
   const ex = items.filter((i) => i.ex)
 
