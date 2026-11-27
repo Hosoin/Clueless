@@ -111,7 +111,7 @@ data/seed.ts ──(앱이 켜질 때 한 번 복사)──▶ store.ts 의 S �
 6. 화면 이동은 컴포넌트 안에서는 `useNavigate()`, 창 안의 버튼처럼 컴포넌트 밖에서는 `nav.ts`의 `go`를 씁니다.
 
 - 저장은 메모리뿐입니다. 새로고침하면 `seed.ts`의 처음 상태로 돌아갑니다. (`localStorage`도 쓰지 않습니다. 예외로 Google 로그인 직후인지 표시하는 값 하나만 `sessionStorage`에 잠깐 남깁니다)
-- **로그인을 뺀 모든 데이터는 아직 `seed.ts`의 가짜 데이터입니다.** 백엔드는 `closet-service`(8081)와 `recommendation-service`(8082) 두 서비스입니다. `closet-service`에는 옷 사진 분석·확정·수정·사진 보기 API가 있지만([`backend/README.md`](../backend/README.md)) 프론트는 아직 연결하지 않았고, 옷 상세·목록 조회·삭제와 추천 API는 아직 없습니다. 로그인만 `closet-service`와 연결되어 있습니다. (아래 [로그인](#로그인-백엔드-연결))
+- **로그인을 뺀 모든 데이터는 아직 `seed.ts`의 가짜 데이터입니다.** 백엔드는 `closet-service`(8081)와 `recommendation-service`(8082) 두 서비스입니다. `closet-service`에는 옷 사진 분석·확정·수정·사진 보기 API가 배포되어 있고, 옷 목록·상세 조회·삭제 API는 코드에 있지만 아직 배포 전입니다(API 명세: [`backend/docs/FE_API_HANDOFF.md`](../backend/docs/FE_API_HANDOFF.md)). 프론트는 아직 연결하지 않았고, 추천 API는 아직 없습니다. 로그인만 `closet-service`와 연결되어 있습니다. (아래 [로그인](#로그인-백엔드-연결))
 - API가 열리면 서비스별로 `seed.ts`가 하던 일을 `src/api/`의 요청 함수가 대신합니다. 그때까지는 같은 함수가 가짜 데이터를 돌려주는 방식으로 넘어갑니다. 자세한 방법은 [`docs/API_CONVENTION.md`](docs/API_CONVENTION.md)를 참고하세요.
 - 화면 구성에만 쓰는 보기 상태(`kView`, `cTab` 등)도 `S`에 있어서, 탭을 옮겨 다녀도 유지됩니다.
 - 날짜는 `YYYY-MM-DD` 문자열로 저장하고 "며칠 전" 같은 문구는 그릴 때 계산합니다 (`data/dates.ts`). 홈에서 고른 옷은 옷 id(`S.pick`)로 기억합니다.
@@ -150,11 +150,11 @@ data/seed.ts ──(앱이 켜질 때 한 번 복사)──▶ store.ts 의 S �
 - **백엔드가 꺼져 있거나 응답이 없으면**: 로그인 확인은 10초까지만 기다리고 로그인 화면으로 넘어가며, 왜 그런지 알림을 띄웁니다. 가짜 데이터로 둘러볼 수는 있습니다.
 - **프록시**: 개발 서버가 `/api` 요청을 백엔드로 대신 전달합니다(`vite.config.ts`). 그래서 백엔드에 CORS 설정이 없어도 로그인 쿠키가 같이 갑니다. 다른 PC의 백엔드를 쓰려면 `frontend/.env.local`에 `API_PROXY_TARGET=http://<IP>:8081`을 적습니다.
 - **Google 로그인 조건**: 백엔드를 켠 PC에 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` 환경 변수가 있어야 합니다. 없으면 Google 로그인이 꺼져 있어, 버튼을 누르면 Google 화면 대신 백엔드의 401 빈 화면이 뜹니다.
-- **Google 로그인 시작 주소**: 로그인은 fetch가 아니라 백엔드 주소로 화면을 옮겨 시작하므로, API 주소(같은 출처의 `/api`)와 따로 정합니다. 기본은 로컬 백엔드 `http://localhost:8081`이고, 배포 빌드에서는 `VITE_CLOSET_LOGIN_URL=<BE 배포 주소>`를 줍니다(Docker는 `--build-arg`). 실제 배포 주소는 `frontend/.env.local`이나 빌드 인자에만 적고 커밋하지 않습니다.
+- **Google 로그인 시작 주소**: 로그인은 fetch가 아니라 백엔드 주소로 화면을 옮겨 시작하므로, API 주소(같은 출처의 `/api`)와 따로 정합니다. 기본은 로컬 백엔드 `http://localhost:8081`이고, 배포 빌드에서는 `VITE_CLOSET_LOGIN_URL=https://api-closet-service.p-e.kr`을 줍니다(Docker는 `--build-arg`). 로컬에서 다른 주소를 시험할 때는 `frontend/.env.local`에 적습니다.
 - **로그아웃**: 설정 화면의 로그아웃이 서버 세션도 끝냅니다(`POST /api/auth/logout`, CSRF 토큰 필요). 토큰이 없으면 `/me`로 먼저 받고, 403이면 토큰을 새로 받아 한 번만 다시 시도합니다. 그래도 실패하면 로그인 상태를 그대로 두고 알립니다. 카카오·Apple 가짜 로그인은 서버에 요청하지 않습니다.
 - **방금 로그인했는지 구분하는 방법**: Google 버튼을 누를 때 `sessionStorage`에 표시를 남기고(`markGoogleLoginStart`), 앱이 다시 열리면 읽고 바로 지웁니다(`takeGoogleLoginReturn`). 표시가 있으면 첫 설정, 없으면 홈입니다.
 - **지금의 한계**: 가입 여부를 서버가 알려 주지 않아서, Google 로그인을 할 때마다(이미 가입한 사람도) 첫 설정이 뜹니다. 카카오·Apple 버튼은 백엔드에 없어서 가짜 로그인입니다.
-- **배포 BE와 연결할 때**: 로그인 세션 쿠키는 BE 도메인(`<BE 배포 주소>`)에만 생겨서, 화면이 다른 주소(`http://20.41.112.42`, `localhost:5173`)에서 열리면 쿠키가 붙지 않아 `/me`가 계속 401입니다. 그래서 **화면도 BE와 같은 주소(`https://<BE 배포 주소>/`)에서 엽니다.** BE의 Caddy가 API 경로는 백엔드로, 나머지는 프론트 컨테이너로 보냅니다. 구성과 BE가 할 일은 아래 [Google 로그인까지 되는 구성](#google-로그인까지-되는-구성)에 있습니다. 로컬 개발 서버(`localhost:5173`)에서 배포 BE로 로그인하는 것은 같은 이유로 되지 않습니다.
+- **배포 BE와 연결할 때**: 로그인 세션 쿠키는 BE 도메인(`api-closet-service.p-e.kr`)에만 생겨서, 화면이 다른 주소(`http://20.41.112.42`, `localhost:5173`)에서 열리면 쿠키가 붙지 않아 `/me`가 계속 401입니다. 그래서 **화면도 BE와 같은 주소(`https://api-closet-service.p-e.kr/`)에서 엽니다.** BE의 Caddy가 API 경로는 백엔드로, 나머지는 프론트 컨테이너로 보냅니다. 구성과 BE가 할 일은 아래 [Google 로그인까지 되는 구성](#google-로그인까지-되는-구성)에 있습니다. 로컬 개발 서버(`localhost:5173`)에서 배포 BE로 로그인하는 것은 같은 이유로 되지 않습니다.
 - 폰 앱(Capacitor)에서는 프록시가 없으므로 `VITE_CLOSET_API_URL`에 백엔드 전체 주소를 적고, 백엔드가 CORS와 쿠키를 허용해야 합니다. 웹 배포(Docker)는 nginx가 개발 서버 프록시와 같은 일을 합니다. (아래 [Docker로 띄우기](#docker로-띄우기))
 
 ## 배포하기 (VM에 올리기, 따라 하기)
@@ -219,10 +219,10 @@ git pull
 
 ```bash
 cd ~/Clueless
-docker build --build-arg VITE_CLOSET_LOGIN_URL=https://<BE 배포 주소> -t clueless-frontend:latest ./frontend
+docker build --build-arg VITE_CLOSET_LOGIN_URL=https://api-closet-service.p-e.kr -t clueless-frontend:latest ./frontend
 ```
 
-- `<BE 배포 주소>`는 팀에서 공유한 백엔드 주소로 바꿉니다(꺾쇠 `< >`는 지움). Google 로그인 버튼이 이 주소로 갑니다. 빼먹으면 로그인 버튼이 방문자 PC의 `localhost`로 가 버립니다.
+- `https://api-closet-service.p-e.kr`은 VM에 배포된 백엔드 주소입니다. Google 로그인 버튼이 이 주소로 갑니다. 빼먹으면 로그인 버튼이 방문자 PC의 `localhost`로 가 버립니다.
 - 1~3분쯤 걸립니다. 글자가 계속 올라가다가 멈추면 끝난 것입니다.
 - 마지막 부분에 `ERROR`가 보이면 실패한 것입니다. 아래 [문제가 생기면](#문제가-생기면)을 보세요.
 
@@ -276,7 +276,7 @@ curl -I http://localhost
 2. Clueless 로고 뒤에 **로그인 화면**이 나오면 배포 성공입니다.
 3. **로그인 없이 둘러보기**를 눌러 홈·옷장·캘린더 화면이 열리는지 봅니다.
 4. 방금 배포한 변경이 안 보이면 **Ctrl + F5**(Mac은 Cmd + Shift + R)로 새로고침합니다. 브라우저가 예전 화면을 기억하고 있을 수 있습니다.
-5. **로그인 확인은 `https://<BE 배포 주소>/#` 에서** 합니다. Google로 계속하기 → 첫 설정 화면이 나오고, 새로고침해도 로그인이 유지되고, 설정 → 로그아웃이 되면 성공입니다. (BE의 [Caddy·환경 변수 작업](#google-로그인까지-되는-구성)이 끝나야 됩니다)
+5. **로그인 확인은 `https://api-closet-service.p-e.kr/#` 에서** 합니다. Google로 계속하기 → 첫 설정 화면이 나오고, 새로고침해도 로그인이 유지되고, 설정 → 로그아웃이 되면 성공입니다. (BE의 [Caddy·환경 변수 작업](#google-로그인까지-되는-구성)이 끝나야 됩니다)
 
 > `http://20.41.112.42/#`에서는 Google 로그인이 되지 않습니다(로그인 쿠키가 BE 주소에만 생김). 이 주소는 "로그인 없이 둘러보기"용입니다.
 
@@ -289,7 +289,7 @@ curl -I http://localhost
 ```bash
 cd ~/Clueless
 git pull
-docker build --build-arg VITE_CLOSET_LOGIN_URL=https://<BE 배포 주소> -t clueless-frontend:latest ./frontend
+docker build --build-arg VITE_CLOSET_LOGIN_URL=https://api-closet-service.p-e.kr -t clueless-frontend:latest ./frontend
 docker images clueless-frontend
 docker rm -f clueless-frontend
 docker run -d --name clueless-frontend --restart unless-stopped --network clueless-closet-dev_default -p 80:80 clueless-frontend:latest
@@ -297,7 +297,7 @@ docker ps --filter name=clueless-frontend
 curl -I http://localhost
 ```
 
-그다음 브라우저에서 http://20.41.112.42/# (둘러보기)과 https://<BE 배포 주소>/# (로그인)을 엽니다.
+그다음 브라우저에서 http://20.41.112.42/# (둘러보기)과 https://api-closet-service.p-e.kr/# (로그인)을 엽니다.
 
 ### 문제가 생기면
 
@@ -313,8 +313,8 @@ curl -I http://localhost
 | 브라우저에서 안 열림, VM의 `curl`은 200 | Azure 방화벽(NSG)에서 80이 막힘 | Azure 포털 → VM → 네트워킹에서 인바운드 80(TCP) 허용 규칙 확인 |
 | 화면은 열리는데 예전 화면 | 브라우저가 예전 파일을 기억 | Ctrl + F5 로 새로고침 |
 | Google 로그인 버튼이 `localhost`로 감 | ③에서 `--build-arg VITE_CLOSET_LOGIN_URL=...`을 빼먹음 | ③부터 다시 |
-| Google 로그인 뒤 다시 로그인 화면으로 돌아옴 | `http://20.41.112.42`에서 로그인했거나, BE 작업(Caddy·`FRONTEND_LOGIN_SUCCESS_URL`)이 아직 안 됨 | `https://<BE 배포 주소>/#`에서 다시 해 보고, 그래도 안 되면 BE 담당자에게 공유 |
-| `https://<BE 배포 주소>/`에서 화면 대신 오류(502 등) | Caddy가 프론트 컨테이너를 못 찾음 | ⑤의 `--network` 이름이 BE 네트워크와 같은지 확인 (`docker inspect clueless-frontend`의 `Networks`) |
+| Google 로그인 뒤 다시 로그인 화면으로 돌아옴 | `http://20.41.112.42`에서 로그인했거나, BE 작업(Caddy·`FRONTEND_LOGIN_SUCCESS_URL`)이 아직 안 됨 | `https://api-closet-service.p-e.kr/#`에서 다시 해 보고, 그래도 안 되면 BE 담당자에게 공유 |
+| `https://api-closet-service.p-e.kr/`에서 화면 대신 오류(502 등) | Caddy가 프론트 컨테이너를 못 찾음 | ⑤의 `--network` 이름이 BE 네트워크와 같은지 확인 (`docker inspect clueless-frontend`의 `Networks`) |
 
 컨테이너 실행 기록(오류 메시지)은 `docker logs clueless-frontend`로 볼 수 있습니다. 담당자에게 물어볼 때 함께 보내 주세요.
 
@@ -344,14 +344,14 @@ docker run --rm -p 5173:80 -e API_UPSTREAM=http://host.docker.internal:8081 clue
 
 ### VM 구성 (백엔드 네트워크에 붙이기)
 
-프론트와 백엔드는 같은 Azure VM(Ubuntu)에 컨테이너로 떠 있습니다. 백엔드는 BE가 따로 띄운 compose 프로젝트(`clueless-closet-dev`)이고, 그 안의 Caddy가 도메인(`https://<BE 배포 주소>`, 443)을 받습니다. 백엔드 8081은 VM 밖으로 열려 있지 않습니다.
+프론트와 백엔드는 같은 Azure VM(Ubuntu)에 컨테이너로 떠 있습니다. 백엔드는 BE가 따로 띄운 compose 프로젝트(`clueless-closet-dev`)이고, 그 안의 Caddy가 도메인(`https://api-closet-service.p-e.kr`, 443)을 받습니다. 백엔드 8081은 VM 밖으로 열려 있지 않습니다.
 
 - 컨테이너는 같은 Docker 네트워크에 있을 때만 서로를 이름으로 찾습니다. 그래서 프론트 컨테이너를 **백엔드 compose 네트워크(`clueless-closet-dev_default`)에 넣어** 띄웁니다.
 - 그러면 BE의 Caddy가 화면을 `clueless-frontend:80`으로, 프론트 nginx가 `/api`를 `closet-service:8081`로 찾을 수 있습니다.
 - 예전에 계획한 공용 네트워크 `clueless`에는 백엔드가 들어오지 않아 쓰지 않습니다.
 
 ```
-인터넷 ──▶ https://<BE 배포 주소> (Caddy 443, BE 담당)
+인터넷 ──▶ https://api-closet-service.p-e.kr (Caddy 443, BE 담당)
               ├─ /api/*, /oauth2/*, /login/oauth2/*, /test ──▶ closet-service:8081 (백엔드)
               └─ 그 밖의 주소 ──────────────────────────────▶ clueless-frontend:80 (화면)
 인터넷 ──▶ http://20.41.112.42 (VM:80) ──▶ clueless-frontend ── /api ──▶ closet-service:8081
@@ -373,12 +373,12 @@ docker run --rm -p 5173:80 -e API_UPSTREAM=http://host.docker.internal:8081 clue
 
 ### Google 로그인까지 되는 구성
 
-Google 로그인 세션 쿠키는 `https://<BE 배포 주소>`에만 생깁니다. 그래서 **화면도 같은 주소에서 엽니다**(위 구성도의 Caddy 경로). 같은 주소라 쿠키·CORS·CSRF 문제가 없고, Google 콘솔의 콜백 주소도 바꾸지 않습니다. `http://20.41.112.42`에서는 `/api`가 백엔드에 닿아도 쿠키가 없어 로그인되지 않습니다.
+Google 로그인 세션 쿠키는 `https://api-closet-service.p-e.kr`에만 생깁니다. 그래서 **화면도 같은 주소에서 엽니다**(위 구성도의 Caddy 경로). 같은 주소라 쿠키·CORS·CSRF 문제가 없고, Google 콘솔의 콜백 주소도 바꾸지 않습니다. `http://20.41.112.42`에서는 `/api`가 백엔드에 닿아도 쿠키가 없어 로그인되지 않습니다.
 
 | 누가 | 할 일 |
 | --- | --- |
-| 프론트 | ③ 빌드 때 `--build-arg VITE_CLOSET_LOGIN_URL=https://<BE 배포 주소>`, ⑤에서 `--network <BE 네트워크>`로 실행. 코드 변경은 없음 (API 주소 `VITE_CLOSET_API_URL`은 비워 두어 같은 주소의 `/api`로 부름) |
-| BE | Caddy가 위 경로대로 나눠 보내게 설정, 백엔드 Docker 네트워크 이름 알려 주기, `FRONTEND_LOGIN_SUCCESS_URL=https://<BE 배포 주소>/#`로 바꾸고 재시작 |
+| 프론트 | ③ 빌드 때 `--build-arg VITE_CLOSET_LOGIN_URL=https://api-closet-service.p-e.kr`, ⑤에서 `--network <BE 네트워크>`로 실행. 코드 변경은 없음 (API 주소 `VITE_CLOSET_API_URL`은 비워 두어 같은 주소의 `/api`로 부름) |
+| BE | Caddy가 위 경로대로 나눠 보내게 설정, 백엔드 Docker 네트워크 이름 알려 주기, `FRONTEND_LOGIN_SUCCESS_URL=https://api-closet-service.p-e.kr/#`로 바꾸고 재시작 |
 
 - 로그인 쿠키가 BE 주소에만 생기므로, 다른 주소의 화면에서 BE를 직접 부르는 방식(CORS·쿠키 설정 변경)은 쓰지 않습니다. 브라우저가 다른 사이트 쿠키를 막는 경우가 많아 믿기 어렵습니다.
 

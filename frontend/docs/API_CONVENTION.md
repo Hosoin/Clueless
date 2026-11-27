@@ -16,7 +16,7 @@
 | 항목 | 상태 |
 | --- | --- |
 | 화면 데이터 | `seed.ts` → `store.ts`의 `S` (메모리). 새로고침하면 처음 상태로 돌아감 |
-| BE | 두 서비스(`closet-service`, `recommendation-service`)가 `GET /test`를 응답. `closet-service`에는 Google 로그인과 세션 인증(`/api/auth/me`, `/api/auth/logout`)이 구현되어 있음. 옷 사진 분석·확정·수정·사진 보기 API도 있음(아래 표, [`backend/README.md`](../../backend/README.md)). 옷 상세·목록 조회·삭제와 추천 API는 아직 없음 |
+| BE | 두 서비스(`closet-service`, `recommendation-service`)가 `GET /test`를 응답. `closet-service`에는 Google 로그인과 세션 인증(`/api/auth/me`, `/api/auth/logout`)이 구현되어 있음. 옷 사진 분석·확정·수정·사진 보기 API가 배포되어 있고, 옷 목록·상세 조회·삭제 API는 코드에 있지만 배포 전(아래 표). API 명세는 [`backend/docs/FE_API_HANDOFF.md`](../../backend/docs/FE_API_HANDOFF.md). 추천 API는 아직 없음 |
 | 프론트 `src/api/` | 로그인 부분만 있음: `client.ts`(공통 요청), `auth.ts`(로그인 확인·로그아웃·Google 로그인 주소), `error.ts`. 옷·추천 등은 아직 없음 |
 
 그래서 이 문서의 방식은 두 가지를 동시에 만족해야 합니다.
@@ -30,7 +30,7 @@ API가 하나씩 열리면 해당 부분만 가짜 데이터에서 실제 호출
 
 | 서비스 | 포트 | 담당 (BE 문서 기준) | 지금 있는 API | 다음 |
 | --- | --- | --- | --- | --- |
-| `closet-service` | 8081 | 옷장·의류 관련 API, 로그인·사용자 | `GET /test` (UTF-8 일반 텍스트), `GET /oauth2/authorization/google`, `GET /api/auth/me`, `POST /api/auth/logout` ([4장](#4-로그인과-인증-세션-쿠키)). 옷: `POST /api/closet/analyze`(multipart `image` 파일 1개), `POST /api/closet/items/{id}/confirm`, `PATCH /api/closet/items/{id}`, `GET /api/closet/preview?id=` ([`backend/README.md`](../../backend/README.md), [5장](#5-이미지와-파일)). 프론트는 아직 연결 안 함 | 옷 상세·목록 조회·삭제 API 없음 (BE 미구현) |
+| `closet-service` | 8081 | 옷장·의류 관련 API, 로그인·사용자 | `GET /test` (UTF-8 일반 텍스트), `GET /oauth2/authorization/google`, `GET /api/auth/me`, `POST /api/auth/logout` ([4장](#4-로그인과-인증-세션-쿠키)). 옷: `POST /api/closet/analyze`(multipart `image` 파일 1개), `POST /api/closet/items/{id}/confirm`, `PATCH /api/closet/items/{id}`, `GET /api/closet/preview?id=` ([5장](#5-이미지와-파일)). 배포 전: `GET /api/closet/items`(목록), `GET /api/closet/items/{id}`(상세), `DELETE /api/closet/items/{id}`(숨김 삭제). 프론트는 아직 연결 안 함 | 목록·상세·삭제 배포 (`backend/docs/FE_API_HANDOFF.md` 9~11장) |
 | `recommendation-service` | 8082 | 추천 관련 API | `GET /test` (UTF-8 일반 텍스트) | 업무 API 계약 미확정 |
 
 - 서비스가 **둘로 나뉘어 있고 포트가 다릅니다.** 게이트웨이(하나의 주소로 합쳐 주는 곳)가 BE 문서에 없으므로, 프론트는 서비스마다 주소를 따로 가진다고 가정합니다. 게이트웨이가 생기면 주소 환경 변수 하나로 합칩니다.
@@ -43,7 +43,7 @@ API가 하나씩 열리면 해당 부분만 가짜 데이터에서 실제 호출
 
 | 프론트 데이터 (용어 사전) | 타입 | 담당 서비스 | API 연결 | 지금 데이터 |
 | --- | --- | --- | --- | --- |
-| 옷 (`Item`): 조회, 등록, 삭제, 추천 제외 | `Item` | `closet-service` | 등록(분석·확정)과 수정(`PATCH`)만 API 있음. 조회·삭제 API는 없고, 추천 제외를 저장할 칸도 없음 | 가짜 데이터 |
+| 옷 (`Item`): 조회, 등록, 삭제, 추천 제외 | `Item` | `closet-service` | 등록(분석·확정)·수정(`PATCH`)은 배포됨. 목록·상세 조회·삭제와 추천 제외(`PATCH`의 `recommend_yn`)는 코드에 있고 배포 전 | 가짜 데이터 |
 | 옷 사진 분석(AI가 고른 값)과 확정 저장 (`Upload`) | `Item`, `Category` | `closet-service` (BE가 ML을 부름) | API 있음([5장](#5-이미지와-파일)), 프론트 미연결 | 화면 안의 가짜 분석 결과 |
 | 추천 코디 (`Outfit`) | `Outfit` | `recommendation-service` | 계약 미확정 | `store.ts`의 규칙 + 가짜 데이터 |
 | 저장한 코디 (`Saved`) | `Saved` | 미정 | 담당 미정 | 가짜 데이터 |
@@ -63,7 +63,7 @@ API 주소는 코드에 직접 적지 않고 Vite 환경 변수로 받습니다.
 | 키 | 예시 (로컬) | 설명 |
 | --- | --- | --- |
 | `VITE_CLOSET_API_URL` | 비움 | `closet-service` 주소. 비우면 같은 출처의 `/api`로 요청하고 개발 서버 프록시나 배포 nginx가 백엔드로 넘깁니다. Capacitor 앱으로 빌드할 때만 전체 주소(예: `http://localhost:8081`)를 적습니다. 끝에 `/`를 붙이지 않습니다 (`src/api/client.ts`) |
-| `VITE_CLOSET_LOGIN_URL` | 비움 | Google 로그인을 시작할 백엔드 주소(화면 이동용 전체 주소). 로그인은 화면 이동이라 프록시를 쓸 수 없어서 API 주소와 따로 정합니다. 비우면 `VITE_CLOSET_API_URL`, 그것도 비면 `http://localhost:8081`. 배포 빌드에서는 `<BE 배포 주소>`를 넣습니다 (`src/api/auth.ts`, Dockerfile의 `--build-arg`) |
+| `VITE_CLOSET_LOGIN_URL` | 비움 | Google 로그인을 시작할 백엔드 주소(화면 이동용 전체 주소). 로그인은 화면 이동이라 프록시를 쓸 수 없어서 API 주소와 따로 정합니다. 비우면 `VITE_CLOSET_API_URL`, 그것도 비면 `http://localhost:8081`. 배포 빌드에서는 `https://api-closet-service.p-e.kr`을 넣습니다 (`src/api/auth.ts`, Dockerfile의 `--build-arg`) |
 | `API_PROXY_TARGET` | `http://localhost:8081` | 개발 서버(`npm run dev`)가 `/api`를 넘길 백엔드 주소. `VITE_`로 시작하지 않아 빌드 결과에는 들어가지 않습니다 (`vite.config.ts`) |
 | `VITE_RECOMMENDATION_API_URL` | `http://localhost:8082` | (예정, 아직 코드가 읽지 않음) `recommendation-service` 주소. 끝에 `/`를 붙이지 않습니다 |
 | `VITE_MOCK_CLOSET` | `true` | (예정, 아직 코드가 읽지 않음) `true`면 `closet-service` 대신 `seed.ts`의 가짜 데이터를 씁니다 |
@@ -273,7 +273,7 @@ BE(`closet-service`)가 이미 구현한 방식이 기준입니다. **Google 소
 ### 요청에 붙는 것 (`client.ts`)
 
 - 모든 요청에 `credentials: 'include'`를 붙여 세션 쿠키를 같이 보냅니다. 지금 붙이는 곳은 `client.ts`의 `closetFetch()` 한 곳입니다. (`createRequest()`를 만들면 그 안으로 옮깁니다)
-- **CSRF**: GET이 아닌 요청(지금 BE에서는 POST와 PATCH)에는 `/me` 응답 헤더로 받은 CSRF 토큰을 **같은 헤더 이름으로** 보내야 합니다(지금 이름은 `X-CSRF-TOKEN`). 로그아웃(`POST /api/auth/logout`)과 옷 사진 분석(`POST /api/closet/analyze`)도 마찬가지입니다. 토큰이 없거나 틀리면 403입니다. 헤더 이름은 BE가 응답으로 알려 주므로 코드에 적지 않습니다. 토큰은 메모리에만 두고(`setCsrf`) 새로고침하면 `/me`에서 다시 받습니다. 로그인처럼 세션이 바뀌면 `/me`를 다시 불러 새 토큰을 받습니다(Google 로그인은 앱이 새로 열리므로 시작할 때 받음).
+- **CSRF**: GET이 아닌 요청(지금 BE에서는 POST·PATCH·DELETE)에는 `/me` 응답 헤더로 받은 CSRF 토큰을 **같은 헤더 이름으로** 보내야 합니다(지금 이름은 `X-CSRF-TOKEN`). 로그아웃(`POST /api/auth/logout`)과 옷 사진 분석(`POST /api/closet/analyze`)도 마찬가지입니다. 토큰이 없거나 틀리면 403입니다. 헤더 이름은 BE가 응답으로 알려 주므로 코드에 적지 않습니다. 토큰은 메모리에만 두고(`setCsrf`) 새로고침하면 `/me`에서 다시 받습니다. 로그인처럼 세션이 바뀌면 `/me`를 다시 불러 새 토큰을 받습니다(Google 로그인은 앱이 새로 열리므로 시작할 때 받음).
 - **로그아웃**(`api/auth.ts`의 `logout()`)은 서버 로그인일 때만 서버에 요청합니다. 서버 로그인인지는 `/me`가 200이었는지로 `api/auth.ts` 안에서만 기억합니다(`S` 구조는 그대로). 카카오·Apple 가짜 로그인은 서버 요청 없이 끝납니다.
   - CSRF 토큰이 없으면 `/me`로 먼저 받습니다. 토큰 없이 끝내면 서버 세션이 남은 채 "로그아웃했어요"가 뜹니다. `/me`가 401이면 이미 로그아웃된 것으로 봅니다.
   - 403(토큰이 없거나 틀림)이면 `/me`로 토큰을 새로 받아 **한 번만** 다시 보냅니다. 그래도 403이면 `'로그아웃하지 못했어요. 새로고침한 뒤 다시 해 주세요'`를 띄우고 로그인 상태를 그대로 둡니다.
@@ -300,7 +300,7 @@ BE(`closet-service`)가 이미 구현한 방식이 기준입니다. **Google 소
 
 | 데이터 | 저장 위치 | 화면이 받는 방법 |
 | --- | --- | --- |
-| 옷 정보(이름, 종류, 세부 종류, 색, 스타일 등) | DB (`closet_items`) | 옷 사진 분석 응답(JSON)으로 받습니다. 저장한 옷을 다시 받는 상세·목록 API는 아직 없습니다 |
+| 옷 정보(이름, 종류, 세부 종류, 색, 스타일 등) | DB (`closet_items`) | 옷 사진 분석 응답(JSON)으로 받습니다. 저장한 옷은 목록(`GET /api/closet/items`, `id`·`name`·`preview_url`만)과 상세(`GET /api/closet/items/{id}`)로 다시 받습니다(배포 전) |
 | 옷 사진 파일 | Blob Storage (DB에는 파일 키만) | 분석 직후에는 응답의 `previewImg`(5분 동안만 열리는 SAS 주소), 확정한 뒤에는 `GET /api/closet/preview?id=`(주소가 아니라 이미지 자체, 세션 쿠키 필요) |
 
 - BE는 확정한 옷 사진의 주소를 따로 주지 않습니다. 그래서 `Item.img`는 `GET /api/closet/preview?id=` 경로로 만들면 됩니다. 같은 출처의 `/api`로 부르면 `<img>`도 세션 쿠키를 같이 보냅니다. Capacitor 앱에서는 `VITE_CLOSET_API_URL`을 앞에 붙인 전체 주소가 필요합니다.
@@ -328,7 +328,9 @@ BE(`closet-service`)가 이미 구현한 방식이 기준입니다. **Google 소
 | 저장한 뒤 고치기 | `updateItem(id, input)` | `PATCH /api/closet/items/{id}` |
 
 - 분석 응답에서 `sub_category`, `color`, `hex`는 `null`, `styles`는 빈 배열일 수 있습니다. 색을 고르지 못한 분석(`color: null`)은 확정할 때 `color`를 꼭 보내야 합니다.
-- 확정·수정에 보낼 수 있는 칸은 `name`(50자까지), `category`, `sub_category`, `color`, `hex`, `styles`, `tags`, `memo`뿐입니다. `material`(재질), 추천 제외, 별명 칸은 없습니다.
+- 확정·수정에 보낼 수 있는 칸은 `name`(50자까지), `category`, `sub_category`, `color`, `hex`, `styles`, `tags`, `memo`뿐입니다. 수정(`PATCH`)에만 추천 제외 `recommend_yn`(`"Y"`/`"N"`, 배포 전)을 더 보낼 수 있습니다. `material`(재질)과 별명 칸은 없습니다.
+- 색은 프론트 `COLORS` 18색 이름으로 맞춥니다(BE가 정규화, 배포 전). 18색이 아닌 색은 400입니다.
+- 상세 응답의 색 코드 키는 `color_hex`이고, 분석 응답·수정 요청은 `hex`입니다. 사진은 `preview_url`(예: `/api/closet/preview?id=42`, 없으면 `null`)을 같은 출처에서 `<img>`로 씁니다.
 - `id`는 JSON 문자열(bigint)입니다. `types.ts`의 `Item.id`는 숫자라서 변환 방법을 정해야 합니다([6장](#넘길-때-미리-알아-둘-것)).
 - **BE 배포 전 확인 사항**: BE는 ML이 크롭 사진을 Blob에 올리고 키(`crop_blob`)를 돌려주기를 기대합니다. 지금 ML은 base64 PNG만 돌려줘서, 재촬영이 아닌 분석은 `502`로 끝납니다(`backend/README.md`의 "배포 전 확인"). ML 쪽 변경이 들어가야 등록 흐름을 끝까지 시험할 수 있습니다.
 
@@ -404,7 +406,7 @@ try {
 - **날짜 형식이 섞여 있습니다.** `Item.lastWorn`, `Hist.date`, `Plan.date`는 `YYYY-MM-DD` 문자열(`data/dates.ts`)이고, `Saved.at`(예: '11월 26일')과 `Post.ago`·`Comment.ago`(예: '2시간 전')는 아직 화면 문구입니다. 서버가 ISO 8601 날짜를 주면 `src/api/` 안에서 `YYYY-MM-DD`로 바꿔 넣고, 화면 문구는 그릴 때 만듭니다.
 - **`Plan.date`는 `'2026-11-24'` 형식 문자열**(`dkey`)입니다. 서버가 같은 형식을 주는지 확인합니다.
 - **`Item.id`, `Post.id`는 숫자인데, `closet-service`는 옷 id를 문자열(bigint)로 줍니다.** `types.ts`를 바꿀지(팀 확인 필요), `src/api/` 안에서 숫자로 바꿀지 먼저 정합니다. 또한 `S.uid`, `S.sid`, `S.pid`는 새 id를 만들려고 임시로 쓰는 번호라서 서버가 id를 정해 주면 쓰지 않게 됩니다.
-- **옷 상세·목록·삭제 API가 아직 없습니다.** 그래서 4단계(`S.items`를 서버에서 불러오기)와 옷 삭제 연결은 BE API가 생긴 뒤에 할 수 있습니다. 지금 먼저 연결할 수 있는 것은 등록(분석·확정)과 수정입니다.
+- **옷 목록·상세·삭제 API는 코드에 있지만 아직 배포 전입니다.** 배포되면 4단계(`S.items`를 서버에서 불러오기)와 옷 삭제를 연결할 수 있습니다. 목록은 `id`·`name`·`preview_url`만 주므로, 옷장·홈에 필요한 나머지 칸(종류·색 등)은 상세 조회로 채우거나 BE에 목록 필드 추가를 요청해야 합니다. 삭제는 행을 지우지 않고 숨김(`disp_yn = 'N'`) 처리입니다.
 - **로딩 상태가 새로 생깁니다.** 지금은 데이터가 처음부터 있어서 로딩 화면이 없습니다. "불러오는 중", "실패", "비어 있음" 세 경우를 화면마다 어떻게 보여 줄지 디자인과 정합니다. 가짜 데이터에도 `mock()`으로 300ms 지연을 주므로 서버 없이도 이 화면을 미리 볼 수 있습니다.
 - **새로고침하면 서버에서 다시 불러옵니다.** 지금처럼 처음 상태로 돌아가지 않으므로, 세션 쿠키가 남아 있어야 로그인 상태가 유지됩니다. 앱을 켤 때 `/api/auth/me`로 로그인 상태를 되찾습니다.
 
@@ -433,7 +435,7 @@ BE에 정해 달라고 할 항목입니다. 정해지면 "정해진 내용" 칸�
 | 22 | 분석만 하고 저장하지 않은 사진(취소·실패)을 Blob에서 정리하는 방법 | BE가 일정 시간 뒤 정리 | |
 | 23 | Google 로그인 성공 후 돌아올 주소 | 주소를 설정값으로 빼고, 중립 주소(`#/`)로 돌려보냄. 첫 설정 여부는 프론트가 판단 | BE 환경 변수 `FRONTEND_LOGIN_SUCCESS_URL`로 설정. 기본값은 중립 주소 `http://localhost:5173/#`이고 첫 설정 여부는 프론트가 판단 (제안과 같음). 배포에 쓸 값은 미정 |
 | 24 | `/api/auth/me` 응답에 첫 설정 완료 여부를 넣을 수 있는지 (지금은 `id`, `userName`, `nickName`, `email`만 있음) | `onboarded` 같은 값을 추가 | |
-| 25 | CSRF 정책: 토큰 헤더를 어떻게 읽는지(CORS에서 응답 헤더 노출 필요), 값을 바꾸는 모든 요청에 필요한지 | `/me`가 준 토큰을 모든 POST·PUT·DELETE에 보냄 | `/me` 응답 헤더 `X-CSRF-TOKEN` 값을 같은 이름의 요청 헤더로, 모든 POST·PATCH(로그아웃 포함)에 보냄. 없거나 틀리면 403. 로컬 CORS는 `http://localhost:5173`에 이 헤더를 노출 |
+| 25 | CSRF 정책: 토큰 헤더를 어떻게 읽는지(CORS에서 응답 헤더 노출 필요), 값을 바꾸는 모든 요청에 필요한지 | `/me`가 준 토큰을 모든 POST·PUT·DELETE에 보냄 | `/me` 응답 헤더 `X-CSRF-TOKEN` 값을 같은 이름의 요청 헤더로, 모든 POST·PATCH·DELETE(로그아웃 포함)에 보냄. 없거나 틀리면 403. 로컬 CORS는 `http://localhost:5173`에 이 헤더를 노출 |
 | 26 | 로그인하지 않은 사용자(`로그인 없이 둘러보기`)가 부를 수 있는 API 범위. 지금은 `/test` 외 모두 401 | 게스트는 가짜 데이터로 처리 | |
 | 16 | 저장한 코디(`Saved`), 입은 기록(`Hist`), 입을 계획(`Plan`)은 어느 서비스가 맡는지 | `closet-service` | |
 | 17 | 커뮤니티(글, 댓글, 좋아요, 팔로우), 유행(`Trend`) 데이터를 맡을 서비스가 있는지, 있다면 언제인지 | 일정이 없으면 계속 가짜 데이터 | |
