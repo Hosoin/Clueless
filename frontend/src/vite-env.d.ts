@@ -5,6 +5,8 @@
 interface ImportMetaEnv {
   /** closet-service 주소. 비우면 같은 출처의 /api로 요청한다 (src/api/client.ts) */
   readonly VITE_CLOSET_API_URL?: string
+  /** Google 로그인을 시작할 백엔드 주소(화면 이동용 전체 주소). 비우면 VITE_CLOSET_API_URL, 그것도 비면 http://localhost:8081 (src/api/auth.ts) */
+  readonly VITE_CLOSET_LOGIN_URL?: string
 }
 
 interface ImportMeta {
