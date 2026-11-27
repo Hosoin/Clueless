@@ -5,18 +5,27 @@
 // - 첫 사진의 분석이 끝나면 확인 창이 저절로 열린다. 다음 사진이 아직 분석 중이면 창 안에서 기다린다.
 // - 마지막 옷에서는 버튼이 '옷장에 N벌 넣기'로 바뀌고, 누르면 한꺼번에 옷장에 넣는다.
 // - 무늬는 이 프로젝트에서 다루지 않는다. 고르는 칸이 없고 옷에도 저장하지 않는다.
-// 지금은 분석 결과가 가짜(DEMO_PREDS)다. 분류 모델 API가 생기면 scheduleAnalysis 안의 setTimeout 부분을 API 호출로 바꾸고,
-// 응답의 1순위 값을 fill()에 넘기면 된다. 서버에는 원본이 아니라 Tile.file(1024×1024px로 줄인 JPEG)을 보낸다.
-// 올린 사진은 먼저 줄이고(resizeImage, src/image.ts) 다 줄인 뒤에 분석을 시작한다. 실제 API도 줄인 사진을 보내야 해서 순서를 맞췄다.
-// 분석 타이머는 이 화면이 열려 있을 때만 돈다: 화면을 나가면 멈추고(pauseAnalysis), 돌아오면 남은 사진만 이어서 분석한다.
+// 분석: 올린 사진은 서버의 옷 사진 분석 API(api/items.ts의 analyzeItemPhoto)로 한 장씩 차례로 보낸다 (runAnalysis).
+//   서버에는 원본이 아니라 Tile.file(1024×1024px로 줄인 JPEG)을 보낸다. 그래서 먼저 줄이고(resizeImage, src/image.ts) 줄인 뒤에 분석한다.
+//   예시 사진(앱 안 이미지)은 보낼 파일이 없어서 화면 안의 가짜 결과(DEMO_PREDS)를 쓴다.
+//   가짜 데이터 상태(VITE_MOCK_CLOSET=true)면 올린 사진도 api/items.ts 안의 가짜 결과를 받는다.
+// - 결과는 사진마다 다르다: 정리됨(AI 값이 채워짐), 다시 찍기(서버가 retake를 줌), 실패(서버 오류·연결 안 됨 등).
+//   다시 찍기·실패한 사진은 확인 창에서 빼거나 다시 찍고/다시 시도할 수 있고, 옷장에 넣을 때는 넣지 않는다.
+// - 분석은 이 화면이 열려 있을 때만 다음 사진으로 넘어간다: 화면을 나가면 보내던 한 장만 끝내고 멈추고,
+//   돌아오면 남은 사진을 이어서 분석한다.
+// - 아직 확정 저장(confirm API)은 연결하지 않았다. 옷장에 넣기는 지금처럼 앱 안에서만 넣고,
+//   서버에 DRAFT로 저장된 옷(Tile.draftId)은 확정 저장을 연결할 때 쓴다.
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Back } from '../components/Icons'
+import { analyzeFailKind, analyzeItemPhoto } from '../api/items'
+import type { AnalyzeFailKind } from '../api/items'
+import { errorText } from '../api/error'
+import { Back, CameraIc, RetryIc } from '../components/Icons'
 // MATERIALS(재질 목록)는 재질 칸을 숨기는 동안 쓰지 않아 빼 두었다. 재질 칸을 다시 보이게 할 때 아래 주석과 함께 되살린다
 import { CATS, COLORS, /* MATERIALS, */ SUBS, photo } from '../data/seed'
 import type { Category } from '../data/types'
 import { resizeImage } from '../image'
-import { go } from '../nav'
+import { go, toLogin } from '../nav'
 import { S, addItems, emit, euro, present, registerModuleReset, resetClosetFilters, useApp } from '../store'
 import { askPermission, closeAll, closeModal, openModal, openSheet, toast } from '../ui'
 
@@ -24,19 +33,29 @@ import { askPermission, closeAll, closeModal, openModal, openSheet, toast } from
  * AI가 사진 한 장을 보고 고른 값 (1순위). 확인 창이 이 값이 선택된 채로 열린다.
  * name은 옷장에 보일 이름("카멜 롱 코트"), 나머지는 옷장에 저장될 값. material은 모르면 null
  */
-type Pred = { name: string; cat: Category; sub: string; color: string; material: string | null }
+type Pred = { name: string; cat: Category; sub: string | null; color: string | null; material: string | null }
+/**
+ * 사진 한 장의 분석 단계.
+ * - resizing: 사진을 줄이는 중. 보낼 사진이 아직 없어서 분석을 시작하지 않는다
+ * - waiting: 분석 차례를 기다리는 중 / analyzing: 서버에 보내 결과를 기다리는 중 (둘 다 타일에 '확인 중' 표시)
+ * - done: 분석이 끝나 AI 값이 채워짐. 확인 창에서 고칠 수 있다
+ * - retake: 서버가 다시 찍어야 한다고 함 (옷이 잘 안 보임). 서버에 저장되지 않았다
+ * - failed: 분석 요청이 실패함. error에 화면에 보여 줄 문구가 있다. 다시 시도할 수 있다
+ */
+type Status = 'resizing' | 'waiting' | 'analyzing' | 'done' | 'retake' | 'failed'
 /**
  * 올린 사진 한 장의 정리 상태.
- * - done: 분석이 끝났는지 (끝나기 전엔 타일에 '확인 중' 표시, 확인 창에서도 기다림)
+ * - status: 분석 단계 (위 Status). error: 실패했을 때 보여 줄 문구 (실패가 아니면 null)
+ * - failKind: 실패했을 때 사용자가 할 수 있는 일 (api/items.ts의 AnalyzeFailKind). 확인 창과 사진 칸이 이 값으로 버튼을 고른다
  * - name·cat·sub·color·material: 옷장에 넣을 값. 분석이 끝나면 AI 값으로 채워지고, 확인 창에서 바꿀 수 있다.
  *   종류·세부 종류·색을 바꾸면 name은 비워서, 옷장에 넣을 때 "색 세부 종류"로 새로 만든다 (AI 이름과 실제 값이 어긋나지 않게).
- *   재질은 이름에 들어가지 않아서 바꿔도 name을 비우지 않는다
- * - hex: "사진에서 색 뽑기"를 했을 때만 있는 실제 색
+ *   재질은 이름에 들어가지 않아서 바꿔도 name을 비우지 않는다. 서버 분석은 재질을 주지 않아서 올린 사진은 재질이 null이다
+ * - hex: "사진에서 색 뽑기"를 했을 때만 있는 실제 색. 서버가 주는 hex는 지금 쓰지 않는다 (확정 저장을 연결할 때 정함)
  * - file: 서버로 보낼 사진 (1024×1024px JPEG, 남는 곳은 흰 여백). 예시 사진은 앱 안 이미지라 보낼 파일이 없어서 null
- * - resizing: 사진을 줄이는 중인지. 줄이는 동안은 분석을 시작하지 않는다 (보낼 사진이 아직 없어서)
+ * - draftId: 서버가 DRAFT로 저장한 옷의 id. 확정 저장(confirm)에 쓸 값이라 받아만 둔다. 예시 사진과 가짜 데이터는 서버 id가 아니다
  */
 type Tile = {
-  id: number; img: string | null; file: Blob | null; resizing: boolean; done: boolean
+  id: number; img: string | null; file: Blob | null; status: Status; error: string | null; failKind: AnalyzeFailKind | null; draftId: string | null
   name: string | null; cat: Category | null; sub: string | null; color: string | null; material: string | null; hex: string | null
 }
 
@@ -62,39 +81,159 @@ let batch: Tile[] = []
 let cur = 0
 /** 이 묶음에서 확인 창을 저절로 연 적이 있는지. 사용자가 창을 닫은 뒤에 다른 사진 분석이 끝나도 다시 열지 않으려고 둔다 */
 let autoOpened = false
-/** 돌고 있는 분석 타이머 id. 화면을 나갈 때 한꺼번에 멈추려고 모아 둔다 */
-let timers: number[] = []
-/** 지금 이 화면이 열려 있는지. 사진 줄이기는 화면을 나간 뒤에 끝날 수 있어서, 그때 분석 타이머를 걸지 않으려고 둔다 */
+/** 분석 차례 돌리기(runAnalysis)가 돌고 있는지. 두 번 돌면 같은 사진을 두 번 보내게 되어 하나만 돌게 막는다 */
+let analyzing = false
+/** 지금 이 화면이 열려 있는지. 화면을 나가면 다음 사진을 보내지 않고, 사진 줄이기가 나간 뒤에 끝나도 분석을 시작하지 않는다 */
 let onScreen = false
-/** 몇 번째 사진 묶음인지. 줄이는 중에 새 묶음을 받으면, 늦게 끝난 이전 묶음의 결과를 버리려고 비교한다 */
+/** 몇 번째 사진 묶음인지. 새 묶음을 받거나 로그아웃한 뒤에 늦게 끝난 이전 묶음의 결과(줄이기·분석)를 버리려고 비교한다 */
 let batchSeq = 0
+/** 예시 사진의 가짜 분석이 걸리는 시간(밀리초). 실제 분석처럼 '확인 중'이 잠깐 보이게 */
+const DEMO_ANALYZE_MS = 650
 
-/** 분석 타이머를 모두 멈춘다. 화면을 나갈 때(Upload의 useEffect 정리)와 새 사진 묶음을 받을 때 부른다 */
-function pauseAnalysis() {
-  timers.forEach((t) => clearTimeout(t))
-  timers = []
+/** 분석이 끝난 사진에 AI 값을 채운다. 예시 사진의 가짜 결과와 서버 결과 모두 여기로 넣는다 */
+function fill(b: Tile, p: Pred) {
+  b.name = p.name; b.cat = p.cat; b.sub = p.sub; b.color = p.color; b.material = p.material; b.hex = null
+  b.status = 'done'; b.error = null; b.failKind = null
 }
 
-/** 분석이 끝난 사진에 AI 값을 채운다. 실제 API로 바꿀 때도 응답의 1순위 값을 여기에 넘기면 된다 */
-function fill(b: Tile, p: Pred) {
-  b.name = p.name; b.cat = p.cat; b.sub = p.sub; b.color = p.color; b.material = p.material; b.hex = null; b.done = true
+/** 다 찍었거나 실패해서 다시 해야 하는 사진인지. 확인 창에서 고를 칸 없이 건너뛸 수 있다 */
+const needsRedo = (b: Tile) => b.status === 'retake' || b.status === 'failed'
+/** 아직 분석 결과를 기다리는 사진인지 (줄이는 중·차례 기다림·서버 응답 기다림). 타일과 확인 창에 '확인 중'을 보여 준다 */
+const isPending = (b: Tile) => b.status === 'resizing' || b.status === 'waiting' || b.status === 'analyzing'
+
+/**
+ * 사진 한 장을 분석해 결과를 채운다. i는 묶음 안의 순서로, 예시 사진의 가짜 결과를 고를 때 쓴다.
+ * - 예시 사진(file 없음): 잠깐 기다렸다 DEMO_PREDS에서 같은 순서의 결과를 넣는다
+ * - 올린 사진: 서버에 보내고, 다시 찍기면 retake, 실패하면 failed와 보여 줄 문구를 넣는다.
+ *   서버가 준 previewImg(잘라 낸 사진)는 5분만 열리는 주소라 쓰지 않고, 미리보기는 내 기기의 사진(img)을 그대로 쓴다
+ */
+async function analyzeTile(b: Tile, i: number) {
+  if (!b.file) {
+    await new Promise((done) => setTimeout(done, DEMO_ANALYZE_MS))
+    fill(b, DEMO_PREDS[i % DEMO_PREDS.length])
+    return
+  }
+  try {
+    const r = await analyzeItemPhoto(b.file)
+    if (r.retake) { b.status = 'retake'; b.error = null; return }
+    fill(b, { name: r.name, cat: r.cat, sub: r.sub, color: r.color, material: null })
+    b.draftId = r.draftId
+  } catch (e) {
+    b.status = 'failed'; b.error = errorText(e) // 서버 오류(5xx)는 '잠시 후 다시 시도해 주세요'처럼 일반 문구로 바뀐다
+    b.failKind = analyzeFailKind(e)
+  }
 }
 
 /**
- * 아직 분석이 안 끝난 사진만 분석 타이머를 건다. 새 묶음을 받았을 때와, 화면에 다시 들어왔을 때 부른다.
- * 남은 사진마다 0.7초 간격으로 분석이 끝나는 것처럼 보이게 하고(묶음의 마지막 두 장은 일부러 더 늦게),
- * 끝나면 AI 값을 채운다. 첫 결과가 나오면 확인 창을 저절로 연다 (묶음마다 한 번만).
- * 결과는 묶음 안의 순서(i)로 고르므로, 멈췄다 이어서 분석해도 같은 사진에는 같은 결과가 나온다.
+ * 차례를 기다리는 사진(waiting)을 앞에서부터 한 장씩 분석한다. 새 묶음을 받았을 때, 화면에 다시 들어왔을 때,
+ * 다시 시도·다시 찍기를 했을 때 부른다. 이미 돌고 있으면 그 차례 돌리기가 새 사진까지 이어서 맡는다.
+ * - 한 장씩 보내는 이유: 9장을 한꺼번에 보내면 서버와 ML이 몰리고, 첫 결과도 늦게 나온다
+ * - 화면을 나가면(onScreen false) 보내던 한 장은 끝까지 받아 채우고, 다음 사진은 보내지 않는다
+ * - 보내는 사이 새 묶음을 받았거나 로그아웃했으면(batchSeq가 바뀜) 그 결과로 창을 열지 않는다 (이전 묶음의 타일이라 화면에 없음)
+ * - 처음으로 정리된 사진이 나오면 확인 창을 저절로 연다 (묶음마다 한 번만). 다시 찍기·실패로는 열지 않는다
+ * - 서버에 닿지 못했거나(offline) 로그인이 풀렸으면(login) 남은 사진도 모두 같은 결과라서 더 보내지 않고 멈춘다 (stopRest).
+ *   연결이 안 될 때 사진마다 시간 초과(20초)를 기다리게 하지 않으려는 것이다
  */
-function scheduleAnalysis() {
-  pauseAnalysis() // 같은 사진에 타이머가 두 번 걸리지 않게 먼저 비움
-  let wait = 0 // 남은 사진 중 몇 번째인지 (이미 끝난 사진은 건너뛰고 간격을 셈)
-  batch.forEach((b, i) => {
-    if (b.done || b.resizing) return // 아직 줄이는 중인 사진은 줄이기가 끝난 뒤 startBatch가 다시 부른다
-    timers.push(window.setTimeout(() => {
-      fill(b, DEMO_PREDS[i % DEMO_PREDS.length])
-      if (!autoOpened && onScreen) { autoOpened = true; openConfirm(batch.indexOf(b)) } else emit()
-    }, 700 + wait++ * 650 + (i >= batch.length - 2 ? 1800 : 0)))
+async function runAnalysis() {
+  if (analyzing) return
+  analyzing = true
+  try {
+    while (onScreen) {
+      const b = batch.find((t) => t.status === 'waiting')
+      if (!b) break
+      const seq = batchSeq
+      b.status = 'analyzing'; emit()
+      await analyzeTile(b, batch.indexOf(b))
+      if (seq !== batchSeq) continue
+      // analyzeTile이 status를 바꾸지만 TypeScript는 위에서 넣은 'analyzing'으로 알고 있어서(함수 안의 변경을 따라가지 않음),
+      // 바뀐 값을 Status로 다시 읽는다
+      const result = b.status as Status
+      if (result === 'failed' && (b.failKind === 'offline' || b.failKind === 'login')) { stopRest(b); emit(); break }
+      if (result === 'done' && !autoOpened && onScreen) { autoOpened = true; openConfirm(batch.indexOf(b)) } else emit()
+    }
+  } finally { analyzing = false }
+}
+
+/** 차례를 기다리던 사진을 모두 cause와 같은 실패로 바꾼다. 보내지 않은 사진이지만 보내도 같은 결과라서,
+ *  '확인 중'으로 멈춰 있게 두지 않고 같은 안내와 버튼('모두 다시 시도'·'로그인하기')을 보여 준다 */
+function stopRest(cause: Tile) {
+  batch.forEach((t) => {
+    if (t.status !== 'waiting') return
+    t.status = 'failed'; t.error = cause.error; t.failKind = cause.failKind
+  })
+}
+
+/** 확인 창에서 실패한 사진의 제목. 아래 문구(b.error)는 api/items.ts가 상태 코드별로 정한 것이다 */
+const FAIL_TITLE: Record<AnalyzeFailKind, string> = {
+  retry: '이 사진을 확인하지 못했어요',
+  offline: '이 사진을 확인하지 못했어요', // 아래 문구가 '서버에 연결할 수 없어요'라서 제목은 겹치지 않게 둔다
+  replace: '이 사진은 쓸 수 없어요',
+  login: '로그인이 필요해요',
+}
+
+/** 다시 보내면 될 수도 있는 실패인지 (다시 시도·연결 안 됨). 같은 사진으로는 안 되는 실패(replace)와 로그인 필요(login)는 아니다 */
+const canRetry = (b: Tile) => b.status === 'failed' && (b.failKind === 'retry' || b.failKind === 'offline')
+
+/** 실패한 사진을 다시 분석한다. 차례 맨 뒤가 아니라 앞에서부터 찾으므로 남은 사진보다 먼저 보낼 수도 있다 */
+function retryTile(b: Tile) {
+  b.status = 'waiting'; b.error = null; b.failKind = null
+  emit()
+  runAnalysis()
+}
+
+/** 사진 칸 버튼의 이름 (화면 읽기 프로그램용). 눌렀을 때 무슨 일이 일어나는지 말한다. i는 0부터 */
+function tileLabel(b: Tile, i: number) {
+  const nth = `${i + 1}번째 사진`
+  if (isPending(b)) return '확인 중'
+  if (b.status === 'retake') return `${nth} 다시 찍기`
+  if (canRetry(b)) return `${nth} 다시 시도`
+  if (b.failKind === 'replace') return `${nth} 다른 사진으로 바꾸기`
+  if (b.failKind === 'login') return `${nth} 로그인 필요`
+  return `${i + 1}번째 옷 확인하기`
+}
+
+/** 다시 보내면 될 수도 있는 실패 사진을 모두 다시 분석한다 (연결이 끊겼다가 돌아왔을 때 한 번에 다시 하려고) */
+function retryAll() {
+  batch.filter(canRetry).forEach((t) => { t.status = 'waiting'; t.error = null; t.failKind = null })
+  emit()
+  runAnalysis()
+}
+
+/** 로그인 화면으로 보낸다. 끝나면 옷 등록으로 돌아온다. 창이 열려 있으면 닫고 간다.
+ *  Google 로그인은 앱이 새로 열려 올려 둔 사진이 사라지므로, 사진은 로그인한 뒤 다시 골라야 한다 */
+function loginForUpload() {
+  closeAll()
+  toLogin('/upload')
+}
+
+/** 사진을 목록에서 뺀다 (다시 찍기·실패한 사진). 확인 창에서 보던 순서가 끝을 넘으면 마지막 사진으로, 다 빠지면 창을 닫는다 */
+function removeTile(b: Tile) {
+  if (b.img?.startsWith('blob:')) URL.revokeObjectURL(b.img)
+  batch = batch.filter((t) => t !== b)
+  if (!batch.length) { cur = 0; closeAll(); return }
+  cur = Math.min(cur, batch.length - 1)
+  emit()
+}
+
+/**
+ * 다시 찍어야 하는 사진을 새로 찍은 사진으로 바꾼다. 카메라 권한을 묻고 폰 기본 카메라(또는 파일 고르기)를 연다.
+ * 새 사진도 줄인 뒤 같은 자리에서 다시 분석한다. 줄이는 사이 이 사진이 목록에서 빠졌으면(새 묶음 등) 새 사진은 버린다
+ */
+function retakeTile(b: Tile) {
+  askPermission('camera', () => {
+    const input = document.createElement('input')
+    input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment'
+    input.onchange = async () => {
+      const f = input.files?.[0]; if (!f) return
+      b.status = 'resizing'; emit()
+      const small = await resizeImage(f)
+      if (!batch.includes(b)) return
+      if (b.img?.startsWith('blob:')) URL.revokeObjectURL(b.img)
+      b.file = small; b.img = URL.createObjectURL(small); b.status = 'waiting'; b.error = null; b.failKind = null; b.draftId = null
+      emit()
+      runAnalysis()
+    }
+    input.click()
   })
 }
 
@@ -107,12 +246,12 @@ function scheduleAnalysis() {
  *   그 옷을 나중에 지우면 store.ts의 deleteItem이 주소를 해제한다 (그 사진을 쓰는 글이 남아 있으면 두고).
  */
 async function startBatch(files: FileList | Blob[] | null) {
-  pauseAnalysis()
   batch.forEach((b) => { if (b.img?.startsWith('blob:')) URL.revokeObjectURL(b.img) }) // 예시 사진(앱 안 이미지)은 blob이 아니라 해제하지 않음
   const list: (Blob | undefined)[] = files && files.length ? [...files].slice(0, 9) : Array.from({ length: 6 })
   const seq = ++batchSeq
   const tiles: Tile[] = list.map((f, i) => ({
-    id: ++S.uid, img: f ? null : photo(DEMO_IDS[i % DEMO_IDS.length]) || null, file: null, resizing: !!f, done: false,
+    id: ++S.uid, img: f ? null : photo(DEMO_IDS[i % DEMO_IDS.length]) || null, file: null,
+    status: f ? 'resizing' : 'waiting', error: null, failKind: null, draftId: null, // 예시 사진은 줄일 것이 없어서 바로 차례를 기다린다
     name: null, cat: null, sub: null, color: null, material: null, hex: null,
   }))
   batch = tiles; cur = 0; autoOpened = false
@@ -122,14 +261,15 @@ async function startBatch(files: FileList | Blob[] | null) {
   if (seq !== batchSeq) return // 줄이는 사이에 새 묶음을 받았으면 이 결과는 버린다 (아직 주소를 만들지 않아 해제할 것도 없음)
   tiles.forEach((b, i) => {
     const f = resized[i]; if (!f) return
-    b.file = f; b.img = URL.createObjectURL(f); b.resizing = false
+    b.file = f; b.img = URL.createObjectURL(f); b.status = 'waiting'
   })
   emit()
-  if (onScreen) scheduleAnalysis() // 화면을 나간 뒤에 끝났으면 돌아올 때 Upload의 useEffect가 분석을 이어서 한다
+  runAnalysis() // 화면을 나간 뒤에 끝났으면 runAnalysis가 바로 멈추고, 돌아올 때 Upload의 useEffect가 이어서 한다
 }
 
-/** 옷장에 넣을 수 있는지: 분석이 끝났고 종류와 색이 있어야 한다 (세부 종류·재질은 몰라도 넣을 수 있음) */
-const isSet = (b: Tile) => b.done && !!b.cat && !!b.color
+/** 옷장에 넣을 수 있는지: 분석이 끝났고 종류와 색이 있어야 한다 (세부 종류·재질은 몰라도 넣을 수 있음).
+ *  서버가 색을 못 고르면(color null) 사용자가 색을 골라야 넣을 수 있다 */
+const isSet = (b: Tile) => b.status === 'done' && !!b.cat && !!b.color
 
 /**
  * 정리한 사진을 모두 옷장에 넣는다. 확인 창의 마지막 옷에서 '옷장에 N벌 넣기'를 누르면 부른다.
@@ -157,10 +297,17 @@ export default function Upload() {
   const nav = useNavigate()
   const album = useRef<HTMLInputElement>(null), shot = useRef<HTMLInputElement>(null)
   const [cam, setCam] = useState(false)
-  // 화면에 들어오면 남은 사진 분석을 이어서 하고, 나가면 멈춘다 (나간 뒤에도 타이머가 돌며 다시 그리지 않게)
-  // onScreen: 사진 줄이기가 화면을 나간 뒤에 끝나면 분석을 걸지 않게 하려고 함께 켜고 끈다
-  useEffect(() => { onScreen = true; scheduleAnalysis(); return () => { onScreen = false; pauseAnalysis() } }, [])
-  const done = batch.filter((b) => b.done).length, left = batch.length - done
+  // 화면에 들어오면 남은 사진 분석을 이어서 하고, 나가면 다음 사진을 보내지 않는다 (보내던 한 장은 끝까지 받는다)
+  useEffect(() => { onScreen = true; runAnalysis(); return () => { onScreen = false } }, [])
+  // 진행 줄의 숫자: 정리됨, 확인 중(줄이기·차례·응답 기다림), 다시 필요(다시 찍기·실패)
+  const done = batch.filter((b) => b.status === 'done').length
+  const checking = batch.filter(isPending).length
+  const redo = batch.filter(needsRedo).length
+  const progressNote = [checking && `${checking}장 확인 중`, redo && `${redo}장 다시 필요`].filter(Boolean).join(' · ')
+  // 사진 칸 위 알림: 로그인이 풀렸거나 서버에 닿지 못해 분석을 멈췄을 때, 또는 다시 시도할 사진이 여러 장일 때 한 번에 처리하게 한다
+  const needLogin = batch.some((b) => b.status === 'failed' && b.failKind === 'login')
+  const offline = batch.some((b) => b.status === 'failed' && b.failKind === 'offline')
+  const retryCount = batch.filter(canRetry).length
   return (
     <section className="screen on" id="s-upload">
       <button className="backrow" onClick={() => nav('/closet')}><Back />옷장</button>
@@ -180,22 +327,41 @@ export default function Upload() {
             <button className="btn cta" onClick={() => startBatch(null)}>예시 사진으로 해 보기</button></div>
         ) : (
           <>
-            <div className="prog"><b>{batch.length}장 중 {done}장 정리했어요</b><span>{left ? left + '장 확인 중' : ''}</span></div>
+            <div className="prog"><b>{batch.length}장 중 {done}장 정리했어요</b><span>{progressNote}</span></div>
             <div className="track"><i style={{ width: `${(done / batch.length) * 100}%` }} /></div>
-            {/* 사진 칸: 후보 목록 없이 사진만 보인다. 분석이 끝난 사진을 누르면 그 사진부터 확인 창이 열린다 */}
+            {/* 분석을 멈췄거나 다시 할 사진이 여러 장이면 한 번에 처리하는 알림. 로그인이 먼저다 (로그인 없이는 다시 시도해도 실패) */}
+            {needLogin ? (
+              <div className="upnote"><p>로그인하면 사진을 확인할 수 있어요</p><button className="btn solid" onClick={loginForUpload}>로그인하기</button></div>
+            ) : (offline || retryCount > 1) && retryCount > 0 ? (
+              <div className="upnote"><p>{offline ? '서버에 연결할 수 없어 확인을 멈췄어요' : `${retryCount}장을 확인하지 못했어요`}</p>
+                <button className="btn solid" onClick={retryAll}><RetryIc />모두 다시 시도</button></div>
+            ) : null}
+            {/* 사진 칸: 후보 목록 없이 사진만 보인다.
+                정리된 사진·다시 찍을 사진을 누르면 그 사진부터 확인 창이 열린다.
+                실패한 사진은 다시 보내면 될 수 있으면(canRetry) 눌러서 그 사진만 다시 분석하고,
+                같은 사진으로는 안 되거나(replace) 로그인이 필요하면(login) 확인 창을 열어 할 수 있는 일을 보여 준다 */}
             <div className="grid3 mt16">
               {batch.map((b, i) => (
                 <div key={b.id} className="tile">
-                  <button className={`ph ${b.done ? '' : 'wait'}`} disabled={!b.done} aria-label={b.done ? `${i + 1}번째 옷 확인하기` : '확인 중'} onClick={() => openConfirm(i)}>
+                  <button className={`ph ${isPending(b) ? 'wait' : ''} ${b.status === 'retake' ? 'dim' : ''}`} disabled={isPending(b)}
+                    aria-label={tileLabel(b, i)}
+                    onClick={() => (canRetry(b) ? retryTile(b) : openConfirm(i))}>
                     {b.img && <img src={b.img} alt="" />}
-                    {!b.done && <span className="spin" />}
+                    {isPending(b) && <span className="spin" />}
+                    {b.status === 'retake' && <span className="band"><CameraIc />다시 찍기</span>}
+                    {canRetry(b) && <span className="band bad"><RetryIc />실패 · 다시 시도</span>}
+                    {b.failKind === 'replace' && b.status === 'failed' && <span className="band bad"><CameraIc />다른 사진 필요</span>}
+                    {b.failKind === 'login' && b.status === 'failed' && <span className="band bad">로그인 필요</span>}
                   </button>
                 </div>
               ))}
             </div>
-            <p className="hint">{done ? '사진을 누르면 그 옷부터 다시 확인할 수 있어요' : '사진을 확인하고 있어요. 첫 옷이 확인되면 한 벌씩 보여 드릴게요'}</p>
-            {/* 확인 창을 닫았을 때 돌아가는 길. 창이 저절로 열리기 전(첫 분석 전)에는 누를 것이 없어 숨긴다 */}
-            {done > 0 && <button className="btn solid full mt16" onClick={() => openConfirm(cur)}>이어서 확인하기 ({cur + 1} / {batch.length})</button>}
+            <p className="hint">
+              {done || redo ? '사진을 누르면 그 옷부터 다시 확인할 수 있어요' : '사진을 확인하고 있어요. 첫 옷이 확인되면 한 벌씩 보여 드릴게요'}
+              {retryCount > 0 && <><br />‘실패’한 사진은 누르면 다시 확인해요</>}
+            </p>
+            {/* 확인 창을 닫았을 때 돌아가는 길. 확인할 사진(정리됨·다시 필요)이 하나도 없으면 누를 것이 없어 숨긴다 */}
+            {(done > 0 || redo > 0) && <button className="btn solid full mt16" onClick={() => openConfirm(cur)}>이어서 확인하기 ({cur + 1} / {batch.length})</button>}
           </>
         )}
       </div>
@@ -306,7 +472,7 @@ let scanning = false
 /** 색 고르기 창에서 지금 눌러 둔 색 이름 ('이 색으로 할게요'를 누르기 전까지는 옷에 넣지 않는다) */
 let colorPick: string | null = null
 registerModuleReset(() => {
-  batchSeq++; pauseAnalysis()
+  batchSeq++ // 보내던 분석의 결과가 늦게 와도 창을 열지 않게. 차례 돌리기는 batch가 비어 바로 끝난다
   batch.forEach((tile) => { if (tile.img?.startsWith('blob:')) URL.revokeObjectURL(tile.img) })
   batch = []; cur = 0; autoOpened = false; onScreen = false; scanning = false; colorPick = null
 })
@@ -348,22 +514,52 @@ function openColorTable(b: Tile) {
  * - 위: 몇 번째 옷인지(cur+1 / 전체), 남은 옷 수, 진행 막대
  * - 아래: '이전'(첫 옷에서는 막힘)과 '다음 옷'. 마지막 옷에서는 '옷장에 N벌 넣기'
  * - 이 사진이 아직 분석 중이면 고르는 칸 대신 기다림 표시를 보여 주고, 분석이 끝나면 emit으로 다시 그려져 칸이 나타난다
- * - 종류·색이 비어 있으면(색을 지운 경우 등은 없지만 API 결과가 비어 올 수 있어서) 다음으로 넘어가지 못하게 막는다
+ * - 다시 찍기: 찍는 방법 안내와 '목록에서 빼기'·'다시 찍기'. 실패: 실패 문구와 '다시 시도'·'목록에서 빼기'.
+ *   두 경우 모두 옷장에 넣지 않으므로, 고칠 것 없이 '다음 옷'으로 건너뛸 수 있다
+ * - 종류·색이 비어 있으면(서버가 색을 고르지 못해 color가 null로 온 경우) 다음으로 넘어가지 못하게 막고, 색을 고르라고 알린다
  */
 function Confirm() {
   const b = batch[cur]
   if (!b) return null // 창이 열린 채 새 묶음을 받거나 옷장에 넣어 batch가 바뀐 경우
   const n = batch.length, last = cur === n - 1, rest = n - cur - 1
+  const setCount = batch.filter(isSet).length
+  // 다음으로 갈 수 있는지: 정리가 끝났거나(종류·색 있음) 다시 해야 하는 사진(건너뜀). 마지막 옷에서는 넣을 옷이 한 벌은 있어야 한다
+  const canNext = isSet(b) || needsRedo(b)
   return (
     <>
       <div className="one-top"><b>{cur + 1} / {n}</b><span>{last ? '마지막 옷이에요' : `남은 옷 ${rest}벌`}</span></div>
       <div className="track"><i style={{ width: `${((cur + 1) / n) * 100}%` }} /></div>
       <div className="one-head">
-        <div className="one-ph">{b.img && <img src={b.img} alt="" />}</div>
-        <div><h3>이 옷이 맞나요?</h3><p>사진을 보고 골라 뒀어요.<br />다른 곳만 눌러서 바꿔 주세요</p></div>
+        <div className={`one-ph ${b.status === 'retake' ? 'dim' : ''}`}>
+          {b.img && <img src={b.img} alt="" />}
+          {b.status === 'retake' && <span className="band">다시 찍기</span>}
+          {b.status === 'failed' && <span className="band bad">{b.failKind === 'login' ? '로그인' : '실패'}</span>}
+        </div>
+        {b.status === 'retake' ? <div><h3>이 사진은 다시 찍어야 해요</h3><p>옷이 잘 보이지 않았어요.<br />옷이 화면에 꽉 차게 찍어 주세요</p></div>
+          : b.status === 'failed' ? <div><h3>{FAIL_TITLE[b.failKind ?? 'retry']}</h3><p>{b.error}</p></div>
+          : <div><h3>이 옷이 맞나요?</h3><p>사진을 보고 골라 뒀어요.<br />다른 곳만 눌러서 바꿔 주세요</p></div>}
       </div>
-      {!b.done ? (
+      {isPending(b) ? (
         <div className="one-wait"><span className="spin" /><p>이 사진은 아직 확인 중이에요</p></div>
+      ) : b.status === 'retake' ? (
+        <div className="one-redo">
+          <div className="one-tip"><b>이렇게 찍으면 잘 알아봐요</b><p>· 옷 한 벌만 보이게 펼쳐서<br />· 밝은 곳에서, 그림자 없이<br />· 옷 전체가 화면 안에 들어오게</p></div>
+          <div className="row2">
+            <button className="btn" onClick={() => removeTile(b)}>목록에서 빼기</button>
+            <button className="btn solid" onClick={() => retakeTile(b)}>다시 찍기</button>
+          </div>
+          <p className="sub">이 사진은 옷장에 넣지 않아요. 그냥 두고 다음 옷으로 넘어가도 돼요</p>
+        </div>
+      ) : b.status === 'failed' ? (
+        // 실패 종류(failKind)마다 할 수 있는 일만 보여 준다: 다시 시도 / 다시 찍기 / 로그인하기. 빼기는 모두 같다
+        <div className="one-redo">
+          {b.failKind === 'replace' ? <button className="btn solid full" onClick={() => retakeTile(b)}><CameraIc />다시 찍기</button>
+            : b.failKind === 'login' ? <button className="btn solid full" onClick={loginForUpload}>로그인하기</button>
+              : <button className="btn solid full" onClick={() => retryTile(b)}><RetryIc />다시 시도</button>}
+          <button className="btn full" onClick={() => removeTile(b)}>목록에서 빼기</button>
+          <p className="sub">{b.failKind === 'login' ? 'Google로 로그인하면 올려 둔 사진이 사라져요. 로그인한 뒤 사진을 다시 골라 주세요'
+            : '이 사진은 옷장에 넣지 않아요. 그냥 두고 다음 옷으로 넘어가도 돼요'}</p>
+        </div>
       ) : (
         <>
           <h4>종류</h4>
@@ -376,12 +572,13 @@ function Confirm() {
               <div className="opts">{SUBS[b.cat].map((x) => <button key={x} className={`opt ${b.sub === x ? 'on' : ''}`} onClick={() => { if (b.sub !== x) b.name = null; b.sub = x; emit() }}>{x}</button>)}</div>
             </>
           )}
-          <h4>색</h4>
           {/* Figma v4 3-9: 뽑은(또는 고른) 색과 이름만 보여 주고, 다른 색은 '색 바꾸기'로 18색 표 창을 열어 고른다 (11/27).
-              18색 동그라미를 늘어놓던 줄은 이 창으로 옮겼다 */}
+              18색 동그라미를 늘어놓던 줄은 이 창으로 옮겼다.
+              서버가 색을 고르지 못하면(color null) 색을 골라야 넣을 수 있어서, 제목 옆에 알리고 빈 동그라미와 안내 문구를 보여 준다 */}
+          <div className="one-h4"><h4>색</h4>{!b.color && <span className="need">색을 골라 주세요</span>}</div>
           <div className="scan">
-            <span className="sw" style={{ background: b.hex || (b.color ? COLORS[b.color] : 'transparent') }} />
-            <p>{b.hex ? <>사진에서 뽑은 색이에요<br />가장 가까운 이름은 <b>{b.color}</b></> : b.color ? <>고른 색이에요<br /><b>{b.color}</b></> : '색을 골라 주세요'}</p>
+            <span className={`sw ${b.color ? '' : 'none'}`} style={{ background: b.hex || (b.color ? COLORS[b.color] : 'transparent') }} />
+            <p>{b.hex ? <>사진에서 뽑은 색이에요<br />가장 가까운 이름은 <b>{b.color}</b></> : b.color ? <>고른 색이에요<br /><b>{b.color}</b></> : <>사진에서 색을 알아보지 못했어요<br />'색 바꾸기'로 골라 주세요</>}</p>
           </div>
           <button className="btn full mt8" onClick={() => openColorTable(b)}>색 바꾸기</button>
           <button className="link scanlink" disabled={scanning} onClick={() => { scanning = true; emit(); scanColor(b, () => { scanning = false; b.name = null; emit() }) }}>{scanning ? '색을 뽑는 중이에요' : '사진에서 색 다시 뽑기'}</button>
@@ -394,8 +591,8 @@ function Confirm() {
       )}
       <div className="row2 one-btns">
         <button className="btn" disabled={cur === 0} onClick={() => { cur--; emit() }}>이전</button>
-        <button className="btn solid" disabled={!isSet(b)} onClick={() => { if (last) putInCloset(); else { cur++; emit() } }}>
-          {last ? `옷장에 ${batch.filter(isSet).length}벌 넣기` : '다음 옷'}
+        <button className="btn solid" disabled={!canNext || (last && !setCount)} onClick={() => { if (last) putInCloset(); else { cur++; emit() } }}>
+          {last ? `옷장에 ${setCount}벌 넣기` : '다음 옷'}
         </button>
       </div>
     </>

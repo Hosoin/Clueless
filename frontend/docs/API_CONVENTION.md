@@ -17,7 +17,7 @@
 | --- | --- |
 | 화면 데이터 | `seed.ts` → `store.ts`의 `S` (메모리). 새로고침하면 처음 상태로 돌아감 |
 | BE | 두 서비스(`closet-service`, `recommendation-service`)가 `GET /test`를 응답. `closet-service`에는 Google 로그인과 세션 인증(`/api/auth/me`, `/api/auth/logout`)이 구현되어 있음. 옷 사진 분석·확정·수정·사진 보기 API가 배포되어 있고, 옷 목록·상세 조회·삭제 API는 코드에 있지만 배포 전(아래 표). API 명세는 [`backend/docs/FE_API_HANDOFF.md`](../../backend/docs/FE_API_HANDOFF.md). 추천 API는 아직 없음 |
-| 프론트 `src/api/` | 로그인 부분만 있음: `client.ts`(공통 요청), `auth.ts`(로그인 확인·로그아웃·Google 로그인 주소), `error.ts`. 옷·추천 등은 아직 없음 |
+| 프론트 `src/api/` | 로그인과 옷 사진 분석만 연결됨: `client.ts`(세션 쿠키·CSRF 요청, 가짜 데이터 스위치 `MOCK`·`mock`), `auth.ts`(로그인 확인·로그아웃·Google 로그인 주소), `items.ts`(사진 분석 `analyzeItemPhoto`), `error.ts`. 옷 확정·수정·목록·상세·삭제와 추천 API는 아직 연결 안 됨 |
 
 그래서 이 문서의 방식은 두 가지를 동시에 만족해야 합니다.
 
@@ -44,7 +44,7 @@ API가 하나씩 열리면 해당 부분만 가짜 데이터에서 실제 호출
 | 프론트 데이터 (용어 사전) | 타입 | 담당 서비스 | API 연결 | 지금 데이터 |
 | --- | --- | --- | --- | --- |
 | 옷 (`Item`): 조회, 등록, 삭제, 추천 제외 | `Item` | `closet-service` | 등록(분석·확정)·수정(`PATCH`)은 배포됨. 목록·상세 조회·삭제와 추천 제외(`PATCH`의 `recommend_yn`)는 코드에 있고 배포 전 | 가짜 데이터 |
-| 옷 사진 분석(AI가 고른 값)과 확정 저장 (`Upload`) | `Item`, `Category` | `closet-service` (BE가 ML을 부름) | API 있음([5장](#5-이미지와-파일)), 프론트 미연결 | 화면 안의 가짜 분석 결과 |
+| 옷 사진 분석(AI가 고른 값)과 확정 저장 (`Upload`) | `Item`, `Category` | `closet-service` (BE가 ML을 부름) | API 있음([5장](#5-이미지와-파일)). 프론트는 분석만 연결(`Upload` → `analyzeItemPhoto`), 확정 저장은 미연결 | `VITE_MOCK_CLOSET=true`면 `items.ts`의 가짜 분석 결과, 예시 사진은 화면 안의 가짜 결과 |
 | 추천 코디 (`Outfit`) | `Outfit` | `recommendation-service` | 계약 미확정 | `store.ts`의 규칙 + 가짜 데이터 |
 | 저장한 코디 (`Saved`) | `Saved` | 미정 | 담당 미정 | 가짜 데이터 |
 | 입은 기록 (`Hist`), 입을 계획 (`Plan`) | `Hist`, `Plan` | 미정 | 담당 미정 | 가짜 데이터 |

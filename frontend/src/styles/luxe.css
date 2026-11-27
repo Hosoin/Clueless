@@ -173,6 +173,31 @@ h1 i{font-style:italic}
 .one-wait p{margin:0}
 /* 이전·다음 옷 버튼은 창이 길어 스크롤해도 늘 아래에 보이게 붙여 둔다 (.sheet의 아래 여백 34px만큼 내려서 바닥에 닿게) */
 .one-btns{position:sticky;bottom:-34px;margin:6px -24px -34px;padding:12px 24px 34px;background:var(--paper);border-top:1px solid var(--line)}
+/* 옷 등록: 다시 찍어야 하는 사진·실패한 사진 표시 (사진 칸과 확인 창의 작은 사진에 같이 쓴다).
+   다시 찍기는 사진을 흐리게 하고 검은 띠, 실패는 빨간 띠. 띠에 글자가 있어 색만으로 구분하지 않는다 */
+.tile .ph,.one-ph{position:relative}
+.tile .ph.dim img,.one-ph.dim img{opacity:.5}
+.band{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 4px;background:var(--ink);color:var(--ivory);font-size:11px;line-height:1.2}
+.band.bad{background:var(--danger);color:var(--paper)}
+.band svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.one-ph .band{padding:4px 2px;font-size:10px}
+/* 옷 등록: 분석을 멈췄거나(로그인 필요·연결 안 됨) 다시 할 사진이 여러 장일 때 사진 칸 위에 띄우는 알림 */
+.upnote{display:flex;align-items:center;gap:12px;margin-top:16px;padding:12px 14px;border:1px solid var(--line);background:var(--paper)}
+.upnote p{margin:0;flex:1;font-size:12px;line-height:1.5;color:var(--muted)}
+.upnote .btn{min-height:38px;padding:0 14px;font-size:12px;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.upnote .btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* 확인 창: 다시 찍기·실패한 사진의 안내와 버튼 */
+.one-redo{display:flex;flex-direction:column;gap:10px;padding-top:8px}
+.one-redo .btn{display:flex;align-items:center;justify-content:center;gap:8px}
+.one-redo .btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.one-redo .sub{margin:0;font-size:12px;line-height:1.5}
+.one-tip{border:1px solid var(--line);background:var(--ivory);padding:16px}
+.one-tip b{display:block;font-size:13px;margin-bottom:8px}
+.sheet .one-tip p{margin:0;font-size:12px;line-height:1.7}
+/* 확인 창: 색을 아직 고르지 않았을 때 제목 옆 알림과 빈 색 동그라미 */
+.one-h4{display:flex;justify-content:space-between;align-items:baseline}
+.one-h4 .need{font-size:12px;font-weight:700;color:var(--danger)}
+.scan .sw.none{border-style:dashed}
 
 /* 옷 크게 보기 · 별명 (Ph.tsx lightbox, editAlias) */
 .lb h3 + .sub{margin:2px 0 10px}             /* 별명 아래 원래 이름 */
