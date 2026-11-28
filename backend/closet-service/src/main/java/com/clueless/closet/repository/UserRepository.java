@@ -1,6 +1,7 @@
 package com.clueless.closet.repository;
 
 import java.sql.Types;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -22,8 +23,8 @@ public class UserRepository {
     }
 
     // 로그인 시 기존 유저 확인 후 없으면 생성
-    public long findOrCreateId(String provider, String subject, String userName, String email) {
-        return findExistingId(provider, subject, userName, email)
+    public LoginUser findOrCreate(String provider, String subject, String userName, String email) {
+        return findExistingId(provider, subject, userName, email).map(id -> new LoginUser(id, false))
                 .or(() -> jdbc.sql("""
                         INSERT INTO public.user_info (auth_provider, provider_user_id, user_name, email, nick_name)
                         VALUES (?, ?, ?, ?, ?)
@@ -32,22 +33,43 @@ public class UserRepository {
                         """)
                         .params(provider, subject, userName, email, randomNickname())
                         .query(Long.class)
-                        .optional())
+                        .optional().map(id -> new LoginUser(id, true)))
                 // A separate statement can see the row committed by a concurrent first login.
-                .or(() -> findExistingId(provider, subject, userName, email))
+                .or(() -> findExistingId(provider, subject, userName, email).map(id -> new LoginUser(id, false)))
                 .orElseThrow(() -> new EmptyResultDataAccessException(1));
     }
 
     // 유저 프로필 조회
     public Optional<UserProfile> findProfileById(long id) {
-        return jdbc.sql("SELECT id, user_name, nick_name, email FROM public.user_info WHERE id = ?")
+        return jdbc.sql("""
+                SELECT id, user_name, nick_name, email, preferred_styles
+                FROM public.user_info WHERE id = ?
+                """)
                 .param(id)
                 .query((rs, row) -> new UserProfile(rs.getLong("id"), rs.getString("user_name"),
-                        rs.getString("nick_name"), rs.getString("email")))
+                        rs.getString("nick_name"), rs.getString("email"),
+                        Arrays.asList((String[]) rs.getArray("preferred_styles").getArray())))
                 .optional();
     }
 
-    public record UserProfile(long id, String userName, String nickName, String email) {
+    public boolean updateProfile(long id, String nickName, List<String> preferredStyles) {
+        return jdbc.sql("""
+                UPDATE public.user_info
+                SET nick_name = COALESCE(:nickName, nick_name),
+                    preferred_styles = COALESCE(CAST(:preferredStyles AS text[]), preferred_styles),
+                    updated_at = now()
+                WHERE id = :id
+                """)
+                .param("id", id).param("nickName", nickName, Types.VARCHAR)
+                .param("preferredStyles", preferredStyles == null ? null : preferredStyles.toArray(String[]::new), Types.ARRAY)
+                .update() == 1;
+    }
+
+    public record UserProfile(long id, String userName, String nickName, String email,
+                              List<String> preferredStyles) {
+    }
+
+    public record LoginUser(long id, boolean newUser) {
     }
 
     // 로그인 시 기존 유저 확인 후 없으면 생성

@@ -57,7 +57,7 @@ Set-Cookie: JSESSIONID=<session>; <cookie attributes>
 
 ```
 
-> 콜백은 Google → 백엔드 `https://api-closet-service.p-e.kr/login/oauth2/code/google`로 처리된다. FE가 직접 호출하거나 실제 code/state를 복사·공유하지 않는다. 실패 시 `401`; 성공 목적지는 `FRONTEND_LOGIN_SUCCESS_URL` 설정을 따른다.
+> 콜백은 Google → 백엔드 `https://api-closet-service.p-e.kr/login/oauth2/code/google`로 처리된다. FE가 직접 호출하거나 실제 code/state를 복사·공유하지 않는다. 실패 시 `401`; 성공 목적지는 기존 `FRONTEND_LOGIN_SUCCESS_URL`의 fragment만 교체한다. 이번 Google 로그인에서 실제 신규 계정 생성 시 `#/onboard`, 기존 계정은 `#/`이며 온보딩 취소 후 재로그인도 홈으로 복귀한다. 신규 가입 쿼리 추가·FE 쿼리 제거 방식은 폐기했다. DB·새 ENV 추가나 Google 콜백 변경은 없으며, 실제 배포·FE 검증 완료를 뜻하지 않는다. 상세는 [인증 API 명세](AUTH_API.md)를 따른다.
 
 ## 3. 내 정보·CSRF 토큰
 

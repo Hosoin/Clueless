@@ -1,5 +1,6 @@
 package com.clueless.closet.config;
 
+import com.clueless.closet.service.ClosetOidcUser;
 import com.clueless.closet.service.UserService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -7,17 +8,21 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.oauth2.client.CommonOAuth2Provider;
 import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenDecoderFactory;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.converter.ClaimTypeConverter;
 import org.springframework.security.oauth2.core.oidc.StandardClaimNames;
 import org.springframework.security.oauth2.jwt.JwtDecoderFactory;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandlerImpl;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.util.StringUtils;
@@ -50,7 +55,8 @@ class SecurityConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 // Local editing clients need to read the same-session token before writing.
                 registry.addMapping("/api/auth/me").allowedOrigins("http://localhost:5173")
-                        .allowedMethods("GET").allowCredentials(true).exposedHeaders("X-CSRF-TOKEN");
+                        .allowedMethods("GET", "PATCH").allowedHeaders("Content-Type", "X-CSRF-TOKEN")
+                        .allowCredentials(true).exposedHeaders("X-CSRF-TOKEN");
             }
         };
     }
@@ -60,6 +66,10 @@ class SecurityConfig {
             @Value("${closet.security.google.client-id:}") String clientId,
             @Value("${closet.security.google.client-secret:}") String clientSecret,
             @Value("${closet.security.google.success-url}") String successUrl) {
+        var profilePatch = PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.PATCH, "/api/auth/me");
+        var trustResolver = new AuthenticationTrustResolverImpl();
+        var unauthorized = new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED);
+        var forbidden = new AccessDeniedHandlerImpl();
         http.cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/test").permitAll()
@@ -69,20 +79,39 @@ class SecurityConfig {
                         .logoutRequestMatcher(PathPatternRequestMatcher.withDefaults()
                                 .matcher(HttpMethod.POST, "/api/auth/logout"))
                         .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT)))
-                .exceptionHandling(exceptions -> exceptions
-                    .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)));
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(unauthorized)
+                        .accessDeniedHandler((request, response, denied) -> {
+                            // CSRF runs before authorization, so distinguish a missing login here.
+                            if (profilePatch.matches(request) && !trustResolver.isAuthenticated(
+                                    SecurityContextHolder.getContext().getAuthentication())) {
+                                unauthorized.commence(request, response, null);
+                            } else {
+                                forbidden.handle(request, response, denied);
+                            }
+                        }));
 
         // Missing credentials disable Google login without exposing any other routes.
         if (StringUtils.hasText(clientId) && StringUtils.hasText(clientSecret)) {
             var google = CommonOAuth2Provider.GOOGLE.getBuilder("google")
                     .clientId(clientId).clientSecret(clientSecret).scope("openid", "profile", "email").build();
+            var returning = new SimpleUrlAuthenticationSuccessHandler(withFragment(successUrl, "/"));
+            var newlyRegistered = new SimpleUrlAuthenticationSuccessHandler(withFragment(successUrl, "/onboard"));
             http.oauth2Login(login -> login
                     .clientRegistrationRepository(new InMemoryClientRegistrationRepository(google))
                     .loginPage("/oauth2/authorization/google")
                     .userInfoEndpoint(userInfo -> userInfo.oidcUserService(userService))
                     .failureHandler((request, response, failure) -> response.setStatus(HttpStatus.UNAUTHORIZED.value()))
-                    .defaultSuccessUrl(successUrl, true));
+                    .successHandler((request, response, auth) -> {
+                        var handler = auth.getPrincipal() instanceof ClosetOidcUser user && user.newUser()
+                                ? newlyRegistered : returning;
+                        handler.onAuthenticationSuccess(request, response, auth);
+                    }));
         }
         return http.build();
+    }
+
+    private static String withFragment(String url, String fragment) {
+        int hash = url.indexOf('#');
+        return (hash < 0 ? url : url.substring(0, hash)) + "#" + fragment;
     }
 }

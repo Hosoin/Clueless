@@ -36,7 +36,8 @@ public class UserService implements OAuth2UserService<OidcUserRequest, OidcUser>
                 ? textClaim(claims.get(StandardClaimNames.EMAIL)) : null;
         OidcUser oidcUser = delegate.loadUser(request);
         try {
-            return new ClosetOidcUser(oidcUser, users.findOrCreateId(GOOGLE, subject, name, email));
+            var user = users.findOrCreate(GOOGLE, subject, name, email);
+            return new ClosetOidcUser(oidcUser, user.id(), user.newUser());
         } catch (DataAccessException failure) {
             // Do not propagate SQL or provider identity into the authentication failure.
             throw new OAuth2AuthenticationException("user_binding_failed");
