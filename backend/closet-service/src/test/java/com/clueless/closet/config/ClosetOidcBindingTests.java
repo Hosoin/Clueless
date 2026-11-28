@@ -345,7 +345,7 @@ class ClosetOidcBindingTests {
         var session = new MockHttpSession();
         var response = callback(session, code);
         assertThat(response.getStatus()).isEqualTo(302);
-        assertThat(response.getHeader(HttpHeaders.LOCATION)).isEqualTo("http://localhost:5173/home");
+        assertThat(response.getHeader(HttpHeaders.LOCATION)).isEqualTo("http://localhost:5173/home#/");
         return session;
     }
 
@@ -357,7 +357,8 @@ class ClosetOidcBindingTests {
             var session = new MockHttpSession();
             var response = callback(session, "valid");
             assertThat(response.getStatus()).isEqualTo(302);
-            assertThat(response.getHeader(HttpHeaders.LOCATION)).isEqualTo(attempt == 0 ? "http://localhost:5173/home?newUser=1" : "http://localhost:5173/home");
+            assertThat(response.getHeader(HttpHeaders.LOCATION))
+                    .isEqualTo(attempt == 0 ? "http://localhost:5173/home#/onboard" : "http://localhost:5173/home#/");
             var context = (SecurityContext) session.getAttribute(SECURITY_CONTEXT);
             assertThat(context.getAuthentication().isAuthenticated()).isTrue();
             assertThat(context.getAuthentication().getPrincipal()).isInstanceOfSatisfying(ClosetOidcUser.class, user -> {
@@ -385,7 +386,7 @@ class ClosetOidcBindingTests {
 
         var response = callback(session, code);
 
-        assertThat(response.getHeader(HttpHeaders.LOCATION)).isEqualTo("http://localhost:5173/home");
+        assertThat(response.getHeader(HttpHeaders.LOCATION)).isEqualTo("http://localhost:5173/home#/");
         var context = (SecurityContext) session.getAttribute(SECURITY_CONTEXT);
         assertThat(context.getAuthentication().isAuthenticated()).isTrue();
         verify(users).findOrCreate("google", SUBJECT, expectedName, expectedEmail);
@@ -415,24 +416,36 @@ class ClosetOidcBindingTests {
     }
 
     @Nested
-    @TestPropertySource(properties = "FRONTEND_LOGIN_SUCCESS_URL=https://dev.example.com/?lang=ko&back=%2Fcloset#/home?tab=all")
+    @TestPropertySource(properties = "FRONTEND_LOGIN_SUCCESS_URL=https://dev.example.com/app/?lang=ko&back=%2Fcloset#/home?tab=all")
     class ConfiguredSuccessUrl {
 
         @Test
-        void onlyNewLoginAppendsAMarkerBeforeTheHashAndPreservesTheConfiguredQuery() throws Exception {
-            when(users.findOrCreate("google", SUBJECT, NAME, EMAIL))
-                    .thenReturn(new LoginUser(USER_ID, true), new LoginUser(USER_ID, false));
-
-            var first = callback(new MockHttpSession(), "valid");
-            var returning = callback(new MockHttpSession(), "valid");
-
-            assertThat(first.getStatus()).isEqualTo(302);
-            assertThat(first.getHeader(HttpHeaders.LOCATION))
-                    .isEqualTo("https://dev.example.com/?lang=ko&back=%2Fcloset&newUser=1#/home?tab=all");
-            assertThat(returning.getStatus()).isEqualTo(302);
-            assertThat(returning.getHeader(HttpHeaders.LOCATION))
-                    .isEqualTo("https://dev.example.com/?lang=ko&back=%2Fcloset#/home?tab=all");
+        void replacesTheFragmentAndPreservesTheConfiguredPathAndQuery() throws Exception {
+            assertLoginRedirects("https://dev.example.com/app/?lang=ko&back=%2Fcloset");
         }
+    }
+
+    @Nested
+    @TestPropertySource(properties = "FRONTEND_LOGIN_SUCCESS_URL=https://dev.example.com")
+    class OriginOnlySuccessUrl {
+
+        @Test
+        void addsTheFragmentToAnOriginWithoutATrailingSlash() throws Exception {
+            assertLoginRedirects("https://dev.example.com");
+        }
+    }
+
+    private void assertLoginRedirects(String base) throws Exception {
+        when(users.findOrCreate("google", SUBJECT, NAME, EMAIL))
+                .thenReturn(new LoginUser(USER_ID, true), new LoginUser(USER_ID, false));
+
+        var first = callback(new MockHttpSession(), "valid");
+        var returning = callback(new MockHttpSession(), "valid");
+
+        assertThat(first.getStatus()).isEqualTo(302);
+        assertThat(first.getHeader(HttpHeaders.LOCATION)).isEqualTo(base + "#/onboard");
+        assertThat(returning.getStatus()).isEqualTo(302);
+        assertThat(returning.getHeader(HttpHeaders.LOCATION)).isEqualTo(base + "#/");
     }
 
     private MockHttpServletResponse callback(MockHttpSession session, String code) throws Exception {

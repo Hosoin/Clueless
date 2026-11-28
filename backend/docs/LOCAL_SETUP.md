@@ -68,4 +68,4 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 | Google `redirect_uri_mismatch` | Google 콘솔에 등록한 콜백 URI와 실제 요청의 스킴·호스트·포트·경로가 정확히 일치하는지 확인. |
 | DB 테스트 실패 | `DB_PASSWORD`, `backend/certs/ca.crt` 존재 여부와 DB까지의 네트워크 접근을 확인. CA 검증을 끄는 방식으로 해결하지 않는다. |
 | 로그인 후 `/me`가 `401` 또는 로그아웃이 `403` | 로그인한 브라우저·호스트를 유지하고, `/me`가 내려준 CSRF 헤더를 같은 세션의 POST로 보냈는지 확인. |
-| 성공 후 FE 홈이 열리지 않거나 `/me` 호출이 실패함 | `302`의 `Location`이 `FRONTEND_LOGIN_SUCCESS_URL`(기본 `http://localhost:5173/home`)과 일치하는지 확인한다. FE 서버·복귀 경로 라우팅과 `/api/auth/me` 호출용 프록시 또는 CORS 구성은 별도 연동 작업이다. 백엔드 세션은 같은 브라우저에서 `http://localhost:8081/api/auth/me`로 확인한다. |
+| 성공 후 FE 홈이 열리지 않거나 `/me` 호출이 실패함 | `302`의 `Location`이 기존 `FRONTEND_LOGIN_SUCCESS_URL`(기본 `http://localhost:5173/home`)의 fragment만 교체한 주소인지 확인한다. 이번 Google 로그인에서 실제 신규 계정 생성 시 `#/onboard`, 기존 계정(온보딩 취소 후 재로그인 포함)은 `#/`가 기대값이다. 새 ENV·DB 변경이나 Google 콜백 변경은 없으며 신규 가입 쿼리·FE 쿼리 제거 작업은 사용하지 않는다. FE 서버·복귀 경로 라우팅과 `/api/auth/me` 호출용 프록시 또는 CORS 구성은 별도 연동 작업이다. 백엔드 세션은 같은 브라우저에서 `http://localhost:8081/api/auth/me`로 확인한다. |

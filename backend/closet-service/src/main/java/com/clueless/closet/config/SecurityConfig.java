@@ -94,8 +94,8 @@ class SecurityConfig {
         if (StringUtils.hasText(clientId) && StringUtils.hasText(clientSecret)) {
             var google = CommonOAuth2Provider.GOOGLE.getBuilder("google")
                     .clientId(clientId).clientSecret(clientSecret).scope("openid", "profile", "email").build();
-            var returning = new SimpleUrlAuthenticationSuccessHandler(successUrl);
-            var newlyRegistered = new SimpleUrlAuthenticationSuccessHandler(withNewUserMarker(successUrl));
+            var returning = new SimpleUrlAuthenticationSuccessHandler(withFragment(successUrl, "/"));
+            var newlyRegistered = new SimpleUrlAuthenticationSuccessHandler(withFragment(successUrl, "/onboard"));
             http.oauth2Login(login -> login
                     .clientRegistrationRepository(new InMemoryClientRegistrationRepository(google))
                     .loginPage("/oauth2/authorization/google")
@@ -110,12 +110,8 @@ class SecurityConfig {
         return http.build();
     }
 
-    private static String withNewUserMarker(String url) {
-        // Append to the raw query without re-encoding it or touching a HashRouter fragment.
+    private static String withFragment(String url, String fragment) {
         int hash = url.indexOf('#');
-        String base = hash < 0 ? url : url.substring(0, hash);
-        int query = base.indexOf('?');
-        String separator = query < 0 ? "?" : query == base.length() - 1 || base.endsWith("&") ? "" : "&";
-        return base + separator + "newUser=1" + (hash < 0 ? "" : url.substring(hash));
+        return (hash < 0 ? url : url.substring(0, hash)) + "#" + fragment;
     }
 }
